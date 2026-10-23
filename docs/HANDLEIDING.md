@@ -1,3 +1,5 @@
+<img src="../custom_components/floorplan_studio/brand/icon@2x.png" alt="" width="80" align="right">
+
 # Floorplan Studio – handleiding
 
 Met Floorplan Studio maak je een interactieve plattegrond van je huis voor je Home Assistant-dashboards. Je tekent hem zelf in een paar minuten zonder code, of je trekt hem over van de kaart van je robotstofzuiger of van een foto van de bouwtekening.

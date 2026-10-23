@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.0.4';
+import './floorplan-studio-card.js?v=1.0.5';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.0.4';
-import { buildDashboard } from './fps-dashboard.js?v=1.0.4';
+} from './fps-core.js?v=1.0.5';
+import { buildDashboard } from './fps-dashboard.js?v=1.0.5';
 
 const L = {
   en: {

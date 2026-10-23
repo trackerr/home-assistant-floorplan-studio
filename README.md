@@ -1,3 +1,5 @@
+<img src="custom_components/floorplan_studio/brand/icon@2x.png" alt="" width="96" align="right">
+
 # Floorplan Studio for Home Assistant
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration)
