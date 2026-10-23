@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2
+- Volledig scherm op Android sprong terug: tijdens de overgang meet de kaart heel even breedte 0 en schakelde dan uit de telefoonweergave. Dat gebeurt niet meer.
+- Geen heen-en-weer meer rond de grens van de telefoonweergave (een schuifbalk kon de pagina laten vastlopen): er zit nu marge op en de kaart wacht tot de breedte stil staat.
+- Editor: alle teksten eenvoudiger en zonder vakjargon.
+
 ## 1.1.1
 - Telefoon: een gekozen ruimte blijft staan, ook als de kaart smal werd terwijl het tabblad op de achtergrond stond.
 

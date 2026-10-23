@@ -66,9 +66,9 @@ Klik in de zijbalk op **Floorplan**. Bovenaan staan zes stappen; je kunt altijd 
 
    | Keuze | Wanneer |
    |---|---|
-   | **Afbeelding uploaden** | Je hebt een bouwtekening, foto, schets of screenshot uit je stofzuiger-app. |
-   | **Stofzuigerkaart of camera** | Je hebt Roborock, Valetudo, Xiaomi Cloud Map Extractor of een andere integratie met een `image.`-entiteit van de kaart. Kies hem in de lijst en klik **Gebruiken**. |
-   | **Zelf tekenen** | Je hebt geen afbeelding. Je tekent dan gewoon op het raster. |
+   | **Plaatje uploaden** | Je hebt een bouwtekening, foto, schets of screenshot uit je stofzuiger-app. |
+   | **Kaart van je robotstofzuiger (of een camera)** | Je hebt Roborock, Valetudo, Xiaomi Cloud Map Extractor of een andere integratie met een `image.`-entiteit van de kaart. Kies hem in de lijst en klik **Gebruiken**. |
+   | **Zonder voorbeeld tekenen** | Je hebt geen afbeelding. Je tekent dan gewoon op het raster. |
 
 3. Stel met de schuifjes de **doorzichtigheid**, **schaal** en **positie** in, zodat de achtergrond mooi op het raster valt. **Passend maken** zet hem in één klik passend.
 4. Ligt de kaart een kwartslag gedraaid of gespiegeld (stofzuigerkaarten doen dat vaak)? Gebruik bij **Draaien** de knoppen **90° links** / **90° rechts** en **Spiegelen** tot hij goed ligt.
@@ -82,8 +82,8 @@ Klik **Volgende**.
 ![Stap 2: ruimtes tekenen, de woonkamer is geselecteerd](img/stap2-ruimtes.png)
 
 1. Kies **Ruimte tekenen** en **sleep een rechthoek** over elke kamer.
-2. Is een kamer L-vormig, zoals de woonkamer hierboven? Selecteer de ruimte, kies **Deel toevoegen aan ruimte** en teken het extra stuk erbij. Samen vormen ze één ruimte zonder muur ertussen.
-3. Met **Selecteren / schuiven** kun je een ruimte verslepen, de **hoekpuntjes** verslepen om de maat te veranderen, en de ruimte een naam geven.
+2. Is een kamer L-vormig, zoals de woonkamer hierboven? Selecteer de ruimte, kies **Stuk aan ruimte toevoegen** en teken het extra stuk erbij. Samen vormen ze één ruimte zonder muur ertussen.
+3. Met **Kiezen en verschuiven** kun je een ruimte verslepen, de **hoekpuntjes** verslepen om de maat te veranderen, en de ruimte een naam geven.
 4. Optioneel per ruimte:
    - **Grote waarde**: wat groot in het tekstblok staat. Standaard de temperatuur, maar het kan elke sensor zijn (bijv. het vermogen van de zonnepanelen bij het kantoor).
    - **Extra regels in het tekstblok**: tot drie apparaten of sensoren uit die area, bijv. de vaatwasser of de 3D-printer.
@@ -95,7 +95,7 @@ Klik **Volgende**.
 
 **Muren hoef je niet te tekenen.** Waar twee ruimtes elkaar raken komt een binnenmuur, waar niets naast ligt een buitenmuur.
 
-> **Snel beginnen:** met **Ruimtes maken uit mijn areas** krijg je voor elke area alvast een rechthoek. Die schuif en rek je daarna op de goede plek.
+> **Snel beginnen:** met **Ruimtes overnemen uit Home Assistant** krijg je voor elke area alvast een rechthoek. Die schuif en rek je daarna op de goede plek.
 
 ### Stap 3 – Deuren
 
@@ -110,7 +110,7 @@ Klik **Volgende**.
 
 ![Stap 4: apparaten op de kaart](img/stap4-apparaten.png)
 
-1. Klik op **Alles automatisch plaatsen**. Alle lampen, schakelaars, thermostaten, gordijnen, mediaspelers, camera's enz. uit de gekoppelde areas komen in hun kamer te staan.
+1. Klik op **Alles vanzelf neerzetten**. Alle lampen, schakelaars, thermostaten, gordijnen, mediaspelers, camera's enz. uit de gekoppelde areas komen in hun kamer te staan.
 2. **Sleep** de iconen naar de plek waar ze echt staan.
 3. Mist er iets? Zoek een entiteit in het zoekveld, of klik bij **Nog niet op de kaart** op een apparaat.
 4. Klik op een icoon om:
@@ -127,7 +127,7 @@ Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rech
 
 | Onderdeel | Wat stel je in |
 |---|---|
-| **Uiterlijk** | Standaardthema, **thema voor het hele huis** (helper, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), **kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), grootte van iconen en kamertekst, sterkte van de gloed. |
+| **Uiterlijk** | Standaardthema, **één thema voor het hele huis** (keuzelijst, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), **kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), grootte van iconen en kamertekst, sterkte van de gloed. |
 | **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan en statuslabels onder apparaten, elk los aan of uit. |
 | **Eenvoudig-modus** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
 | **Bediening** | Tikken op een ruimte aan/uit, wat er dan gebeurt (**inzoomen** of de **eigen pagina** van de ruimte openen) en hoe lang je moet vasthouden voor de details. |
@@ -138,9 +138,9 @@ Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rech
 | **Aanwezigheid** | Stip bij bezette ruimtes aan/uit, en per persoon de sensor die zegt in welke ruimte hij of zij is. |
 | **Meldingen** | Alarm (rook, gas, koolmonoxide, lekkage) en open deuren/ramen, elk los aan of uit. |
 | **Stofzuiger** | Welke stofzuiger, wanneer de live kaart verschijnt, welke kaart-entiteit en hoe doorzichtig. |
-| **Automatisch plaatsen** | Welke soorten apparaten *Alles automatisch plaatsen* meeneemt. |
+| **Automatisch plaatsen** | Welke soorten apparaten *Alles vanzelf neerzetten* meeneemt. |
 
-Met **Standaardwaarden herstellen** zet je alles in één keer terug.
+Met **Alles terugzetten** zet je alles in één keer terug.
 
 ### Stap 6 – Klaar
 
@@ -345,7 +345,7 @@ Floorplan Studio haalt de positie uit de kaart van de stofzuiger zelf (de robot 
 Zoom in op een ruimte en tik op **Deze ruimte zuigen**.
 
 - Op nieuwere Home Assistant-versies gebruikt dit **Schoonmaken per area** (`vacuum.clean_area`). Koppel daarvoor eenmalig in HA de segmenten van je stofzuiger aan je areas: open de stofzuiger-entiteit → tandwiel → *Map vacuum segments to areas* (in het Nederlands iets als "segmenten aan areas koppelen").
-- Kent je HA dat nog niet, dan zie je bij stap 2 per ruimte een veld **Stofzuiger-segmenten** waar je het segmentnummer invult (Roborock: `app_segment_clean`).
+- Kent je HA dat nog niet, dan zie je bij stap 2 per ruimte een veld **Nummer van deze ruimte in je stofzuiger** waar je dat nummer invult (Roborock: `app_segment_clean`).
 
 ---
 
@@ -360,8 +360,8 @@ Zoom in op een ruimte en tik op **Deze ruimte zuigen**.
 Verder: **Terminal** (groene fosforkleur) en **Home Assistant** (volgt je HA-thema).
 
 ### Thema kiezen
-- **Per kaart:** in de kaartinstellingen. Met **Thema-knoppen tonen** kan iedereen zelf wisselen; zonder thema-helper wordt die keuze per apparaat onthouden. Met een thema-helper wisselt de keuze het thema voor het hele huis, en toont de lijst alleen de thema's die in de helper staan.
-- **Voor het hele huis tegelijk:** stap 5 → **Thema voor het hele huis**. Klik **Helper aanmaken** (of kies een bestaande invoerlijst). Elk scherm volgt dan die helper, en wisselen op één scherm wisselt overal. Je kunt het thema dan ook met een automatisering zetten, bijvoorbeeld:
+- **Per kaart:** in de kaartinstellingen. Met **Thema-knoppen tonen** kan iedereen zelf wisselen; zonder thema-keuzelijst onthoudt elk apparaat zijn eigen keuze. Met een thema-keuzelijst wissel je het thema voor het hele huis, en zie je alleen de thema's die in die lijst staan.
+- **Voor het hele huis tegelijk:** stap 5 → **Eén thema voor het hele huis**. Klik **Keuzelijst maken** (of kies een keuzelijst die je al hebt). Elk scherm volgt dan die lijst, en wisselen op één scherm wisselt overal. Je kunt het thema dan ook met een automatisering zetten, bijvoorbeeld:
 
   ```yaml
   action: input_select.select_option
@@ -379,7 +379,7 @@ In de map [`examples`](../examples) staat [`voorbeeldhuis.json`](../examples/voo
 
 1. Download het bestand.
 2. Open **Floorplan** → knop **Importeren** (naast de **+**) → kies het bestand.
-3. Je krijgt een nieuwe plattegrond. De apparaten heten `light.woonkamer_plafond` enz. en bestaan bij jou niet; ze staan grijs op de kaart. Koppel bij stap 2 de ruimtes aan je eigen areas en klik bij stap 4 op **Alles automatisch plaatsen** om je eigen apparaten te krijgen.
+3. Je krijgt een nieuwe plattegrond. De apparaten heten `light.woonkamer_plafond` enz. en bestaan bij jou niet; ze staan grijs op de kaart. Koppel bij stap 2 de ruimtes aan je eigen areas en klik bij stap 4 op **Alles vanzelf neerzetten** om je eigen apparaten te krijgen.
 
 Met **Exporteren** maak je zo'n bestand van je eigen plattegrond, bijvoorbeeld als back-up of om te delen.
 
@@ -401,9 +401,9 @@ Met **Exporteren** maak je zo'n bestand van je eigen plattegrond, bijvoorbeeld a
 | Kaart zegt "Nog geen plattegrond" | Open Floorplan, teken iets en klik **Opslaan**. |
 | Kamer toont geen temperatuur | Zit de sensor in dezelfde area? Of kies hem bij de ruimte in stap 2. |
 | Apparaat komt niet bij "automatisch plaatsen" | Hangt het apparaat aan de area? Verborgen entiteiten en configuratie-entiteiten worden overgeslagen. Voeg het anders toe via het zoekveld. |
-| Stofzuiger beweegt niet over de kaart | Heeft je plattegrond een achtergrond van de stofzuigerkaart (stap 1)? Zonder die achtergrond weet Floorplan Studio niet waar zijn kaart op jouw plattegrond valt. Kies bij stap 5 ook de juiste stofzuiger en kaart-entiteit. |
+| Stofzuiger beweegt niet over de kaart | Heeft je plattegrond een achtergrond van de stofzuigerkaart (stap 1)? Zonder die achtergrond weet Floorplan Studio niet waar zijn kaart op jouw plattegrond valt. Kies bij stap 5 ook de juiste stofzuiger en kaart. |
 | Stofzuiger rijdt op de verkeerde plek | Leg de achtergrond bij stap 1 nauwkeuriger over je ruimtes (schuifjes, draaien, spiegelen). |
-| "Ongeldige optie" bij het wisselen van thema | Het thema staat niet in je thema-helper. Voeg de optie toe aan de helper (Instellingen → Apparaten & diensten → Helpers). |
+| "Ongeldige optie" bij het wisselen van thema | Het thema staat niet in je thema-keuzelijst. Voeg het toe aan die lijst (Instellingen → Apparaten & diensten → Helpers). |
 | Tekstblok laat zich niet slepen | Alleen beheerders kunnen tekstblokken verplaatsen. Ververs na een update de pagina (Ctrl+F5). |
 | "Deze ruimte zuigen" ontbreekt | Er moet een stofzuiger op de kaart staan (of gekozen zijn bij stap 5), en de ruimte moet aan een area hangen. Op oudere HA: vul de segmenten in bij stap 2. |
 | Menubalk in kiosk ontbreekt | Staat `?kiosk` achter het adres? Maak het dashboard opnieuw (stap 6) als het met een oudere versie gemaakt is. |

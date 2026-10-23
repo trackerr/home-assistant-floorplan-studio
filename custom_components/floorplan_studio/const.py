@@ -1,7 +1,7 @@
 """Constants for Floorplan Studio."""
 
 DOMAIN = "floorplan_studio"
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 STORAGE_KEY = "floorplan_studio.plans"
 STORAGE_KEY_USAGE = "floorplan_studio.usage"

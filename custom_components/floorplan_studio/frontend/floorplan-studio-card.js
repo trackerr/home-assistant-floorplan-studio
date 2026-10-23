@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.1.1';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.1';
+} from './fps-core.js?v=1.1.2';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.2';
 
 
 const CSS = `
@@ -248,7 +248,8 @@ class FloorplanStudioCard extends HTMLElement {
     window.addEventListener('fps-fullscreen', this._fsHook);
     this._usageTimer = setInterval(() => this._loadUsage(), 10 * 60 * 1000);
     this._clock = setInterval(() => { if (this._config?.side || this._greet) this._update(); }, 20000);
-    this._ro = this._ro || new ResizeObserver(() => this._compactCheck());
+    // wait until the size has settled (full screen, rotating, a scrollbar) before switching
+    this._ro = this._ro || new ResizeObserver(() => { clearTimeout(this._roT); this._roT = setTimeout(() => this._compactCheck(), 150); });
     this._ro.observe(this);
   }
 
@@ -259,6 +260,7 @@ class FloorplanStudioCard extends HTMLElement {
     clearTimeout(this._liveTimer);
     clearInterval(this._clock);
     this._ro?.disconnect();
+    clearTimeout(this._roT);
   }
 
   /* ---------------------------------------------------------- state */
@@ -904,7 +906,9 @@ class FloorplanStudioCard extends HTMLElement {
     const mode = this._config.compact ?? this._s.compact ?? 'auto';
     if (mode === 'off' || mode === false) return false;
     if (mode === 'on' || mode === true) return true;
-    return this.clientWidth > 0 && this.clientWidth < (Number(this._s.compact_width) || 560);
+    const w = this.clientWidth, limit = Number(this._s.compact_width) || 560;
+    if (!w) return !!this._compact;                       // hidden or mid-transition (e.g. entering full screen): keep what we have
+    return this._compact ? w < limit + 48 : w < limit;     // a margin, so a scrollbar coming and going can't flip it back and forth
   }
   _compactCheck() {
     const want = this._compactWanted;
