@@ -1,11 +1,11 @@
 // Floorplan Studio card – live floorplan with lights, devices, room zoom and themes.
 import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
-  PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
+  PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.0.2';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.2';
+} from './fps-core.js?v=1.0.3';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.3';
 
 
 const CSS = `
@@ -348,7 +348,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._card.classList.toggle('moving', this._moving);
     this._card.classList.toggle('can-edit', this._isAdmin && !this.planOverride);
     this._card.classList.toggle('notags', !this._s.show_tags);
-    this._card.classList.toggle('nolevel', this._s.lamp_level === false);
+    this._card.classList.toggle('nolevel', levelMode(this._s) === 'off');
     this._built = true;
     this._themeKey = undefined;
     this._last = new Map();
@@ -386,10 +386,11 @@ class FloorplanStudioCard extends HTMLElement {
       if (it.icon) icon.icon = it.icon;
       bub.appendChild(icon);
     }
-    el.querySelector('.name').textContent = it.name || friendly(this._hass, it.entity_id);
+    const label = it.name || friendly(this._hass, it.entity_id);
+    el.querySelector('.name').textContent = label;
     this._pointer(el, it);
     this._layer.appendChild(el);
-    this._items.set(it.entity_id, { el, it, kind, icon: bub.firstChild, st: null });
+    this._items.set(it.entity_id, { el, it, kind, label, icon: bub.firstChild, st: null });
     if (!st) el.style.opacity = '.35';
   }
 
@@ -423,7 +424,10 @@ class FloorplanStudioCard extends HTMLElement {
         // brightness: a dimmed lamp gets a softer button and glow, and its level as a small tag
         const br = st.attributes.brightness, lvl = on && br != null ? Math.max(1, Math.round(br / 2.55)) : null;
         rec.el.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
-        rec.el.querySelector('.tag').textContent = lvl != null && this._s.lamp_level !== false ? `${lvl}%` : '';
+        // lamp_level: fixed = always a small tag, hover = only in the name when you point at the lamp, off = nothing
+        const lm = levelMode(this._s);
+        rec.el.querySelector('.tag').textContent = lvl != null && lm === 'fixed' ? `${lvl}%` : '';
+        rec.el.querySelector('.name').textContent = lvl != null && lm === 'hover' ? `${rec.label} · ${lvl}%` : rec.label;
       } else if (rec.kind === 'sensor') {
         rec.el.querySelector('.bub').textContent = shortState(h, st);
       } else {
@@ -654,7 +658,7 @@ class FloorplanStudioCard extends HTMLElement {
       c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y);   // follows the lamp when it is moved
       const st = this._hass.states[id], lit = on && !!st && isOn(st) && !rec.el.classList.contains('hidden');
       const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
-      const b = this._s.lamp_level !== false ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
+      const b = levelMode(this._s) !== 'off' ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
       c.setAttribute('fill', `rgb(${col})`);
       c.style.opacity = lit ? (0.3 + 0.7 * b).toFixed(2) : '0';
     }
@@ -840,7 +844,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._themeKey === key) return;
     this._themeKey = key;
     if (first) return;
-    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags') + (this._s.lamp_level === false ? ' nolevel' : '');
+    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags') + (levelMode(this._s) === 'off' ? ' nolevel' : '');
     this._card.setAttribute('style', themeStyle(this._theme, this._hass, this._s));
     const sel = this.shadowRoot.querySelector('#theme');            // keep the dropdown in step when the theme changes elsewhere
     if (sel && sel.value !== real) sel.value = real;

@@ -78,6 +78,7 @@ const plan = await (await fetch('../../examples/voorbeeldhuis.json')).json();
 if (q.get('bg')) plan.background = { url: '/scripts/screenshots/vacuum-map.svg', x: 0, y: 0, w: 1000, h: 700, opacity: Number(q.get('bg')) || 0.5, source: 'image.robotstofzuiger_kaart', ops: [] };
 if (q.get('people')) plan.settings.people = { 'person.anna': 'sensor.anna_ruimte', 'person.tom': 'sensor.tom_ruimte' };
 if (q.get('temp')) plan.settings.temp_color = true;
+if (q.get('lvl')) plan.settings.lamp_level = q.get('lvl');
 if (q.get('live')) plan.settings.vacuum_live = q.get('live');
 if (q.has('compass')) plan.settings.compass = +q.get('compass');
 if (q.has('smart')) plan.settings.side = { smart: [

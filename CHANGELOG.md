@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.3
+- *Sterkte van lampen*: kies *altijd onder de lamp*, *alleen bij aanwijzen* (percentage naast de naam als je de lamp aanwijst) of *niet tonen*.
+
 ## 1.0.2
 - *Grootte plattegrond*: laat de plattegrond bijvoorbeeld 90% van de breedte gebruiken voor een compactere pagina; iconen, tekst en gloed schalen mee. Per kaart ook als `size: 90`.
 

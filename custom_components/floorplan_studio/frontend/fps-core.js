@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.0.2';
+export const VERSION = '1.0.3';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -431,13 +431,15 @@ export const DEFAULT_SETTINGS = {
   theme_entity: '',
   room_tap: 'zoom',
   glow_style: 'lamp',       // lamp: a soft pool of light around each lamp | room: the whole room glows | off
-  lamp_level: true,         // dimmed lamps: softer button and glow, and their level ("40%") as a tag
+  lamp_level: 'fixed',      // how bright a lamp is: fixed = "40%" under the lamp | hover = only when you point at it | off
   show_co2: true, show_covers: true, show_climate: true, show_media: true,   // extra rows in the room text
   info_rows: 5,             // at most this many rows under a room's name
   compass: null,            // north arrow: degrees (0 = up), empty = none
   greeting: true,           // "Good afternoon · Home: Anna & Tom" instead of the plan name
   side: {},                 // side column picks (weather, main, buttons, solar, grid, grid_return, price, solar_today, status)         // tap a room: zoom in on the card, or open the room's own page (generated dashboards)         // input_select whose option picks the theme on every screen at once
 };
+/** fixed | hover | off (true/false from older plans count as fixed/off) */
+export const levelMode = (s) => (s.lamp_level === false || s.lamp_level === 'off' ? 'off' : s.lamp_level === 'hover' ? 'hover' : 'fixed');
 export const settingsOf = (plan) => ({ ...DEFAULT_SETTINGS, ...(plan?.settings || {}) });
 
 export function newPlan(name = 'Home') {

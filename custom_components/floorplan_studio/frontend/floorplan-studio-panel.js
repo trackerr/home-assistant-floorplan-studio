@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.0.2';
+import './floorplan-studio-card.js?v=1.0.3';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
-  PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.0.2';
-import { buildDashboard } from './fps-dashboard.js?v=1.0.2';
+  PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc,
+} from './fps-core.js?v=1.0.3';
+import { buildDashboard } from './fps-dashboard.js?v=1.0.3';
 
 const L = {
   en: {
@@ -34,7 +34,7 @@ const L = {
     auto_domains: 'Which kinds of devices', reset: 'Reset to defaults', simple: 'Simple', all: 'All',
     theme_entity: 'Theme for the whole house (helper)', theme_entity_hint: 'Pick a dropdown helper: every screen then follows the same theme, and automations can switch it.', make_helper: 'Create helper', own_choice: 'each device chooses',
     headline: 'Big value', headline_auto: 'temperature', extra_rows: 'Extra rows in the text block', floor: 'Floor', floor_plain: 'plain', floor_tiles: 'tiles', floor_wood: 'wood',
-    set_text: 'Text block and light', glow_style: 'Light', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', lamp_level: 'Show how bright each lamp is',
+    set_text: 'Text block and light', glow_style: 'Light', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', lamp_level: 'How bright a lamp is', lvl_fixed: 'always under the lamp', lvl_hover: 'only when pointing at it', lvl_off: 'do not show',
     show_co2: 'CO2', show_covers: 'Curtains / shutters', show_climate: 'Heating / air conditioning', show_media: 'What is playing', info_rows: 'Maximum number of rows',
     compass: 'Compass (degrees, empty = none)', greeting: 'Greeting + who is home (with side column)',
     set_side: 'Side column', side_hint: 'Shown when the card has “side: true” (Create dashboard does that). Empty = chosen automatically.',
@@ -82,7 +82,7 @@ const L = {
     auto_domains: 'Welke soorten apparaten', reset: 'Standaardwaarden herstellen', simple: 'Eenvoudig', all: 'Alles',
     theme_entity: 'Thema voor het hele huis (helper)', theme_entity_hint: 'Kies een invoerlijst-helper: elk scherm volgt dan hetzelfde thema, en je kunt het thema met automatiseringen wisselen.', make_helper: 'Helper aanmaken', own_choice: 'per apparaat zelf kiezen',
     headline: 'Grote waarde', headline_auto: 'temperatuur', extra_rows: 'Extra regels in het tekstblok', floor: 'Vloer', floor_plain: 'gewoon', floor_tiles: 'tegels', floor_wood: 'hout',
-    set_text: 'Tekstblok en licht', glow_style: 'Licht', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', lamp_level: 'Sterkte van lampen tonen',
+    set_text: 'Tekstblok en licht', glow_style: 'Licht', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', lamp_level: 'Sterkte van lampen', lvl_fixed: 'altijd onder de lamp', lvl_hover: 'alleen bij aanwijzen', lvl_off: 'niet tonen',
     show_co2: 'CO2', show_covers: 'Gordijnen / rolluiken', show_climate: 'Verwarming / airco', show_media: 'Wat er speelt', info_rows: 'Maximaal aantal regels',
     compass: 'Kompas (graden, leeg = geen)', greeting: 'Begroeting + wie er thuis is (met zijkolom)',
     set_side: 'Zijkolom', side_hint: 'Wordt getoond als de kaart “side: true” heeft (zo maakt Dashboard maken hem). Leeg = automatisch gekozen.',
@@ -752,7 +752,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <h3>${l.set_sun}</h3>${num('sun_before', 0, 120, 5)}${num('sun_ramp', 15, 240, 5)}
       <h3>${l.set_text}</h3>
       <div class="field"><span>${l.glow_style}</span><select data-set="glow_style">${['lamp', 'room', 'off'].map((k) => `<option value="${k}" ${s.glow_style === k ? 'selected' : ''}>${l['glow_' + k]}</option>`).join('')}</select></div>
-      ${chk('lamp_level')}${chk('show_co2')}${chk('show_covers')}${chk('show_climate')}${chk('show_media')}${num('info_rows', 1, 8)}
+      <div class="field"><span>${l.lamp_level}</span><select data-set="lamp_level">${['fixed', 'hover', 'off'].map((k) => `<option value="${k}" ${levelMode(s) === k ? 'selected' : ''}>${l['lvl_' + k]}</option>`).join('')}</select></div>${chk('show_co2')}${chk('show_covers')}${chk('show_climate')}${chk('show_media')}${num('info_rows', 1, 8)}
       <div class="field"><span>${l.compass}</span><input type="number" min="0" max="359" id="compass" value="${s.compass ?? ''}"></div>
       ${chk('greeting')}
       <h3>${l.set_side}</h3><p>${l.side_hint}</p>

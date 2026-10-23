@@ -281,7 +281,7 @@ Het blok zoekt zelf de plek in de ruimte met de minste iconen eronder. Wil je he
 
 Een lamp die aan is geeft een zachte lichtvlek in zijn eigen kleur op de vloer. Bij stap 5 kun je in plaats daarvan de hele ruimte laten gloeien, of de gloed uitzetten.
 
-Een dimbare lamp laat ook zien hoe fel hij staat: onder de knop staat het percentage, en hoe lager de lamp staat, hoe zachter de knop en de lichtvlek. Dat zet je uit met *Sterkte van lampen tonen* bij stap 5.
+Een dimbare lamp laat ook zien hoe fel hij staat: hoe lager de lamp staat, hoe zachter de knop en de lichtvlek, en het percentage staat erbij. Bij stap 5 kies je bij *Sterkte van lampen*: *altijd onder de lamp*, *alleen bij aanwijzen* (dan zie je het percentage naast de naam als je met de muis op de lamp staat) of *niet tonen*.
 
 ### Ruimtes kleuren op temperatuur
 
