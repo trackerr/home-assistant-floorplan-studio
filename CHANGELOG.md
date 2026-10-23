@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.4
+- **Dubbeltik** op een geopende ruimte: terug naar de hele plattegrond (telefoon: naar het overzicht). Werkt ook op de eigen pagina van een ruimte, en volledig scherm blijft aan.
+- De eigen pagina van een ruimte heeft nu ook een knop **Terug**.
+
 ## 1.1.3
 - Knop **Per ruimte / Hele plattegrond** in de werkbalk: zet de telefoonweergave ook aan op een tablet of pc. Elk apparaat onthoudt zijn eigen keuze.
 

@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.1.3';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.3';
+} from './fps-core.js?v=1.1.4';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.4';
 
 
 const CSS = `
@@ -361,6 +361,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._card = root.querySelector('ha-card');
     this._stage = root.querySelector('.stage');
     this._compactWire(root);
+    this._doubleTapWire(root);
     this._layer = root.querySelector('.items');
     this._items.clear();
     for (const it of plan.items || []) this._addItem(it);
@@ -411,6 +412,7 @@ class FloorplanStudioCard extends HTMLElement {
 
   /** Tap on a room (or its text block): zoom in, or open the room's page. */
   _roomTap(room) {
+    if (Date.now() - (this._zoomOutAt || 0) < 450) return;   // the second tap of a double tap that just zoomed out
     if (this._compact) { if (!this._zoomRoom && room) this._compactZoom(room); return; }
     if (this._moving || !this._s.tap_zoom || this._config.room) return;
     if (room && this._s.room_tap === 'page' && this._config.room_pages && !this._zoomRoom) {
@@ -918,6 +920,30 @@ class FloorplanStudioCard extends HTMLElement {
     if (!w) return !!this._compact;                       // hidden or mid-transition (e.g. entering full screen): keep what we have
     return this._compact ? w < limit + 48 : w < limit;     // a margin, so a scrollbar coming and going can't flip it back and forth
   }
+  /** Double tap on the plan while a room is open: back to the whole plan (full screen stays on). */
+  _doubleTapWire(root) {
+    const vp = root.querySelector('.viewport');
+    let last = null;
+    vp.addEventListener('pointerup', (ev) => {
+      if (!ev.isPrimary || this._moving || !this._zoomRoom) { last = null; return; }
+      if (ev.composedPath().some((n) => n.classList?.contains('item') || n.classList?.contains('lmenu'))) { last = null; return; }
+      const now = Date.now();
+      if (last && now - last.t < 380 && Math.hypot(ev.clientX - last.x, ev.clientY - last.y) < 40) { last = null; this._goBack(); return; }
+      last = { t: now, x: ev.clientX, y: ev.clientY };
+    });
+  }
+  /** Leave the open room: the overview (phones), the whole plan, or from a room page back to where you came from. */
+  _goBack() {
+    if (this._compact) { if (this._zoomRoom) this._compactZoom(null); return; }
+    if (this._config.room) {
+      // a generated room page (ruimte-…) goes to the dashboard's Floorplan tab, inside the app so full screen stays
+      if (/\/ruimte-[^/]*$/.test(location.pathname)) navigate(location.pathname.replace(/[^/]*$/, 'plan') + location.search);
+      else history.back();
+      return;
+    }
+    if (this._zoomRoom) this._zoom(null);
+  }
+
   /** The toolbar button to switch this device between room by room and the whole plan. */
   get _compactButton() {
     return this._config.compact == null && !this._config.room && !this.planOverride && this._s.compact !== 'off';
@@ -1027,6 +1053,7 @@ class FloorplanStudioCard extends HTMLElement {
    */
   _zoom(room, animate = true) {
     if (this._compact) return this._compactZoom(room);
+    if (!room && this._zoomRoom) this._zoomOutAt = Date.now();
     this._zoomRoom = room;
     const plan = this._plan, W = plan.width, H = plan.height;
     this._card.classList.toggle('zoomed', !!room);
@@ -1069,7 +1096,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (!force && panel.dataset.key === key) return;
     panel.dataset.key = key;
     const info = roomInfo(h, room, S);
-    panel.innerHTML = `${this._config.room ? '' : `<button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button>`}
+    panel.innerHTML = `<button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button>
       <div class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</div>
       ${info.headline ? `<div class="ptemp">${esc(info.headline)}</div>` : ''}
       <div class="prows">${info.rows.map((r) => `<div class="pline prow2 ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}">${r.icon ? `<ha-icon icon="${r.icon}"></ha-icon>` : `<ha-state-icon data-id="${esc(r.entity)}"></ha-state-icon>`}<span>${esc(r.text)}</span></div>`).join('')}</div>
@@ -1078,7 +1105,7 @@ class FloorplanStudioCard extends HTMLElement {
       ${this._canClean(room) ? `<div class="pbtn"><button class="btn" id="clean"><ha-icon icon="mdi:robot-vacuum"></ha-icon>${t(h, 'clean_room')}</button></div>` : ''}
       <div class="phead">${t(h, 'in_room')}</div><div class="plist"></div>`;
     panel.querySelectorAll('.prows ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
-    panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._zoom(null); });
+    panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
     panel.querySelector('#clean')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._cleanRoom(room); });
     const list = panel.querySelector('.plist');
     for (const id of ids) {

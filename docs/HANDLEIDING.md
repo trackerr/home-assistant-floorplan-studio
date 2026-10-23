@@ -210,6 +210,8 @@ Zonder `?kiosk` in het adres is de menubalk onzichtbaar; dan gebruik je gewoon d
 
 De rest van het huis wordt gedimd, zodat alleen de ruimte zelf helder blijft (ook muren en licht van andere ruimtes vallen weg), de ruimte komt groot in beeld en rechts staat alles uit die area: temperatuur, vocht, wie er is, meldingen, en een lijst van alle apparaten en sensoren. Tik op een regel om iets te schakelen, houd vast voor de details.
 
+Terug naar de hele plattegrond: **dubbeltik op de ruimte**, of tik op **Terug**. Dat werkt ook op de eigen pagina van een ruimte, en volledig scherm blijft aan.
+
 ### Op je telefoon: ruimte per ruimte
 
 | Overzicht | Een ruimte |
@@ -222,6 +224,7 @@ Op een smal scherm (standaard smaller dan 560 pixels, dus de meeste telefoons) i
 - **Overzicht** toont het hele huis met alleen de namen en temperaturen. Tik op een ruimte om hem te openen.
 - Een **ruimte** vult de hele breedte, met grote iconen die je makkelijk raakt. Erboven staan de naam, de temperatuur en de regels van het tekstblok. Alles buiten de ruimte wordt gedimd.
 - **Veeg** over de plattegrond naar links of rechts voor de volgende of vorige ruimte.
+- **Dubbeltik** op de ruimte om terug te gaan naar het overzicht.
 
 Wil je dit ook op een tablet of pc? Tik in de werkbalk op het knopje **Per ruimte** (het icoon met de kaartjes). Nog een keer tikken geeft weer de **hele plattegrond**. Elk apparaat onthoudt zijn eigen keuze, dus je tablet kan per ruimte staan terwijl je pc de hele kaart laat zien.
 
