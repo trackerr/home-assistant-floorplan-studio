@@ -223,7 +223,9 @@ Op een smal scherm (standaard smaller dan 560 pixels, dus de meeste telefoons) i
 - Een **ruimte** vult de hele breedte, met grote iconen die je makkelijk raakt. Erboven staan de naam, de temperatuur en de regels van het tekstblok. Alles buiten de ruimte wordt gedimd.
 - **Veeg** over de plattegrond naar links of rechts voor de volgende of vorige ruimte.
 
-Bij stap 5 stel je onder *Kleine schermen* in vanaf welke breedte dit gebeurt, of zet je het altijd aan of uit. Per kaart kan dat ook met `compact: on` of `compact: off`.
+Wil je dit ook op een tablet of pc? Tik in de werkbalk op het knopje **Per ruimte** (het icoon met de kaartjes). Nog een keer tikken geeft weer de **hele plattegrond**. Elk apparaat onthoudt zijn eigen keuze, dus je tablet kan per ruimte staan terwijl je pc de hele kaart laat zien.
+
+Bij stap 5 stel je onder *Kleine schermen* in vanaf welke breedte dit vanzelf gebeurt, of zet je het altijd aan of uit. Per kaart kan dat ook met `compact: on` of `compact: off`.
 
 ### Camera
 

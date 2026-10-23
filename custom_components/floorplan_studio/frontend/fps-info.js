@@ -1,6 +1,6 @@
 // Floorplan Studio – what the room text blocks and the side column show.
 // Pure functions on `hass` (no DOM), so they are easy to test.
-import { areaEntities, roomSummary, friendly, shortState, settingsOf, isOn } from './fps-core.js?v=1.1.2';
+import { areaEntities, roomSummary, friendly, shortState, settingsOf, isOn } from './fps-core.js?v=1.1.3';
 
 const NL = (hass) => (hass?.locale?.language || hass?.language || 'en').startsWith('nl');
 const W = (hass, nl, en) => (NL(hass) ? nl : en);

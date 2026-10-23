@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.3
+- Knop **Per ruimte / Hele plattegrond** in de werkbalk: zet de telefoonweergave ook aan op een tablet of pc. Elk apparaat onthoudt zijn eigen keuze.
+
 ## 1.1.2
 - Volledig scherm op Android sprong terug: tijdens de overgang meet de kaart heel even breedte 0 en schakelde dan uit de telefoonweergave. Dat gebeurt niet meer.
 - Geen heen-en-weer meer rond de grens van de telefoonweergave (een schuifbalk kon de pagina laten vastlopen): er zit nu marge op en de kaart wacht tot de breedte stil staat.

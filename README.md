@@ -52,7 +52,7 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 - **A complete dashboard in one click:** Home (a card per room), Floorplan, Kiosk (with a menu bar to the other tabs), Energy, Outside, TV, plus a page per room. Uses advanced-camera-card and clock-weather-card when you have them.
 - **Editor in the sidebar** (*Floorplan*). It walks you through six steps, and the plan is stored inside Home Assistant itself (`.storage`), so no YAML files are involved. Plans can be imported and exported as JSON.
 - **Full screen that stays.** ⛶ puts the whole page in full screen, hides Home Assistant's header and sidebar and shows a menu bar; switching tabs keeps you in full screen.
-- **Phones: room by room.** On a narrow screen the card shows a bar with your rooms: an overview with names and temperatures, or one room filling the width with big, easy-to-tap icons. Swipe for the next room; everything outside the room is dimmed.
+- **Phones: room by room.** On a narrow screen the card shows a bar with your rooms: an overview with names and temperatures, or one room filling the width with big, easy-to-tap icons. Swipe for the next room; everything outside the room is dimmed. Tablets and PCs get the same view with the *Room by room* button in the toolbar (each device remembers its choice).
 - Works on tablets, wall panels and TVs too.
 
 ## Installation

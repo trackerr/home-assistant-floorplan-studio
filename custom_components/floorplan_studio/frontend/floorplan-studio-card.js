@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.1.2';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.2';
+} from './fps-core.js?v=1.1.3';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.3';
 
 
 const CSS = `
@@ -334,6 +334,7 @@ class FloorplanStudioCard extends HTMLElement {
         </div>
         ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
+        ${this._compactButton ? `<button class="btn icon ${this._compact ? 'active' : ''}" id="cmp" title="${t(h, this._compact ? 'whole_plan' : 'by_room')}"><ha-icon icon="${this._compact ? 'mdi:floor-plan' : 'mdi:view-carousel-outline'}"></ha-icon></button>` : ''}
         <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
         ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon><span class="lbl">${t(h, this._moving ? 'done' : 'move')}</span></button>` : ''}
       </div>` : '';
@@ -377,6 +378,7 @@ class FloorplanStudioCard extends HTMLElement {
     });
     root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
     root.querySelector('#move')?.addEventListener('click', () => { this._moving = !this._moving; this._build(); });
+    root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
     const fs = () => toggleFull();
     root.querySelector('#fs')?.addEventListener('click', fs);
     root.querySelector('.kioskstart')?.addEventListener('click', (ev) => { ev.stopPropagation(); ev.currentTarget.remove(); fs(); });
@@ -903,12 +905,22 @@ class FloorplanStudioCard extends HTMLElement {
   /** Narrow card (phone): the plan is too small for its icons, so it is shown room by room. */
   get _compactWanted() {
     if (this._config.room || this.planOverride || !this._plan) return false;
-    const mode = this._config.compact ?? this._s.compact ?? 'auto';
+    const card = this._config.compact;                       // the card's own option wins
+    if (card === 'off' || card === false) return false;
+    if (card === 'on' || card === true) return true;
+    const mine = this._pref('compact', '');                  // then this device's choice (the toolbar button)
+    if (mine === 'on') return true;
+    if (mine === 'off') return false;
+    const mode = this._s.compact ?? 'auto';
     if (mode === 'off' || mode === false) return false;
     if (mode === 'on' || mode === true) return true;
     const w = this.clientWidth, limit = Number(this._s.compact_width) || 560;
     if (!w) return !!this._compact;                       // hidden or mid-transition (e.g. entering full screen): keep what we have
     return this._compact ? w < limit + 48 : w < limit;     // a margin, so a scrollbar coming and going can't flip it back and forth
+  }
+  /** The toolbar button to switch this device between room by room and the whole plan. */
+  get _compactButton() {
+    return this._config.compact == null && !this._config.room && !this.planOverride && this._s.compact !== 'off';
   }
   _compactCheck() {
     const want = this._compactWanted;
