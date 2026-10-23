@@ -50,6 +50,8 @@ const SHOTS = [
     const box = await p.locator('floorplan-studio-card').locator('.rinfo[data-room="r_slaap"]').boundingBox();
     await p.mouse.move(box.x + 30, box.y + 10); await p.mouse.down(); await p.waitForTimeout(800); await p.mouse.up(); await p.waitForTimeout(300);
   }],
+  ['telefoon-overzicht', 'theme=warm&people=1', [360, 640]],
+  ['telefoon-ruimte', 'theme=warm', [360, 760], async (p) => { await p.locator('floorplan-studio-card').locator('[data-croom="r_woon"]').click(); await p.waitForTimeout(900); }],
   ['stofzuiger-ruimte', 'theme=warm', [1100, 820], async (p) => { await p.evaluate(() => demo.el._zoom(demo.plan.rooms.find((r) => r.id === 'r_keuken'))); await p.waitForTimeout(900); }],
   // editor (panel), step by step
   ['stap1-achtergrond', 'view=panel&bg=0.55&empty=1', [1400, 860], async (p) => { await p.waitForTimeout(400); }],

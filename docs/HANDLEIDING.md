@@ -127,7 +127,7 @@ Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rech
 
 | Onderdeel | Wat stel je in |
 |---|---|
-| **Uiterlijk** | Standaardthema, **thema voor het hele huis** (helper, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), grootte van iconen en kamertekst, sterkte van de gloed. |
+| **Uiterlijk** | Standaardthema, **thema voor het hele huis** (helper, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), **kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), grootte van iconen en kamertekst, sterkte van de gloed. |
 | **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan en statuslabels onder apparaten, elk los aan of uit. |
 | **Eenvoudig-modus** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
 | **Bediening** | Tikken op een ruimte aan/uit, wat er dan gebeurt (**inzoomen** of de **eigen pagina** van de ruimte openen) en hoe lang je moet vasthouden voor de details. |
@@ -208,7 +208,22 @@ Zonder `?kiosk` in het adres is de menubalk onzichtbaar; dan gebruik je gewoon d
 
 ![Ingezoomd op de woonkamer](img/ruimte-zoom.png)
 
-De rest van het huis verdwijnt, de ruimte komt groot in beeld en rechts staat alles uit die area: temperatuur, vocht, wie er is, meldingen, en een lijst van alle apparaten en sensoren. Tik op een regel om iets te schakelen, houd vast voor de details.
+De rest van het huis wordt gedimd, zodat alleen de ruimte zelf helder blijft (ook muren en licht van andere ruimtes vallen weg), de ruimte komt groot in beeld en rechts staat alles uit die area: temperatuur, vocht, wie er is, meldingen, en een lijst van alle apparaten en sensoren. Tik op een regel om iets te schakelen, houd vast voor de details.
+
+### Op je telefoon: ruimte per ruimte
+
+| Overzicht | Een ruimte |
+|---|---|
+| ![Telefoon: overzicht](img/telefoon-overzicht.png) | ![Telefoon: één ruimte](img/telefoon-ruimte.png) |
+
+Op een smal scherm (standaard smaller dan 560 pixels, dus de meeste telefoons) is de hele plattegrond te klein voor alle iconen. De kaart toont het huis dan **ruimte per ruimte**:
+
+- Bovenaan staat een balk met **Overzicht** en al je ruimtes; schuif hem opzij. Een stipje betekent dat daar licht aan is.
+- **Overzicht** toont het hele huis met alleen de namen en temperaturen. Tik op een ruimte om hem te openen.
+- Een **ruimte** vult de hele breedte, met grote iconen die je makkelijk raakt. Erboven staan de naam, de temperatuur en de regels van het tekstblok. Alles buiten de ruimte wordt gedimd.
+- **Veeg** over de plattegrond naar links of rechts voor de volgende of vorige ruimte.
+
+Bij stap 5 stel je onder *Kleine schermen* in vanaf welke breedte dit gebeurt, of zet je het altijd aan of uit. Per kaart kan dat ook met `compact: on` of `compact: off`.
 
 ### Camera
 

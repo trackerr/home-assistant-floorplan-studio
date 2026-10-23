@@ -1,11 +1,11 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.0.5';
+export const VERSION = '1.1.0';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
   en: {
-    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back',
+    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview',
     lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
     loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
     on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
@@ -17,7 +17,7 @@ const STR = {
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
-    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug',
+    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht',
     lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
     loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
     on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
@@ -406,6 +406,8 @@ export const DEFAULT_SETTINGS = {
   default_mode: 'all',      // simple | all
   usage_days: 14,           // Simple: show what was used in the last N days
   learning_days: 3,         // Simple shows everything until this much history exists
+  compact: 'auto',          // small screens: auto = room by room below compact_width | on | off
+  compact_width: 560,       // px; narrower than this shows the plan room by room
   plan_size: 100,           // % of the available width the plan uses (smaller = a more compact page)
   icon_size: 100,           // % of the normal icon size
   label_size: 100,          // % of the normal room-text size

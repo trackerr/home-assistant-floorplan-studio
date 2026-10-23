@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.0.5';
+import './floorplan-studio-card.js?v=1.1.0';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.0.5';
-import { buildDashboard } from './fps-dashboard.js?v=1.0.5';
+} from './fps-core.js?v=1.1.0';
+import { buildDashboard } from './fps-dashboard.js?v=1.1.0';
 
 const L = {
   en: {
@@ -34,7 +34,7 @@ const L = {
     auto_domains: 'Which kinds of devices', reset: 'Reset to defaults', simple: 'Simple', all: 'All',
     theme_entity: 'Theme for the whole house (helper)', theme_entity_hint: 'Pick a dropdown helper: every screen then follows the same theme, and automations can switch it.', make_helper: 'Create helper', own_choice: 'each device chooses',
     headline: 'Big value', headline_auto: 'temperature', extra_rows: 'Extra rows in the text block', floor: 'Floor', floor_plain: 'plain', floor_tiles: 'tiles', floor_wood: 'wood',
-    set_text: 'Text block and light', glow_style: 'Light', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', lamp_level: 'How bright a lamp is', lvl_fixed: 'always under the lamp', lvl_hover: 'only when pointing at it', lvl_off: 'do not show',
+    set_text: 'Text block and light', glow_style: 'Light', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', compact: 'Small screens', cmp_auto: 'room by room when narrower than the width below', cmp_on: 'always room by room', cmp_off: 'never, always the whole plan', compact_width: 'Room by room below (px)', lamp_level: 'How bright a lamp is', lvl_fixed: 'always under the lamp', lvl_hover: 'only when pointing at it', lvl_off: 'do not show',
     show_co2: 'CO2', show_covers: 'Curtains / shutters', show_climate: 'Heating / air conditioning', show_media: 'What is playing', info_rows: 'Maximum number of rows',
     compass: 'Compass (degrees, empty = none)', greeting: 'Greeting + who is home (with side column)',
     set_side: 'Side column', side_hint: 'Shown when the card has “side: true” (Create dashboard does that). Empty = chosen automatically.',
@@ -82,7 +82,7 @@ const L = {
     auto_domains: 'Welke soorten apparaten', reset: 'Standaardwaarden herstellen', simple: 'Eenvoudig', all: 'Alles',
     theme_entity: 'Thema voor het hele huis (helper)', theme_entity_hint: 'Kies een invoerlijst-helper: elk scherm volgt dan hetzelfde thema, en je kunt het thema met automatiseringen wisselen.', make_helper: 'Helper aanmaken', own_choice: 'per apparaat zelf kiezen',
     headline: 'Grote waarde', headline_auto: 'temperatuur', extra_rows: 'Extra regels in het tekstblok', floor: 'Vloer', floor_plain: 'gewoon', floor_tiles: 'tegels', floor_wood: 'hout',
-    set_text: 'Tekstblok en licht', glow_style: 'Licht', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', lamp_level: 'Sterkte van lampen', lvl_fixed: 'altijd onder de lamp', lvl_hover: 'alleen bij aanwijzen', lvl_off: 'niet tonen',
+    set_text: 'Tekstblok en licht', glow_style: 'Licht', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', compact: 'Kleine schermen', cmp_auto: 'per ruimte als het scherm smaller is dan hieronder', cmp_on: 'altijd per ruimte', cmp_off: 'nooit, altijd de hele plattegrond', compact_width: 'Per ruimte onder (px)', lamp_level: 'Sterkte van lampen', lvl_fixed: 'altijd onder de lamp', lvl_hover: 'alleen bij aanwijzen', lvl_off: 'niet tonen',
     show_co2: 'CO2', show_covers: 'Gordijnen / rolluiken', show_climate: 'Verwarming / airco', show_media: 'Wat er speelt', info_rows: 'Maximaal aantal regels',
     compass: 'Kompas (graden, leeg = geen)', greeting: 'Begroeting + wie er thuis is (met zijkolom)',
     set_side: 'Zijkolom', side_hint: 'Wordt getoond als de kaart “side: true” heeft (zo maakt Dashboard maken hem). Leeg = automatisch gekozen.',
@@ -742,7 +742,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
       <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="mkhelper" style="flex:none">${l.make_helper}</button></div></div>
       <p>${l.theme_entity_hint}</p>
-      ${num('plan_size', 50, 100, 5)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
+      ${num('plan_size', 50, 100, 5)}<div class="field"><span>${l.compact}</span><select data-set="compact">${['auto', 'on', 'off'].map((k) => `<option value="${k}" ${(s.compact || 'auto') === k ? 'selected' : ''}>${l['cmp_' + k]}</option>`).join('')}</select></div>${num('compact_width', 320, 1200, 20)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
       <h3>${l.set_room}</h3>${chk('show_temp')}${chk('show_hum')}${chk('show_lights')}${chk('show_tags')}
       <h3>${l.set_simple}</h3>
       <div class="field"><span>${l.default_mode}</span><select data-set="default_mode"><option value="all" ${s.default_mode === 'all' ? 'selected' : ''}>${l.all}</option><option value="simple" ${s.default_mode === 'simple' ? 'selected' : ''}>${l.simple}</option></select></div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+- **Telefoon: ruimte per ruimte.** Op een smal scherm (standaard < 560 px) toont de kaart een balk met *Overzicht* en je ruimtes. Het overzicht toont namen en temperaturen; een ruimte vult de breedte met grote iconen en het tekstblok erboven. Vegen = volgende of vorige ruimte. Instelbaar bij stap 5 (*Kleine schermen*), per kaart met `compact: auto | on | off`.
+- Bij inzoomen en op ruimtepagina's wordt alles buiten de ruimte gedimd, ook muren en licht van andere ruimtes.
+- Op de telefoon gebruikt de plattegrond altijd de volle breedte, en "Iconen verplaatsen" is daar alleen een icoon.
+
 ## 1.0.5
 - Eigen icoon in Home Assistant (Instellingen → Integraties), ook scherp op hoge resolutie. Vanaf Home Assistant 2026.3.
 - Installatie: duidelijke volgorde (downloaden, herstarten, toevoegen) en uitleg bij de melding *"Deze integratie ondersteunt geen configuratie via de UI"*.

@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.0.5';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.5';
+} from './fps-core.js?v=1.1.0';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.0';
 
 
 const CSS = `
@@ -107,6 +107,35 @@ const CSS = `
   .palert { margin-top: 10px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; }
   .palert.alarm { background: #d81b1b; color: #fff; } .palert.warn { background: rgba(255, 159, 28, .16); color: #ffb347; }
   .ppres { font-size: 13px; color: var(--fps-accent); margin-top: 6px; display: flex; gap: 6px; align-items: center; --mdc-icon-size: 16px; }
+  /* small screens: room by room */
+  .crooms { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .crooms::-webkit-scrollbar { display: none; }
+  .crooms button { all: unset; flex: none; cursor: pointer; padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+                   border: 1px solid var(--fps-line); background: var(--fps-chip); color: var(--fps-muted); display: inline-flex; align-items: center; gap: 6px; }
+  .crooms button i { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--fps-accent); }
+  .crooms button.lit i { display: inline-block; }
+  .crooms button.active { background: var(--fps-accent); border-color: var(--fps-accent); color: #10161d; }
+  .crooms button.active i { background: #10161d; }
+  .chead { padding: 2px 16px 8px; }
+  .chead:empty { display: none; }
+  .chead .cn { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-accent); }
+  .chead .ch { font-size: 34px; font-weight: 300; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .chead .crows { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 13px; color: var(--fps-muted); }
+  .chead .crows span { display: inline-flex; align-items: center; gap: 5px; }
+  .chead .crows span.on { color: var(--fps-fg); } .chead .crows span.warn { color: #ff9f1c; }
+  .chead .crows ha-icon, .chead .crows ha-state-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; display: inline-flex; opacity: .85; }
+  .chead .crows span.on ha-icon, .chead .crows span.on ha-state-icon { color: var(--fps-accent); opacity: 1; }
+  .compact .viewport { transition: height .35s ease; }
+  .compact .stage { transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+  .compact.cov .items { display: none; }
+  .compact.cov .rinfo .rrows { display: none; }
+  .compact.cov .rinfo { font-size: max(8px, var(--fs)); }
+  .compact .floor.dim { opacity: .25; }
+  .compact .toolbar .lbl { display: none; }
+  .compact .toolbar { gap: 6px; padding: 10px 12px 4px; }
+  .compact .themesel select { max-width: 110px; }
+  svg.ghost { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; opacity: 0; transition: opacity .35s; }
+  svg.ghost rect:not([fill]) { fill: var(--fps-bg); } svg.ghost.on { opacity: .82; }
   /* layout: plan + optional side column */
   ha-card { container-type: inline-size; }
   .layout { display: block; }
@@ -219,6 +248,8 @@ class FloorplanStudioCard extends HTMLElement {
     window.addEventListener('fps-fullscreen', this._fsHook);
     this._usageTimer = setInterval(() => this._loadUsage(), 10 * 60 * 1000);
     this._clock = setInterval(() => { if (this._config?.side || this._greet) this._update(); }, 20000);
+    this._ro = this._ro || new ResizeObserver(() => this._compactCheck());
+    this._ro.observe(this);
   }
 
   disconnectedCallback() {
@@ -227,6 +258,7 @@ class FloorplanStudioCard extends HTMLElement {
     clearInterval(this._usageTimer);
     clearTimeout(this._liveTimer);
     clearInterval(this._clock);
+    this._ro?.disconnect();
   }
 
   /* ---------------------------------------------------------- state */
@@ -288,6 +320,7 @@ class FloorplanStudioCard extends HTMLElement {
 
   /* ---------------------------------------------------------- build */
   _build() {
+    this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
@@ -300,15 +333,17 @@ class FloorplanStudioCard extends HTMLElement {
         ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
         <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
-        ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon>${t(h, this._moving ? 'done' : 'move')}</button>` : ''}
+        ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon><span class="lbl">${t(h, this._moving ? 'done' : 'move')}</span></button>` : ''}
       </div>` : '';
     this.shadowRoot.innerHTML = `<style>${CSS}</style>
-      <ha-card class="t-${this._realTheme}" style="${themeStyle(theme, h, this._s)}">
+      <ha-card class="t-${this._realTheme}${this._compact ? ' compact' : ''}" style="${themeStyle(theme, h, this._s)}">
         <div class="layout ${this._config.side ? 'withside' : ''}"><div class="main">
         ${tb}
+        ${this._compact ? `<div class="crooms">${[['', t(h, 'overview')], ...this._compactRooms().map((r) => [r.id, r.name])].map(([id, n]) => `<button data-croom="${esc(id)}">${esc(n)}<i></i></button>`).join('')}</div><div class="chead"></div>` : ''}
         <div class="alertbar"></div>
         <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${plan.width} / ${plan.height}; --ar: ${plan.width / plan.height}">
           ${planSVG(plan)}
+          <svg class="ghost" viewBox="0 0 ${plan.width} ${plan.height}" preserveAspectRatio="none"></svg>
           <div class="labels"></div>
           <div class="items"></div>
           <div class="peoplelayer" style="position:absolute;inset:0;pointer-events:none"></div>
@@ -322,6 +357,7 @@ class FloorplanStudioCard extends HTMLElement {
     const root = this.shadowRoot;
     this._card = root.querySelector('ha-card');
     this._stage = root.querySelector('.stage');
+    this._compactWire(root);
     this._layer = root.querySelector('.items');
     this._items.clear();
     for (const it of plan.items || []) this._addItem(it);
@@ -358,12 +394,17 @@ class FloorplanStudioCard extends HTMLElement {
       this._zoomRoom = plan.rooms.find((r) => [r.id, r.area_id, r.name].some((v) => v && String(v).toLowerCase() === want)) || null;
     }
     this._update(true);
-    if (this._zoomRoom) requestAnimationFrame(() => this._zoom(plan.rooms.find((r) => r.id === this._zoomRoom.id) || null, false));
+    if (this._compact) {
+      let want = this._zoomRoom?.id;
+      if (want === undefined) try { want = sessionStorage.getItem(`fps-croom-${plan.id}`) || ''; } catch (e) { want = ''; }
+      requestAnimationFrame(() => this._compactZoom(this._compactRooms().find((r) => r.id === want) || null));
+    } else if (this._zoomRoom) requestAnimationFrame(() => this._zoom(plan.rooms.find((r) => r.id === this._zoomRoom.id) || null, false));
     root.querySelectorAll('.navbar [data-nav]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); kioskGo(b.dataset.nav); }));
   }
 
   /** Tap on a room (or its text block): zoom in, or open the room's page. */
   _roomTap(room) {
+    if (this._compact) { if (!this._zoomRoom && room) this._compactZoom(room); return; }
     if (this._moving || !this._s.tap_zoom || this._config.room) return;
     if (room && this._s.room_tap === 'page' && this._config.room_pages && !this._zoomRoom) {
       navigate(location.pathname.replace(/[^/]*$/, roomPath(room)) + location.search);
@@ -436,6 +477,7 @@ class FloorplanStudioCard extends HTMLElement {
       }
     }
     for (const room of this._plan.rooms) this._updateRoom(room);
+    if (this._compact) this._compactUpdate();
     this._updateGlows();
     this._updateSide();
     if (this._greet) {
@@ -639,6 +681,7 @@ class FloorplanStudioCard extends HTMLElement {
   /** A soft pool of light around every lamp that is on, in the lamp's colour. */
   /** plan_size (or the card's own `size`): the plan uses less of the width, so the page gets more compact. */
   _sizeStyle() {
+    if (this._compact) return '';   // phones use the full width
     const n = Number(this._config.size ?? this._s.plan_size ?? 100);
     return n > 0 && n < 100 ? `width: ${n}%; margin: 0 auto;` : '';
   }
@@ -845,10 +888,117 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._themeKey === key) return;
     this._themeKey = key;
     if (first) return;
-    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags') + (levelMode(this._s) === 'off' ? ' nolevel' : '');
+    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags') + (levelMode(this._s) === 'off' ? ' nolevel' : '') + (this._compact ? ' compact' + (this._zoomRoom ? '' : ' cov') : '');
     this._card.setAttribute('style', themeStyle(this._theme, this._hass, this._s));
     const sel = this.shadowRoot.querySelector('#theme');            // keep the dropdown in step when the theme changes elsewhere
     if (sel && sel.value !== real) sel.value = real;
+  }
+
+  /* ---------------------------------------------------------- small screens: room by room */
+  /** Narrow card (phone): the plan is too small for its icons, so it is shown room by room. */
+  get _compactWanted() {
+    if (this._config.room || this.planOverride || !this._plan) return false;
+    const mode = this._config.compact ?? this._s.compact ?? 'auto';
+    if (mode === 'off' || mode === false) return false;
+    if (mode === 'on' || mode === true) return true;
+    return this.clientWidth > 0 && this.clientWidth < (Number(this._s.compact_width) || 560);
+  }
+  _compactCheck() {
+    const want = this._compactWanted;
+    if (!this._built) { this._compact = want; return; }
+    if (want !== !!this._compact) {
+      if (!want) this._zoomRoom = null;
+      this._build();
+    } else if (want && this._zoomRoom) this._compactLayout();
+  }
+  _compactRooms() {
+    return (this._plan?.rooms || []).filter((r) => r.name && r.rects?.length);
+  }
+  _compactWire(root) {
+    if (!this._compact) return;
+    root.querySelectorAll('[data-croom]').forEach((b) => b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this._compactZoom(this._compactRooms().find((r) => r.id === b.dataset.croom) || null);
+    }));
+    // swipe left / right over the plan: next / previous room
+    const vp = root.querySelector('.viewport');
+    let t0 = null;
+    vp.addEventListener('touchstart', (ev) => { const p = ev.touches[0]; t0 = [p.clientX, p.clientY]; }, { passive: true });
+    vp.addEventListener('touchend', (ev) => {
+      if (!t0 || this._moving) return;
+      const p = ev.changedTouches[0], dx = p.clientX - t0[0], dy = p.clientY - t0[1];
+      t0 = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+      const list = [null, ...this._compactRooms()];
+      const i = list.findIndex((r) => (r?.id || null) === (this._zoomRoom?.id || null));
+      this._compactZoom(list[(i + (dx < 0 ? 1 : -1) + list.length) % list.length]);
+    }, { passive: true });
+  }
+  _compactZoom(room) {
+    this._zoomRoom = room || null;
+    try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, room?.id || ''); } catch (e) { /* ignore */ }
+    this._card.classList.toggle('zoomed', !!room);
+    this._card.classList.toggle('cov', !room);
+    this.shadowRoot.querySelectorAll('[data-croom]').forEach((b) => {
+      const on = b.dataset.croom === (room?.id || '');
+      b.classList.toggle('active', on);
+      if (on) b.parentElement.scrollTo({ left: b.offsetLeft - (b.parentElement.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' });
+    });
+    const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
+    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && (el.dataset.room || el.id.replace('glow-', '')) !== room.id));
+    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
+    this._ghost(room);
+    this._compactLayout();
+    this._compactUpdate(true);
+  }
+  /** Everything outside the open room fades away: other rooms, their walls, light spilling over. */
+  _ghost(room) {
+    const g = this.shadowRoot.querySelector('svg.ghost');
+    if (!g) return;
+    if (!room) { g.classList.remove('on'); return; }
+    const W = this._plan.width, H = this._plan.height, e = 5;   // keep the room's own walls clear
+    const holes = room.rects.map((q) => {
+      const x0 = Math.min(q[0], q[2]) - e, y0 = Math.min(q[1], q[3]) - e, x1 = Math.max(q[0], q[2]) + e, y1 = Math.max(q[1], q[3]) + e;
+      return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="#000"/>`;
+    }).join('');
+    const m = `fpsghost-${room.id}`.replace(/[^\w-]/g, '');
+    g.innerHTML = `<defs><mask id="${m}" maskUnits="userSpaceOnUse" x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}"><rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" fill="#fff"/>${holes}</mask></defs>
+      <rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" mask="url(#${m})"/>`;
+    g.classList.add('on');
+  }
+
+  /** Fit the room to the card width (and at most ~60% of the screen height). */
+  _compactLayout() {
+    const vp = this.shadowRoot.querySelector('.viewport'), room = this._zoomRoom;
+    if (!vp || !this._stage) return;
+    if (!room) { vp.style.height = ''; this._stage.style.transform = ''; this._stage.style.setProperty('--k', 1); return; }
+    const W = this._plan.width, vw = vp.clientWidth || this.clientWidth, base = vw / W;
+    const [x0, y0, x1, y1] = roomBBox(room), pad = Math.max(12, (x1 - x0) * 0.05);
+    const bw = x1 - x0 + 2 * pad, bh = y1 - y0 + 2 * pad;
+    const maxH = Math.min(vw * 1.25, (window.innerHeight || 800) * 0.6);
+    const s = Math.min(8, W / bw, maxH / (bh * base));
+    const tx = (vw - (x1 - x0) * base * s) / 2 - x0 * base * s, ty = pad * base * s - y0 * base * s;
+    vp.style.height = `${Math.round(bh * base * s)}px`;
+    this._stage.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+    this._stage.style.setProperty('--k', (1.2 / s).toFixed(3));
+  }
+  /** Header above the plan with the room's own text block, and a dot on room chips with a light on. */
+  _compactUpdate(force = false) {
+    const h = this._hass, head = this.shadowRoot.querySelector('.chead');
+    for (const b of this.shadowRoot.querySelectorAll('[data-croom]')) {
+      const r = this._plan.rooms.find((x) => x.id === b.dataset.croom);
+      b.classList.toggle('lit', !!r && roomSummary(h, r).lit.length > 0);
+    }
+    if (!head) return;
+    const room = this._zoomRoom;
+    if (!room) { head.innerHTML = ''; head.dataset.key = ''; return; }
+    const info = roomInfo(h, room, { ...this._s, info_rows: 8 });
+    const key = room.id + JSON.stringify(info);
+    if (!force && head.dataset.key === key) return;
+    head.dataset.key = key;
+    head.innerHTML = `<div class="cn">${esc(room.name || '')}</div>${info.headline ? `<div class="ch">${esc(info.headline)}</div>` : ''}
+      <div class="crows">${info.rows.map((r) => `<span class="${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}">${r.icon ? `<ha-icon icon="${r.icon}"></ha-icon>` : `<ha-state-icon data-id="${esc(r.entity)}"></ha-state-icon>`}${esc(r.text)}</span>`).join('')}</div>`;
+    head.querySelectorAll('ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
   }
 
   /* ---------------------------------------------------------- zoom */
@@ -857,6 +1007,7 @@ class FloorplanStudioCard extends HTMLElement {
    * the card, and a side panel shows the room's data and everything in its area.
    */
   _zoom(room, animate = true) {
+    if (this._compact) return this._compactZoom(room);
     this._zoomRoom = room;
     const plan = this._plan, W = plan.width, H = plan.height;
     this._card.classList.toggle('zoomed', !!room);
@@ -882,8 +1033,8 @@ class FloorplanStudioCard extends HTMLElement {
     this._stage.style.setProperty('--k', k);
     const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
     this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && (el.dataset.room || el.id.replace('glow-', '')) !== room.id));
-    this.shadowRoot.querySelector('.walls')?.classList.toggle('dim', !!room);
     for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
+    this._ghost(room);
     // the room's text moves to the side panel while zoomed (.zoomed .rinfo hides it)
   }
 
