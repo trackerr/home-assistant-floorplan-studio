@@ -1,6 +1,6 @@
 # Floorplan Studio for Home Assistant
 
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration) [![Add integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=floorplan_studio)
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration)
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz) [![Release](https://img.shields.io/github/v/tag/trackerr/home-assistant-floorplan-studio?label=version)](CHANGELOG.md) [![Validate](https://github.com/trackerr/home-assistant-floorplan-studio/actions/workflows/validate.yml/badge.svg)](https://github.com/trackerr/home-assistant-floorplan-studio/actions/workflows/validate.yml)
 
@@ -54,7 +54,13 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 
 ## Installation
 
-**One click:** [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration) then, after restarting Home Assistant, [![Add integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=floorplan_studio)
+**One click, in this order:**
+
+1. [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration) → **Download**.
+2. **Restart Home Assistant.**
+3. [![Add integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=floorplan_studio) → **Submit**.
+
+If step 3 says *"This integration does not support configuration via the UI"*, Home Assistant doesn't know Floorplan Studio yet: it hasn't been downloaded in HACS, or Home Assistant hasn't been restarted since. Do steps 1 and 2 and try again.
 
 The buttons open your own Home Assistant (via my.home-assistant.io). The first time, it asks for your Home Assistant address.
 
@@ -135,6 +141,8 @@ The integration records when an entity is changed by a **person**: Home Assistan
 At start-up it also reads the last 60 days from the recorder, so the mode works from day one. While there is less than about three days of data, *Simple* still shows everything.
 
 ## FAQ
+
+**"This integration does not support configuration via the UI"?** Floorplan Studio isn't installed yet, or Home Assistant hasn't been restarted after downloading it in HACS. Download it, restart, then add the integration.
 
 **Can I use my Roborock map?** Yes. The Roborock integration provides an `image.*_map` entity: choose it in step 1 and trace over it. Valetudo and the Xiaomi Cloud Map Extractor work the same way. While the vacuum cleans, that same map is shown live over your plan. Turning the map into walls automatically is planned.
 

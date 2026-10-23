@@ -24,8 +24,10 @@ Met Floorplan Studio maak je een interactieve plattegrond van je huis voor je Ho
 ### Met één klik
 1. [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trackerr&repository=home-assistant-floorplan-studio&category=integration)  
    Opent Floorplan Studio meteen in HACS. Klik **Downloaden** en **herstart Home Assistant**.
-2. [![Add integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=floorplan_studio)  
+2. Pas **na de herstart**: [![Add integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=floorplan_studio)  
    Voegt de integratie toe. Klik **Verzenden**.
+
+Klik je knop 2 vóór het downloaden of vóór de herstart, dan zegt Home Assistant *"Deze integratie ondersteunt geen configuratie via de UI"*. Er is dan niets mis: Home Assistant kent Floorplan Studio gewoon nog niet. Download hem in HACS, herstart, en klik dan opnieuw op knop 2.
 
 De knoppen openen je eigen Home Assistant via my.home-assistant.io. De eerste keer vraagt die om het adres van je Home Assistant (bijv. `http://homeassistant.local:8123`).
 
@@ -377,6 +379,7 @@ Met **Exporteren** maak je zo'n bestand van je eigen plattegrond, bijvoorbeeld a
 
 | Probleem | Oplossing |
 |---|---|
+| "Deze integratie ondersteunt geen configuratie via de UI" | Floorplan Studio is nog niet gedownload in HACS, of Home Assistant is daarna nog niet herstart. Download, herstart, en voeg de integratie dan toe. |
 | *Floorplan* staat niet in de zijbalk | Ben je beheerder? Is de integratie toegevoegd (stap 4 van installeren)? |
 | Kaart zegt "Nog geen plattegrond" | Open Floorplan, teken iets en klik **Opslaan**. |
 | Kamer toont geen temperatuur | Zit de sensor in dezelfde area? Of kies hem bij de ruimte in stap 2. |
