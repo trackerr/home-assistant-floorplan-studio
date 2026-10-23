@@ -1,0 +1,643 @@
+// Floorplan Studio – shared helpers for the card and the editor panel.
+
+export const VERSION = '1.0.0';
+
+/* ------------------------------------------------------------------ i18n */
+const STR = {
+  en: {
+    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back',
+    lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
+    loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
+    on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
+    present: 'Someone is here', temp_colors: 'Colour rooms by temperature', clean_room: 'Vacuum this room', cleaning_sent: 'Vacuum is on its way',
+    clean_failed: 'The vacuum could not start: {e}', live_map: 'Live vacuum map',
+    a_smoke: 'Smoke', a_gas: 'Gas', a_carbon_monoxide: 'Carbon monoxide', a_moisture: 'Water leak', a_heat: 'Heat', a_safety: 'Unsafe',
+    e_solar: 'Solar', e_grid: 'Grid', e_price: 'Price',
+    lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
+    a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
+  },
+  nl: {
+    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug',
+    lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
+    loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
+    on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
+    present: 'Er is iemand', temp_colors: 'Ruimtes kleuren op temperatuur', clean_room: 'Deze ruimte zuigen', cleaning_sent: 'De stofzuiger komt eraan',
+    clean_failed: 'De stofzuiger kon niet starten: {e}', live_map: 'Live stofzuigerkaart',
+    a_smoke: 'Rook', a_gas: 'Gas', a_carbon_monoxide: 'Koolmonoxide', a_moisture: 'Lekkage', a_heat: 'Hitte', a_safety: 'Onveilig',
+    e_solar: 'Zon', e_grid: 'Net', e_price: 'Prijs',
+    lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
+    a_door: 'Deur open', a_window: 'Raam open', a_garage_door: 'Garagedeur open', a_opening: 'Open',
+  },
+};
+export function t(hass, key, vars = {}) {
+  const lang = (hass && (hass.locale?.language || hass.language) || 'en').slice(0, 2);
+  let s = (STR[lang] || STR.en)[key] || STR.en[key] || key;
+  for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
+  return s;
+}
+
+/* ---------------------------------------------------------------- themes */
+const FONT_URL = 'https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=VT323&family=Oswald:wght@400;500;600;700&display=swap';
+// T(bg, floor, wall, wallInner, accent, accentRgb, fg, muted, device, deviceRgb, chip, line, off, door, lampBorder, ring, tag, font, wallGlow)
+const T = (label, v, extra = {}) => ({ label, vars: {
+  '--fps-bg': v[0], '--fps-floor': v[1], '--fps-wall': v[2], '--fps-wall-inner': v[3], '--fps-accent': v[4], '--fps-accent-rgb': v[5],
+  '--fps-fg': v[6], '--fps-muted': v[7], '--fps-device': v[8], '--fps-device-rgb': v[9], '--fps-chip': v[10], '--fps-line': v[11],
+  '--fps-off': v[12], '--fps-door': v[13], '--fps-lamp-border': v[14], '--fps-ring': v[15], '--fps-tag': v[16],
+  '--fps-font': v[17] || 'inherit', '--fps-wall-glow': v[18] || 'none' }, ...extra });
+
+export const THEMES = {
+  warm: T('Warm', ['#0d1116', '#151b24', '#9aa7b8', '#9aa7b8', '#f2a541', '242,165,65', '#eef0f3', '#8a94a3', '#7fb0d6', '127,176,214',
+    'rgba(255,255,255,.06)', 'rgba(255,255,255,.10)', 'rgba(20,26,34,.95)', '#c6ccd5', 'rgba(255,255,255,.22)', 'rgba(255,255,255,.9)', 'rgba(12,15,20,.9)']),
+  hightech: T('High-tech', ['#03060b', '#06101a', '#22e6ff', 'rgba(34,230,255,.6)', '#22e6ff', '34,230,255', '#dcfaff', '#4f8aa0', '#3a8dff', '58,141,255',
+    'rgba(34,230,255,.06)', 'rgba(34,230,255,.28)', 'rgba(3,10,18,.95)', '#ff3bd4', 'rgba(34,230,255,.45)', '#22e6ff', 'rgba(2,8,14,.92)',
+    '"Rajdhani", "Segoe UI", sans-serif', 'drop-shadow(0 0 3px #22e6ff)'], { font: true }),
+  sun: T('Automatic (sun)', ['#ddd6ca', 'rgba(255,255,255,.35)', '#5f6773', '#5f6773', '#d9821f', '217,130,31', '#1d232b', '#6b7380', '#2f6fb0', '47,111,176',
+    'rgba(0,0,0,.05)', 'rgba(0,0,0,.12)', '#ffffff', '#c27a2c', 'rgba(29,35,43,.45)', '#1d232b', 'rgba(255,255,255,.97)'], { daylight: true }),
+  blueprint: T('Blueprint', ['#0b3a6e', '#0e4680', '#eaf3ff', 'rgba(234,243,255,.7)', '#ffd166', '255,209,102', '#f1f7ff', '#9dbbe0', '#7fd1ff', '127,209,255',
+    'rgba(255,255,255,.06)', 'rgba(234,243,255,.28)', 'rgba(11,58,110,.96)', '#ffd166', 'rgba(234,243,255,.7)', '#ffffff', 'rgba(9,48,92,.95)',
+    '"Share Tech Mono", Consolas, monospace'], { font: true }),
+  glass: T('Glass', ['#120f2e', 'rgba(255,255,255,.06)', 'rgba(255,255,255,.55)', 'rgba(255,255,255,.3)', '#ffb86b', '255,184,107', '#ffffff', '#b9bde6', '#9ad1ff', '154,209,255',
+    'rgba(255,255,255,.08)', 'rgba(255,255,255,.18)', 'rgba(30,24,70,.72)', '#ffb86b', 'rgba(255,255,255,.5)', '#ffffff', 'rgba(30,24,70,.82)']),
+  terminal: T('Terminal', ['#010801', '#021202', '#33ff66', 'rgba(51,255,102,.6)', '#33ff66', '51,255,102', '#b8ffc8', '#2f8a46', '#ffcc33', '255,204,51',
+    'rgba(51,255,102,.05)', 'rgba(51,255,102,.25)', 'rgba(1,12,2,.96)', '#ffcc33', 'rgba(51,255,102,.6)', '#33ff66', 'rgba(1,12,2,.95)',
+    '"VT323", "Share Tech Mono", monospace', 'drop-shadow(0 0 3px #33ff66)'], { font: true }),
+  rock: T('Rock', ['#070606', '#151212', '#d9d9d9', 'rgba(217,217,217,.7)', '#e10600', '225,6,0', '#f4f4f4', '#8c8c8c', '#c9c9c9', '201,201,201',
+    'rgba(255,255,255,.05)', 'rgba(225,6,0,.35)', 'rgba(20,16,16,.96)', '#e10600', 'rgba(220,220,220,.55)', '#e10600', 'rgba(10,8,8,.95)',
+    '"Oswald", "Bebas Neue", Impact, sans-serif'], { font: true }),
+  ha: T('Home Assistant', ['var(--primary-background-color, #111)', 'var(--card-background-color, #1c1c1c)', 'var(--secondary-text-color, #999)', 'var(--divider-color, #555)',
+    'var(--state-light-active-color, var(--amber-color, #ffc107))', '255,193,7', 'var(--primary-text-color, #fff)', 'var(--secondary-text-color, #999)',
+    'var(--primary-color, #03a9f4)', '3,169,244', 'var(--secondary-background-color, rgba(127,127,127,.12))', 'var(--divider-color, rgba(127,127,127,.2))',
+    'var(--card-background-color, #1c1c1c)', 'var(--secondary-text-color, #999)', 'var(--divider-color, rgba(127,127,127,.4))', 'var(--primary-text-color, #fff)', 'rgba(0,0,0,.75)']),
+};
+
+/** Which theme is really shown for a configured name (resolves "auto"). */
+export function resolveTheme(name) {
+  if (name === 'auto' || name === 'daylight' || name === 'night') return 'sun';   // older names
+  return THEMES[name] ? name : 'warm';
+}
+
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+/**
+ * 0 = night, 1 = full daylight, from today's sunrise and sunset (sun.sun):
+ * it starts getting light 45 min before sunrise and is full day 75 min after; the reverse around sunset.
+ */
+export function sunFactor(sun, now = Date.now(), before = 45, ramp = 120) {
+  if (!sun) return 1;
+  const H = 3600e3, D = 24 * H;
+  let rise = Date.parse(sun.attributes.next_rising), set = Date.parse(sun.attributes.next_setting);
+  if (isNaN(rise) || isNaN(set)) return sun.state === 'above_horizon' ? 1 : 0;
+  const today = new Date(now).toDateString();
+  if (new Date(rise).toDateString() !== today) rise -= D;
+  if (new Date(set).toDateString() !== today) set -= D;
+  const b = (before / 60) * H, r = Math.max(10, ramp) / 60 * H;
+  const up = (now - (rise - b)) / r;
+  const down = (set + b - now) / r;
+  return Math.max(0, Math.min(1, up, down));
+}
+
+/** Daylight theme: background follows the sun (black at night, warm dusk, muted daylight). */
+export function daylightVars(hass, s = DEFAULT_SETTINGS) {
+  let t = sunFactor(hass?.states['sun.sun'], Date.now(), s.sun_before, s.sun_ramp);
+  t = t * t * (3 - 2 * t);
+  const NIGHT = [6, 8, 11], DUSK = [70, 44, 34], DAY = [235, 230, 221];
+  const c = t < 0.45 ? mix(NIGHT, DUSK, t / 0.45) : mix(DUSK, DAY, (t - 0.45) / 0.55);
+  // keep text readable at every step: pick light or dark text by WCAG contrast and derive the greys from it
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = (a) => 0.2126 * lin(a[0]) + 0.7152 * lin(a[1]) + 0.0722 * lin(a[2]);
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const LIGHT_TEXT = [238, 240, 243], DARK_TEXT = [22, 27, 34];
+  const dark = contrast(c, DARK_TEXT) >= contrast(c, LIGHT_TEXT);
+  const fg = dark ? DARK_TEXT : LIGHT_TEXT;
+  const base = dark ? THEMES.sun.vars : { ...THEMES.warm.vars, '--fps-floor': 'rgba(255,255,255,.06)', '--fps-wall': '#7d8794', '--fps-wall-inner': '#6b7480' };
+  const rgb = (a) => `rgb(${a.join(',')})`;
+  return { key: Math.round(t * 60), vars: { ...base, '--fps-bg': rgb(c), '--fps-fg': rgb(fg), '--fps-muted': rgb(mix(fg, c, 0.38)) } };
+}
+
+/** Theme chosen by a helper (input_select) so every screen in the house shows the same theme. */
+// other names a helper may use for a theme (Dutch labels, short forms)
+const THEME_ALIASES = { sun: ['automatisch (zon)', 'automatisch', 'zon', 'auto', 'sun', 'licht', 'light'], glass: ['glas'], hightech: ['high tech', 'hightech'], ha: ['home assistant'] };
+/** Theme key for a helper option such as "Glas" or "Automatisch (zon)". */
+export function themeKey(option) {
+  const v = String(option ?? '').trim().toLowerCase();
+  return Object.keys(THEMES).find((k) => k === v || THEMES[k].label.toLowerCase() === v || (THEME_ALIASES[k] || []).includes(v)) || null;
+}
+export function themeFromEntity(hass, s = DEFAULT_SETTINGS) {
+  const st = s.theme_entity && hass?.states[s.theme_entity];
+  return st ? themeKey(st.state) : null;
+}
+
+export function themeStyle(name, hass, s = DEFAULT_SETTINGS) {
+  const real = resolveTheme(name, hass);
+  const th = THEMES[real];
+  if (th.font && !document.querySelector('link[data-fps-font]')) {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = FONT_URL; l.dataset.fpsFont = '1';
+    document.head.appendChild(l);
+  }
+  const vars = { ...(th.daylight ? daylightVars(hass, s).vars : th.vars),
+    '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100 };
+  return Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
+}
+
+/* -------------------------------------------------------------- geometry */
+export const norm = (q) => [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])];
+
+export function roomBBox(room) {
+  const r = room.rects.map(norm);
+  return [Math.min(...r.map((q) => q[0])), Math.min(...r.map((q) => q[1])), Math.max(...r.map((q) => q[2])), Math.max(...r.map((q) => q[3]))];
+}
+
+export function roomAt(rooms, x, y) {
+  for (const room of rooms) for (const q of room.rects.map(norm)) if (x > q[0] && x < q[2] && y > q[1] && y < q[3]) return room;
+  return null;
+}
+
+/**
+ * Turn the room rectangles into wall segments.
+ * Every rectangle edge is split at all other break points on the same line;
+ * each piece gets the rooms on both sides: same room = no wall, one side
+ * empty = outer wall, two different rooms = inner wall.
+ */
+export function computeWalls(rooms) {
+  const lines = { h: new Map(), v: new Map() };
+  const add = (dir, at, a, b) => {
+    const m = lines[dir];
+    if (!m.has(at)) m.set(at, []);
+    m.get(at).push([Math.min(a, b), Math.max(a, b)]);
+  };
+  for (const room of rooms) {
+    for (const q of room.rects.map(norm)) {
+      add('h', q[1], q[0], q[2]); add('h', q[3], q[0], q[2]);
+      add('v', q[0], q[1], q[3]); add('v', q[2], q[1], q[3]);
+    }
+  }
+  const out = [];
+  for (const dir of ['h', 'v']) {
+    for (const [at, spans] of lines[dir]) {
+      const pts = [...new Set(spans.flat())].sort((a, b) => a - b);
+      let cur = null;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], mid = (a + b) / 2;
+        if (!spans.some(([s, e]) => s <= a && e >= b)) { if (cur) { out.push(cur); cur = null; } continue; }
+        const r1 = dir === 'h' ? roomAt(rooms, mid, at - 0.5) : roomAt(rooms, at - 0.5, mid);
+        const r2 = dir === 'h' ? roomAt(rooms, mid, at + 0.5) : roomAt(rooms, at + 0.5, mid);
+        if (r1 && r2 && r1.id === r2.id) { if (cur) { out.push(cur); cur = null; } continue; }
+        const kind = r1 && r2 ? 'inner' : 'outer';
+        const key = `${kind}|${r1?.id}|${r2?.id}`;
+        if (cur && cur.key === key && cur.b === a) { cur.b = b; continue; }
+        if (cur) out.push(cur);
+        cur = { dir, at, a, b, kind, key, rooms: [r1?.id, r2?.id].filter(Boolean) };
+      }
+      if (cur) out.push(cur);
+    }
+  }
+  return out.map((w) => ({
+    kind: w.kind, rooms: w.rooms, dir: w.dir,
+    x1: w.dir === 'h' ? w.a : w.at, y1: w.dir === 'h' ? w.at : w.a,
+    x2: w.dir === 'h' ? w.b : w.at, y2: w.dir === 'h' ? w.at : w.b,
+  }));
+}
+
+/** Nearest wall to a point (for placing doors). */
+export function nearestWall(walls, x, y, maxDist = 25) {
+  let best = null, bd = maxDist;
+  for (const w of walls) {
+    const d = w.dir === 'h'
+      ? (x >= w.x1 - 2 && x <= w.x2 + 2 ? Math.abs(y - w.y1) : Infinity)
+      : (y >= w.y1 - 2 && y <= w.y2 + 2 ? Math.abs(x - w.x1) : Infinity);
+    if (d < bd) { bd = d; best = w; }
+  }
+  return best;
+}
+
+/* -------------------------------------------------------------- entities */
+export const PLACE_DOMAINS = ['light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'vacuum', 'lock', 'humidifier', 'water_heater', 'valve', 'lawn_mower', 'camera'];
+export const LAMP_DOMAINS = ['light', 'switch', 'input_boolean', 'fan'];
+
+export function entityArea(hass, entityId) {
+  const e = hass.entities?.[entityId];
+  if (!e) return null;
+  if (e.area_id) return e.area_id;
+  return e.device_id ? hass.devices?.[e.device_id]?.area_id || null : null;
+}
+
+export function areaEntities(hass, areaId, domains = null) {
+  if (!areaId || !hass.entities) return [];
+  return Object.keys(hass.entities).filter((id) => {
+    const e = hass.entities[id];
+    if (e.hidden || e.entity_category || !hass.states[id]) return false;
+    if (domains && !domains.includes(id.split('.')[0])) return false;
+    return entityArea(hass, id) === areaId;
+  });
+}
+
+/**
+ * Sensible defaults for "place everything automatically": one icon per
+ * physical device (its main entity), not every switch/option it exposes.
+ */
+const PRIO = ['light', 'camera', 'climate', 'cover', 'media_player', 'fan', 'vacuum', 'lock', 'humidifier', 'water_heater', 'valve', 'lawn_mower', 'switch'];
+export function placeCandidates(hass, areaId) {
+  const ids = areaEntities(hass, areaId, PLACE_DOMAINS);
+  const byDev = new Map(), loose = [];
+  for (const id of ids) {
+    const dev = hass.entities[id]?.device_id;
+    if (dev) { if (!byDev.has(dev)) byDev.set(dev, []); byDev.get(dev).push(id); } else loose.push(id);
+  }
+  const out = [...loose];
+  for (const [devId, list] of byDev) {
+    const d = hass.devices?.[devId];
+    const devName = (d?.name_by_user || d?.name || '').trim().toLowerCase();
+    const primary = list.filter((id) => (friendly(hass, id) || '').trim().toLowerCase() === devName);
+    if (primary.length) { out.push(primary[0]); continue; }
+    const lights = list.filter((id) => id.startsWith('light.'));
+    if (lights.length) { out.push(lights[0]); continue; }
+    const best = [...list].sort((a, b) => PRIO.indexOf(a.split('.')[0]) - PRIO.indexOf(b.split('.')[0]))[0];
+    if (best) out.push(best);
+  }
+  return [...new Set(out)];
+}
+
+export function isOn(st) {
+  return !!st && ['on', 'open', 'opening', 'playing', 'heat', 'cool', 'heat_cool', 'auto', 'dry', 'fan_only', 'cleaning', 'unlocked'].includes(st.state);
+}
+
+export function friendly(hass, id) {
+  const st = hass.states[id];
+  return (st && st.attributes.friendly_name) || id;
+}
+
+export function lightColor(st) {
+  const a = st?.attributes || {};
+  if (Array.isArray(a.rgb_color)) return a.rgb_color.join(',');
+  if (a.color_temp_kelvin) {
+    const k = a.color_temp_kelvin;
+    return k < 3000 ? '255,176,90' : k < 4500 ? '255,214,160' : '235,240,255';
+  }
+  return null;
+}
+
+export function shortState(hass, st) {
+  if (!st) return '';
+  const d = st.entity_id.split('.')[0];
+  if (d === 'climate') {
+    const tgt = st.attributes.temperature, cur = st.attributes.current_temperature;
+    return [cur != null ? `${Math.round(cur * 10) / 10}°` : null, tgt != null ? `→${tgt}°` : null].filter(Boolean).join(' ') || st.state;
+  }
+  if (d === 'sensor' && !isNaN(parseFloat(st.state))) {
+    return `${Math.round(parseFloat(st.state) * 10) / 10}${st.attributes.unit_of_measurement ? ' ' + st.attributes.unit_of_measurement : ''}`;
+  }
+  if (d === 'cover') return st.attributes.current_position != null ? `${st.attributes.current_position}%` : t(hass, st.state === 'open' ? 'open' : 'closed');
+  if (hass.formatEntityState) { try { return hass.formatEntityState(st); } catch (e) { /* formatEntityState missing: fall back to the raw state */ } }
+  return st.state;
+}
+
+/** Temperature / humidity / lights summary for a room, from its area. */
+export function roomSummary(hass, room) {
+  const ids = areaEntities(hass, room.area_id);
+  const pick = (dc) => {
+    if (room[dc]) return hass.states[room[dc]];
+    const area = room.area_id && hass.areas?.[room.area_id];
+    const areaSensor = area && area[`${dc}_entity_id`];
+    if (areaSensor && hass.states[areaSensor]) return hass.states[areaSensor];
+    return ids.map((id) => hass.states[id]).find((s) => s && s.entity_id.startsWith('sensor.') && s.attributes.device_class === dc && !isNaN(parseFloat(s.state)));
+  };
+  const lights = ids.filter((id) => id.startsWith('light.') && !hass.entities[id]?.platform?.includes('group'));
+  const lit = lights.filter((id) => hass.states[id].state === 'on');
+  const colors = lit.map((id) => lightColor(hass.states[id])).filter(Boolean);
+  return { temp: pick('temperature'), hum: pick('humidity'), lights, lit, colors };
+}
+
+/* ------------------------------------------- temperature / presence / alerts */
+/** Cold → comfortable → warm, as 'r,g,b'. */
+export function tempColor(v, min = 17, max = 24) {
+  const stops = [[0, [70, 140, 255]], [0.5, [80, 200, 150]], [0.75, [255, 200, 70]], [1, [255, 80, 50]]];
+  const f = Math.max(0, Math.min(1, (v - min) / ((max - min) || 1)));
+  for (let i = 1; i < stops.length; i++) {
+    const [p1, c1] = stops[i], [p0, c0] = stops[i - 1];
+    if (f <= p1) { const k = (f - p0) / (p1 - p0); return c0.map((c, j) => Math.round(c + (c1[j] - c) * k)).join(','); }
+  }
+  return stops[stops.length - 1][1].join(',');
+}
+
+const PRESENCE_DC = ['occupancy', 'presence', 'motion'];
+// camera object detectors (Frigate etc.) also report pets, cars… – those are not people
+const NOT_PEOPLE = /(^|_)(car|cars|bicycle|bike|motorcycle|dog|cat|bird|horse|animal|vehicle|truck|bus|boat|package|face|license_plate)(_|$)/;
+const norm2 = (v) => String(v ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+
+/** Is anyone in this room? Sensors in the room's area, plus people tracked to a room. */
+export function roomPresence(hass, room, settings = DEFAULT_SETTINGS) {
+  const by = areaEntities(hass, room.area_id, ['binary_sensor']).filter((id) => {
+    const st = hass.states[id];
+    return st.state === 'on' && PRESENCE_DC.includes(st.attributes.device_class) && !NOT_PEOPLE.test(id.split('.')[1]);
+  });
+  const names = [room.name, room.area_id, room.area_id && hass.areas?.[room.area_id]?.name].filter(Boolean).map(norm2);
+  const people = Object.entries(settings.people || {}).filter(([person, sensor]) => {
+    const st = sensor && hass.states[sensor];
+    return st && names.includes(norm2(st.state)) && hass.states[person]?.state !== 'not_home';
+  }).map(([person]) => person);
+  return { occupied: by.length > 0 || people.length > 0, by, people };
+}
+
+// not 'heat' (boiler flame sensors use it) and not 'safety' (NAS / device health) – those would cry wolf
+const ALARM_DC = ['smoke', 'gas', 'carbon_monoxide', 'moisture'];
+const OPEN_DC = ['door', 'window', 'garage_door', 'opening'];
+/** Alarms (red) and open doors/windows (orange) in the room's area. */
+export function roomAlerts(hass, room, settings = DEFAULT_SETTINGS) {
+  const out = [];
+  for (const id of areaEntities(hass, room.area_id, ['binary_sensor'])) {
+    const st = hass.states[id], dc = st.attributes.device_class;
+    if (st.state !== 'on') continue;
+    if (settings.alerts && ALARM_DC.includes(dc)) out.push({ id, dc, level: 'alarm' });
+    else if (settings.alert_open && OPEN_DC.includes(dc)) out.push({ id, dc, level: 'warn' });
+  }
+  const level = out.some((a) => a.level === 'alarm') ? 'alarm' : out.length ? 'warn' : null;
+  return { level, items: out };
+}
+
+/** Path of a room's own page in a generated dashboard. */
+export function roomPath(room) {
+  const slug = String(room.name || room.id || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ruimte';
+  return `ruimte-${slug}`;
+}
+/** In-app navigation like HA's own links. */
+export function navigate(path) {
+  history.pushState(null, '', path);
+  window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }));
+}
+
+/* ---------------------------------------------------------------- vacuum */
+export function planVacuum(hass, plan) {
+  const s = settingsOf(plan);
+  if (s.vacuum && hass.states[s.vacuum]) return s.vacuum;
+  const it = (plan.items || []).find((i) => i.entity_id.startsWith('vacuum.') && hass.states[i.entity_id]);
+  return it ? it.entity_id : null;
+}
+export function vacuumMapEntity(hass, plan) {
+  const s = settingsOf(plan), id = s.vacuum_map || plan.background?.source;
+  return id && hass.states[id] ? id : null;
+}
+export const VACUUM_BUSY = ['cleaning', 'returning', 'paused'];
+
+/**
+ * Turn / mirror an image the same way the editor turned the background, so a
+ * live map lines up exactly with the background it was traced from.
+ * ops: list of 'left' | 'right' | 'flip'.
+ */
+export function transformImage(img, ops = []) {
+  let src = img;
+  for (const how of ops) {
+    const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height, turn = how !== 'flip';
+    const c = document.createElement('canvas');
+    c.width = turn ? h : w; c.height = turn ? w : h;
+    const g = c.getContext('2d');
+    if (how === 'right') { g.translate(c.width, 0); g.rotate(Math.PI / 2); }
+    else if (how === 'left') { g.translate(0, c.height); g.rotate(-Math.PI / 2); }
+    else { g.translate(c.width, 0); g.scale(-1, 1); }
+    g.drawImage(src, 0, 0);
+    src = c;
+  }
+  return src;
+}
+
+/* --------------------------------------------------------- plan drawing */
+/** Every user-adjustable setting with its default (stored per floorplan in plan.settings). */
+export const DEFAULT_SETTINGS = {
+  theme: 'warm',            // default theme of the card
+  default_mode: 'all',      // simple | all
+  usage_days: 14,           // Simple: show what was used in the last N days
+  learning_days: 3,         // Simple shows everything until this much history exists
+  icon_size: 100,           // % of the normal icon size
+  label_size: 100,          // % of the normal room-text size
+  glow: 100,                // % strength of the room glow when lights are on
+  show_temp: true, show_hum: true, show_lights: true,   // room text lines
+  show_tags: true,          // small state label under devices (21°, open, …)
+  tap_zoom: true,           // tap a room to zoom in
+  hold_ms: 500,             // hold time before details open
+  sun_before: 45,           // Automatic (sun): minutes before sunrise it starts getting light
+  sun_ramp: 120,            // Automatic (sun): minutes the transition takes
+  auto_domains: ['light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'vacuum', 'lock', 'camera'],   // "place automatically"
+  temp_color: false,        // colour the rooms from cold (blue) to warm (red)
+  temp_min: 17, temp_max: 24,
+  presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
+  people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
+  alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
+  alert_open: true,         // open doors/windows: the room gets an orange edge
+  vacuum: '',               // vacuum entity ('' = the first one on the plan)
+  vacuum_live: 'cleaning',  // live vacuum map over the plan: cleaning | always | off
+  vacuum_map: '',           // image/camera entity with the live map ('' = the one the background came from)
+  vacuum_opacity: 0.6,
+  vacuum_show: 'robot',     // robot: only the robot drives over your plan | map: the vacuum's own map | both
+  theme_entity: '',
+  room_tap: 'zoom',
+  glow_style: 'lamp',       // lamp: a soft pool of light around each lamp | room: the whole room glows | off
+  show_co2: true, show_covers: true, show_climate: true, show_media: true,   // extra rows in the room text
+  info_rows: 5,             // at most this many rows under a room's name
+  compass: null,            // north arrow: degrees (0 = up), empty = none
+  greeting: true,           // "Good afternoon · Home: Anna & Tom" instead of the plan name
+  side: {},                 // side column picks (weather, main, buttons, solar, grid, grid_return, price, solar_today, status)         // tap a room: zoom in on the card, or open the room's own page (generated dashboards)         // input_select whose option picks the theme on every screen at once
+};
+export const settingsOf = (plan) => ({ ...DEFAULT_SETTINGS, ...(plan?.settings || {}) });
+
+export function newPlan(name = 'Home') {
+  return { id: '', name, width: 1000, height: 700, grid: 10, background: null, rooms: [], openings: [], items: [], settings: { ...DEFAULT_SETTINGS } };
+}
+
+/** Width of the widest part of a room (L-shaped rooms: the text has to fit in one part). */
+export function roomTextWidth(room) {
+  return Math.max(...room.rects.map(norm).map((q) => q[2] - q[0]));
+}
+
+/**
+ * Where the room's text block goes: the free-est spot inside the room (fewest icons under it),
+ * preferring the top-left. Rooms can still get a fixed `label: {x, y}`.
+ */
+export function labelSpot(plan, room, fs, rows = 2) {
+  const name = String(room.name || '');
+  const w = Math.max(name.length * fs * 0.84, fs * 9.5), h = fs * (3.9 + 1.5 * rows), r = plan.width * 0.016;
+  const items = (plan.items || []).map((it) => [it.x, it.y]);
+  let best = null;
+  for (const pad of [14, 6]) {   // keep some room from the walls; only hug them when the room is small
+  if (best) break;
+  for (const q of room.rects.map(norm)) {
+    if (q[2] - q[0] < w + pad * 2 || q[3] - q[1] < h + pad * 2) continue;
+    for (let y = q[1] + pad; y <= q[3] - h - pad; y += 5) {
+      for (let x = q[0] + pad; x <= q[2] - w - pad; x += 5) {
+        let hits = 0;
+        for (const [ix, iy] of items) if (ix > x - r && ix < x + w + r && iy > y - r && iy < y + h + r) hits++;
+        const cost = hits * 1000 + (y - q[1]) * 0.6 + (x - q[0]) * 0.3;
+        if (!best || cost < best.cost) best = { cost, x, y };
+      }
+    }
+  }
+  }
+  if (best) return [best.x, best.y];
+  const q = room.rects.map(norm).sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1]))[0];
+  return [q[0] + 14, q[1] + 14];
+}
+
+/**
+ * Static SVG for a plan. Colours come from CSS variables, so switching the
+ * theme never needs a re-render. `glowIds` adds a glow layer per room that the
+ * card fades in when lights in that room are on.
+ */
+export function planSVG(plan, { showBackground = false, editor = false } = {}) {
+  const W = plan.width, H = plan.height, out = [];
+  const walls = computeWalls(plan.rooms);
+  out.push(`<svg class="plan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`);
+  out.push(`<defs><pattern id="fps-grid" width="${plan.grid * 4}" height="${plan.grid * 4}" patternUnits="userSpaceOnUse"><path d="M${plan.grid * 4} 0H0V${plan.grid * 4}" fill="none" class="gridline"/></pattern>`);
+  out.push(`<pattern id="fps-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" class="dot"/></pattern>`);
+  out.push('<pattern id="fps-plate" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect x="4" y="14" width="18" height="5" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/><rect x="21" y="-3" width="5" height="18" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/></pattern>');
+  out.push('<pattern id="fps-scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" fill-opacity=".3"/></pattern>');
+  out.push('<filter id="fps-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="50"/></filter>');
+  out.push('<filter id="fps-lampblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="28"/></filter>');
+  // floor textures: tiles (bathroom, toilet) and wooden planks
+  out.push('<pattern id="fps-tiles" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" class="tex"/></pattern>');
+  out.push('<pattern id="fps-wood" width="60" height="12" patternUnits="userSpaceOnUse"><path d="M0 12H60M30 0V12" fill="none" class="tex"/></pattern>');
+  for (const room of plan.rooms) {
+    out.push(`<radialGradient id="g-${room.id}" cx="50%" cy="50%" r="60%"><stop offset="0" class="g0"/><stop offset=".55" class="g1"/><stop offset="1" class="g2"/></radialGradient>`);
+  }
+  out.push('</defs>');
+  out.push(`<rect class="bg" width="${W}" height="${H}"/>`);
+  out.push(`<g class="deco d-blobs">${[[0.2, 0.15, 0.35, '#6c3cff'], [0.75, 0.9, 0.4, '#00b3ff'], [0.95, 0.2, 0.3, '#ff4fa3'], [0.45, 0.6, 0.22, '#2fd1a5']]
+    .map(([x, y, r, c]) => `<circle cx="${x * W}" cy="${y * H}" r="${r * W}" fill="${c}" fill-opacity=".38" filter="url(#fps-blur)"/>`).join('')}</g>`);
+  out.push(`<g class="deco d-stage">${[0.1, 0.45, 0.85].map((x, i) => `<path d="M${x * W},-20 L${x * W - 160},${H} L${x * W + 160},${H} Z" fill="${i === 1 ? '#ff7a00' : '#e10600'}" fill-opacity=".08" filter="url(#fps-blur)"/>`).join('')}</g>`);
+  out.push(`<rect class="deco d-grid" width="${W}" height="${H}" fill="url(#fps-grid)"/><rect class="deco d-dots" width="${W}" height="${H}" fill="url(#fps-dots)"/><rect class="deco d-plate" width="${W}" height="${H}" fill="url(#fps-plate)"/>`);
+  if (showBackground && plan.background?.url) {
+    const b = plan.background;
+    out.push(`<image href="${b.url}" x="${b.x || 0}" y="${b.y || 0}" width="${b.w || W}" height="${b.h || H}" opacity="${b.opacity ?? 0.5}" preserveAspectRatio="none"/>`);
+  }
+  for (const room of plan.rooms) {
+    for (const q of room.rects.map(norm)) {
+      out.push(`<rect class="floor" data-room="${room.id}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`);
+    }
+  }
+  for (const room of plan.rooms) {
+    if (!['tiles', 'wood'].includes(room.floor)) continue;
+    for (const q of room.rects.map(norm)) out.push(`<rect class="floortex" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="url(#fps-${room.floor})"/>`);
+  }
+  for (const room of plan.rooms) {
+    const [x0, y0, x1, y1] = roomBBox(room);
+    // glow layer: one gradient over the room's bounding box, clipped to its rects
+    out.push(`<clipPath id="c-${room.id}">${room.rects.map(norm).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
+    out.push(`<rect class="glow" id="glow-${room.id}" clip-path="url(#c-${room.id})" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#g-${room.id})"/>`);
+  }
+  if (!editor) {
+    out.push(`<clipPath id="c-all">${plan.rooms.flatMap((r) => r.rects.map(norm)).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
+    // a soft pool of light around every lamp that is on (the card fills this in)
+    out.push('<g class="lampglows" clip-path="url(#c-all)"><g filter="url(#fps-lampblur)"></g></g>');
+  }
+  if (!editor && plan.background) {
+    // live vacuum map, lined up with the background it was traced from (shown by the card while cleaning)
+    const b = plan.background;
+    out.push(`<image class="livemap" clip-path="url(#c-all)" x="${b.x || 0}" y="${b.y || 0}" width="${b.w || W}" height="${b.h || H}" preserveAspectRatio="none"/>`);
+  }
+  if (!editor) out.push('<polyline class="vactrail" points=""/>');
+  out.push('<g class="walls">');
+  for (const w of walls) out.push(`<line class="wall ${w.kind}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
+  out.push('</g>');
+  for (const o of plan.openings || []) {
+    const h = o.y1 === o.y2;
+    out.push(`<line class="gap" data-opening="${o.id}" x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}"/>`);
+    if (o.type === 'door') {
+      for (const [x, y] of [[o.x1, o.y1], [o.x2, o.y2]]) {
+        out.push(h ? `<line class="jamb" x1="${x}" y1="${y - 7}" x2="${x}" y2="${y + 7}"/>` : `<line class="jamb" x1="${x - 7}" y1="${y}" x2="${x + 7}" y2="${y}"/>`);
+      }
+    } else {
+      out.push(`<line class="open-edge" x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}"/>`);
+    }
+  }
+  // HUD corner brackets (only visible in the high-tech theme)
+  out.push('<g class="deco d-brk">');
+  for (const room of plan.rooms) {
+    const [x0, y0, x1, y1] = roomBBox(room), q = Math.min(14, (x1 - x0) / 5, (y1 - y0) / 5), p = 6;
+    for (const [px, py, sx, sy] of [[x0 + p, y0 + p, 1, 1], [x1 - p, y0 + p, -1, 1], [x0 + p, y1 - p, 1, -1], [x1 - p, y1 - p, -1, -1]]) {
+      out.push(`<path class="bracket" d="M${px},${py + sy * q} V${py} H${px + sx * q}"/>`);
+    }
+  }
+  out.push('</g>');
+  const cmp = settingsOf(plan).compass;
+  if (!editor && cmp !== null && cmp !== '' && cmp !== undefined && !isNaN(+cmp)) {
+    // an empty spot (no rooms, no icons), searched from the bottom-right corner
+    const free = (x0, y0) => !plan.rooms.some((r) => r.rects.map(norm).some((q) => q[0] < x0 + 64 && q[2] > x0 && q[1] < y0 + 74 && q[3] > y0))
+      && !(plan.items || []).some((it) => it.x > x0 - 18 && it.x < x0 + 82 && it.y > y0 - 18 && it.y < y0 + 92);
+    let spot = null;
+    for (let y = H - 80; y >= 0 && !spot; y -= 10) for (let x = W - 70; x >= 0 && !spot; x -= 10) if (free(x, y)) spot = [x, y];
+    const [fx, fy] = spot || [0, 0];
+    const cx = fx + 32, cy = fy + 30;
+    if (spot) out.push(`<g class="compass" transform="translate(${cx},${cy})"><circle r="17"/><g transform="rotate(${+cmp})"><path d="M0,-12 L5,5 L0,2 L-5,5 Z"/></g><text y="32" text-anchor="middle">N</text></g>`);
+  }
+  out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/>`);
+  out.push('</svg>');
+  return out.join('');
+}
+
+export const PLAN_CSS = `
+  svg.plan { width: 100%; height: 100%; display: block; }
+  .bg { fill: var(--fps-bg); }
+  .gridline { stroke: var(--fps-accent); stroke-opacity: .07; stroke-width: 1; }
+  .dot { fill: #fff; fill-opacity: .05; }
+  .floor { fill: var(--fps-floor); }
+  .glow { opacity: 0; transition: opacity .8s ease; pointer-events: none; }
+  .glow.on { opacity: var(--fps-glow, 1); }
+  .g0 { stop-color: rgb(var(--glow, var(--fps-accent-rgb))); stop-opacity: .42; }
+  .g1 { stop-color: rgb(var(--glow, var(--fps-accent-rgb))); stop-opacity: .14; }
+  .g2 { stop-color: rgb(var(--glow, var(--fps-accent-rgb))); stop-opacity: 0; }
+  .wall { stroke: var(--fps-wall); stroke-linecap: square; }
+  .wall.outer { stroke-width: 8; }
+  .wall.inner { stroke-width: 4; stroke: var(--fps-wall-inner); }
+  .walls { filter: var(--fps-wall-glow); }
+  .gap { stroke: var(--fps-floor); stroke-width: 10; stroke-linecap: butt; }
+  .jamb { stroke: var(--fps-door); stroke-width: 2.5; }
+  .open-edge { stroke: var(--fps-wall); stroke-opacity: .25; stroke-width: 1; stroke-dasharray: 3 5; }
+  .bracket { fill: none; stroke: var(--fps-accent); stroke-opacity: .55; stroke-width: 1.4; }
+  .deco { display: none; pointer-events: none; }
+  .t-warm .d-dots,
+  .t-hightech .d-grid, .t-blueprint .d-grid, .t-terminal .d-grid, .t-sun .d-grid,
+  .t-hightech .d-brk, .t-blueprint .d-brk, .t-terminal .d-brk,
+  .t-hightech .d-scan, .t-terminal .d-scan,
+  .t-rock .d-plate, .t-rock .d-stage, .t-glass .d-blobs { display: inline; }
+  .t-blueprint .gridline { stroke: #ffffff; stroke-opacity: .12; }
+  .t-sun .gridline { stroke: #8a929c; stroke-opacity: .14; }
+  .t-rock .wall.outer { stroke-width: 9; }
+  .floor { transition: fill 1s ease; }
+  .floor.warn { animation: fpsWarn 2.4s ease-in-out infinite; }
+  @keyframes fpsWarn { 0%, 100% { fill: rgba(255, 159, 28, .30); } 50% { fill: rgba(255, 159, 28, .08); } }
+  .floor.alarm { animation: fpsAlarm 1s steps(2, jump-none) infinite; stroke: #ff2d2d; stroke-width: 4; }
+  @keyframes fpsAlarm { 0% { fill: rgba(255, 45, 45, .55); } 100% { fill: rgba(255, 45, 45, .12); } }
+  .livemap { display: none; pointer-events: none; }
+  .tex { stroke: var(--fps-wall); stroke-opacity: .13; stroke-width: 1; }
+  .floortex { pointer-events: none; }
+  .lampglows > g { opacity: var(--fps-lampglow, .26); }
+  .lampglows circle { transition: opacity .6s; }
+  .compass { pointer-events: none; }
+  .compass circle { fill: none; stroke: var(--fps-wall); stroke-opacity: .45; stroke-width: 1.5; }
+  .compass path { fill: var(--fps-wall); fill-opacity: .5; }
+  .compass text { fill: var(--fps-wall); fill-opacity: .6; font-size: 11px; letter-spacing: 3px; font-family: var(--fps-font); }
+  .livemap.on { display: inline; }
+  .vactrail { fill: none; stroke: var(--fps-device); stroke-width: 3; stroke-opacity: .55; stroke-dasharray: 1 7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+`;
+
+export function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* ------------------------------------------------------------ data api */
+let plansCache = null;
+export async function loadPlans(hass, force = false) {
+  if (!plansCache || force) {
+    plansCache = hass.connection.sendMessagePromise({ type: 'floorplan_studio/plans' }).then((r) => r.plans).catch((e) => { plansCache = null; throw e; });
+  }
+  return plansCache;
+}
+export async function savePlan(hass, plan) {
+  const r = await hass.connection.sendMessagePromise({ type: 'floorplan_studio/plan/save', plan });
+  plansCache = null;
+  window.dispatchEvent(new CustomEvent('fps-plans-changed', { detail: r.plan }));
+  return r.plan;
+}
+export async function loadUsage(hass, days) {
+  return hass.connection.sendMessagePromise({ type: 'floorplan_studio/usage', days });
+}
+export function fire(node, type, detail) {
+  node.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+}

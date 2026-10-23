@@ -1,0 +1,24 @@
+{
+  "domain": "floorplan_studio",
+  "name": "Floorplan Studio",
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@trackerr"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/trackerr/home-assistant-floorplan-studio",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/trackerr/home-assistant-floorplan-studio/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

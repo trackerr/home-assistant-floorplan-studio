@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Floorplan Studio",
+        "description": "Voegt de Plattegrond-editor toe aan de zijbalk en de plattegrondkaart aan je dashboards. Open daarna **Floorplan** in de zijbalk om je huis te tekenen of te importeren."
+      }
+    },
+    "abort": {
+      "already_configured": "Floorplan Studio is al geïnstalleerd."
+    }
+  }
+}

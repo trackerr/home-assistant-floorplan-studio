@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Floorplan Studio demo</title>
+<style>
+  :root {
+    --primary-color: #03a9f4; --text-primary-color: #fff; --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b;
+    --primary-background-color: #111111; --secondary-background-color: #282828; --card-background-color: #1c1c1c;
+    --divider-color: rgba(225, 225, 225, .12); --error-color: #db4437; --ha-card-border-radius: 12px;
+    --mdc-icon-size: 24px; color-scheme: dark;
+  }
+  html, body { margin: 0; background: var(--primary-background-color); color: var(--primary-text-color); font-family: Roboto, "Segoe UI", system-ui, sans-serif; }
+  #wrap { padding: 16px; }
+  #wrap.panel { padding: 0; height: 100vh; }
+  ha-card { display: block; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<script type="module">
+import * as mdi from './node_modules/@mdi/js/mdi.js';
+import { makeHass } from './demo-hass.js';
+
+const camel = (name) => 'mdi' + name.replace(/^mdi:/, '').split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join('');
+const svgFor = (icon) => {
+  const d = mdi[camel(icon || 'mdi:help-circle-outline')] || mdi.mdiHelpCircleOutline;
+  return `<svg viewBox="0 0 24 24" style="width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);display:block;fill:currentColor"><path d="${d}"/></svg>`;
+};
+class HaIcon extends HTMLElement {
+  static get observedAttributes() { return ['icon']; }
+  set icon(v) { this.setAttribute('icon', v); }
+  get icon() { return this.getAttribute('icon'); }
+  attributeChangedCallback() { this.render(); }
+  connectedCallback() { this.style.display = 'inline-flex'; this.render(); }
+  render() { this.innerHTML = svgFor(this.getAttribute('icon')); }
+}
+customElements.define('ha-icon', HaIcon);
+
+// HA's own default icons (frontend 2026), so the screenshots look like the real thing
+const DOMAIN = {
+  light: ['mdi:lightbulb', 'mdi:lightbulb'], switch: ['mdi:toggle-switch-variant', 'mdi:toggle-switch-variant-off'],
+  fan: ['mdi:fan', 'mdi:fan-off'], cover: ['mdi:window-open', 'mdi:window-closed'], climate: ['mdi:thermostat'], media_player: ['mdi:cast', 'mdi:cast-off'],
+  vacuum: ['mdi:robot-vacuum'], lock: ['mdi:lock-open-variant', 'mdi:lock'], camera: ['mdi:video', 'mdi:video-off'], sensor: ['mdi:eye'], image: ['mdi:image'],
+  scene: ['mdi:palette'], script: ['mdi:script-text'], person: ['mdi:account'], binary_sensor: ['mdi:checkbox-marked-circle', 'mdi:radiobox-blank'],
+};
+const BY_CLASS = {
+  'cover.curtain': ['mdi:curtains', 'mdi:curtains-closed'], 'cover.shutter': ['mdi:window-shutter-open', 'mdi:window-shutter'],
+  'media_player.tv': ['mdi:television-play', 'mdi:television-off'], 'sensor.temperature': ['mdi:thermometer'], 'sensor.humidity': ['mdi:water-percent'],
+  'sensor.carbon_dioxide': ['mdi:molecule-co2'], 'sensor.power': ['mdi:flash'], 'sensor.energy': ['mdi:lightning-bolt'], 'sensor.battery': ['mdi:battery'],
+  'binary_sensor.motion': ['mdi:motion-sensor', 'mdi:motion-sensor-off'], 'binary_sensor.presence': ['mdi:home', 'mdi:home-outline'],
+  'binary_sensor.door': ['mdi:door-open', 'mdi:door-closed'], 'binary_sensor.smoke': ['mdi:smoke-detector-variant-alert', 'mdi:smoke-detector-variant'],
+  'binary_sensor.moisture': ['mdi:water-alert', 'mdi:water-off'],
+};
+class HaStateIcon extends HTMLElement {
+  set stateObj(st) { this._st = st; this.render(); }
+  get stateObj() { return this._st; }
+  set hass(h) { this._h = h; }
+  set icon(v) { this._icon = v; this.render(); }
+  connectedCallback() { this.style.display = 'inline-flex'; this.render(); }
+  render() {
+    const st = this._st;
+    let icon = this._icon || st?.attributes?.icon;
+    if (!icon && st) {
+      const d = st.entity_id.split('.')[0], set = BY_CLASS[d + '.' + st.attributes.device_class] || DOMAIN[d] || ['mdi:bookmark'];
+      const off = ['off', 'closed', 'locked', 'idle', 'docked', 'standby', 'unavailable'].includes(st.state);
+      icon = off && set[1] ? set[1] : set[0];
+    }
+    this.innerHTML = svgFor(icon);
+  }
+}
+customElements.define('ha-state-icon', HaStateIcon);
+if (!customElements.get('ha-card')) customElements.define('ha-card', class extends HTMLElement { connectedCallback() { this.style.display = 'block'; } });
+
+const q = new URLSearchParams(location.search);
+const plan = await (await fetch('../../examples/voorbeeldhuis.json')).json();
+if (q.get('bg')) plan.background = { url: '/scripts/screenshots/vacuum-map.svg', x: 0, y: 0, w: 1000, h: 700, opacity: Number(q.get('bg')) || 0.5, source: 'image.robotstofzuiger_kaart', ops: [] };
+if (q.get('people')) plan.settings.people = { 'person.anna': 'sensor.anna_ruimte', 'person.tom': 'sensor.tom_ruimte' };
+if (q.get('temp')) plan.settings.temp_color = true;
+if (q.get('live')) plan.settings.vacuum_live = q.get('live');
+if (q.has('compass')) plan.settings.compass = +q.get('compass');
+if (q.has('smart')) plan.settings.side = { smart: [
+  { from: '05:00', name: 'Goedemorgen', action: 'scene.avond', sub: 'Gordijnen open · keukenlamp aan' },
+  { from: '11:00', name: 'Thuiskomen', action: 'scene.avond', sub: 'Sfeerlicht aan', name_on: 'Alles uit', sub_on: 'Woonkamer, keuken en badkamer uit' },
+  { from: '22:30', name: 'Naar bed', sub: 'Alles uit · gordijnen dicht' }] };
+for (const r of plan.rooms) if (['r_bad', 'r_toilet'].includes(r.id) && q.has('tiles')) r.floor = 'tiles';
+if (q.get('empty')) { plan.rooms = []; plan.openings = []; plan.items = []; }
+if (q.get('noitems')) plan.items = [];
+if (q.get('noopen')) plan.openings = [];
+const set = {};
+for (const kv of (q.get('set') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); set[k] = v; }
+const hass = makeHass(plan, { sun: q.get('sun') || 'day', set });
+const wrap = document.getElementById('wrap');
+const W = Number(q.get('w') || 1100);
+let el;
+
+try { localStorage.clear(); } catch (e) { /* ignore */ }
+if (q.get('view') === 'panel') {
+  await import('../../custom_components/floorplan_studio/frontend/floorplan-studio-panel.js');
+  wrap.className = 'panel';
+  el = document.createElement('floorplan-studio-panel');
+  el.narrow = false;
+  wrap.append(el);
+  el.hass = hass;
+} else {
+  await import('../../custom_components/floorplan_studio/frontend/floorplan-studio-card.js');
+  wrap.style.width = W + 'px';
+  el = document.createElement('floorplan-studio-card');
+  const cfg = { plan: 'voorbeeldhuis', theme: q.get('theme') || 'warm', show_theme_toggle: q.get('toggle') === '1' };
+  if (q.get('mode')) cfg.mode = q.get('mode');
+  if (q.get('room')) cfg.room = q.get('room');
+  if (q.has('side')) cfg.side = true;
+  if (q.has('kiosk')) cfg.nav = [{ title: 'Thuis', path: 'thuis', icon: 'mdi:home' }, { title: 'Plattegrond', path: 'demo.html', icon: 'mdi:floor-plan' }, { title: 'Energie', path: 'energie', icon: 'mdi:lightning-bolt' }, { title: 'Buiten', path: 'buiten', icon: 'mdi:pine-tree' }, { title: 'TV', path: 'tv', icon: 'mdi:television' }];
+  el.setConfig(cfg);
+  wrap.append(el);
+  el.hass = hass;
+}
+window.addEventListener('demo-hass-changed', () => { el.hass = { ...hass }; });
+window.demo = { el, hass, plan };
+window.demoReady = true;
+</script>
+</body>
+</html>

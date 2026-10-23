@@ -1,0 +1,338 @@
+{
+ "id": "voorbeeldhuis",
+ "name": "Voorbeeldhuis",
+ "width": 1000,
+ "height": 700,
+ "grid": 10,
+ "background": null,
+ "rooms": [
+  {
+   "id": "r_woon",
+   "name": "Woonkamer",
+   "area_id": "woonkamer",
+   "rects": [
+    [
+     40,
+     40,
+     520,
+     300
+    ],
+    [
+     40,
+     300,
+     400,
+     380
+    ]
+   ]
+  },
+  {
+   "id": "r_keuken",
+   "name": "Keuken",
+   "area_id": "keuken",
+   "rects": [
+    [
+     520,
+     40,
+     800,
+     260
+    ]
+   ]
+  },
+  {
+   "id": "r_berging",
+   "name": "Berging",
+   "area_id": "berging",
+   "rects": [
+    [
+     800,
+     40,
+     960,
+     260
+    ]
+   ]
+  },
+  {
+   "id": "r_hal",
+   "name": "Hal",
+   "area_id": "hal",
+   "rects": [
+    [
+     520,
+     260,
+     640,
+     660
+    ],
+    [
+     400,
+     300,
+     520,
+     380
+    ]
+   ]
+  },
+  {
+   "id": "r_toilet",
+   "name": "Toilet",
+   "area_id": "toilet",
+   "rects": [
+    [
+     640,
+     260,
+     720,
+     460
+    ]
+   ]
+  },
+  {
+   "id": "r_bad",
+   "name": "Badkamer",
+   "area_id": "badkamer",
+   "rects": [
+    [
+     720,
+     260,
+     960,
+     460
+    ]
+   ]
+  },
+  {
+   "id": "r_slaap",
+   "name": "Slaapkamer",
+   "area_id": "slaapkamer",
+   "rects": [
+    [
+     640,
+     460,
+     960,
+     660
+    ]
+   ]
+  },
+  {
+   "id": "r_werk",
+   "name": "Werkkamer",
+   "area_id": "werkkamer",
+   "rects": [
+    [
+     40,
+     380,
+     300,
+     660
+    ]
+   ]
+  },
+  {
+   "id": "r_kind",
+   "name": "Kinderkamer",
+   "area_id": "kinderkamer",
+   "rects": [
+    [
+     300,
+     380,
+     520,
+     660
+    ]
+   ]
+  }
+ ],
+ "openings": [
+  {
+   "id": "o1",
+   "type": "open",
+   "x1": 520,
+   "y1": 110,
+   "x2": 520,
+   "y2": 230
+  },
+  {
+   "id": "o2",
+   "type": "door",
+   "x1": 550,
+   "y1": 260,
+   "x2": 610,
+   "y2": 260
+  },
+  {
+   "id": "o3",
+   "type": "door",
+   "x1": 420,
+   "y1": 300,
+   "x2": 480,
+   "y2": 300
+  },
+  {
+   "id": "o4",
+   "type": "door",
+   "x1": 200,
+   "y1": 380,
+   "x2": 260,
+   "y2": 380
+  },
+  {
+   "id": "o5",
+   "type": "door",
+   "x1": 520,
+   "y1": 420,
+   "x2": 520,
+   "y2": 480
+  },
+  {
+   "id": "o6",
+   "type": "door",
+   "x1": 640,
+   "y1": 300,
+   "x2": 640,
+   "y2": 350
+  },
+  {
+   "id": "o7",
+   "type": "door",
+   "x1": 640,
+   "y1": 500,
+   "x2": 640,
+   "y2": 560
+  },
+  {
+   "id": "o8",
+   "type": "door",
+   "x1": 800,
+   "y1": 170,
+   "x2": 800,
+   "y2": 230
+  },
+  {
+   "id": "o9",
+   "type": "door",
+   "x1": 550,
+   "y1": 660,
+   "x2": 610,
+   "y2": 660
+  },
+  {
+   "id": "o10",
+   "type": "door",
+   "x1": 760,
+   "y1": 460,
+   "x2": 820,
+   "y2": 460
+  }
+ ],
+ "items": [
+  {
+   "entity_id": "light.woonkamer_plafond",
+   "x": 280,
+   "y": 190
+  },
+  {
+   "entity_id": "light.staande_lamp",
+   "x": 90,
+   "y": 330
+  },
+  {
+   "entity_id": "light.leeslamp",
+   "x": 360,
+   "y": 330
+  },
+  {
+   "entity_id": "media_player.woonkamer_tv",
+   "x": 470,
+   "y": 90
+  },
+  {
+   "entity_id": "climate.woonkamer",
+   "x": 200,
+   "y": 330
+  },
+  {
+   "entity_id": "cover.woonkamer_gordijn",
+   "x": 330,
+   "y": 60
+  },
+  {
+   "entity_id": "light.keuken_spots",
+   "x": 680,
+   "y": 190
+  },
+  {
+   "entity_id": "switch.koffiezetapparaat",
+   "x": 770,
+   "y": 220
+  },
+  {
+   "entity_id": "vacuum.robotstofzuiger",
+   "x": 850,
+   "y": 220
+  },
+  {
+   "entity_id": "switch.wasmachine",
+   "x": 920,
+   "y": 140
+  },
+  {
+   "entity_id": "light.hal",
+   "x": 580,
+   "y": 470
+  },
+  {
+   "entity_id": "lock.voordeur",
+   "x": 580,
+   "y": 630
+  },
+  {
+   "entity_id": "camera.voordeur",
+   "x": 620,
+   "y": 630
+  },
+  {
+   "entity_id": "light.toilet",
+   "x": 680,
+   "y": 420
+  },
+  {
+   "entity_id": "light.badkamer",
+   "x": 870,
+   "y": 410
+  },
+  {
+   "entity_id": "fan.badkamer_ventilator",
+   "x": 920,
+   "y": 300
+  },
+  {
+   "entity_id": "light.slaapkamer",
+   "x": 900,
+   "y": 560
+  },
+  {
+   "entity_id": "cover.slaapkamer_rolluik",
+   "x": 800,
+   "y": 630
+  },
+  {
+   "entity_id": "light.bureaulamp",
+   "x": 200,
+   "y": 560
+  },
+  {
+   "entity_id": "switch.werkkamer_pc",
+   "x": 90,
+   "y": 610
+  },
+  {
+   "entity_id": "light.nachtlampje",
+   "x": 450,
+   "y": 600
+  },
+  {
+   "entity_id": "camera.tuin",
+   "x": 270,
+   "y": 610
+  }
+ ],
+ "settings": {
+  "theme": "warm",
+  "default_mode": "all",
+  "usage_days": 14
+ }
+}

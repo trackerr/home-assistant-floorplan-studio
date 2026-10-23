@@ -1,0 +1,1138 @@
+// Floorplan Studio card – live floorplan with lights, devices, room zoom and themes.
+import {
+  VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
+  PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
+  themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
+  labelSpot, roomTextWidth,
+} from './fps-core.js?v=1.0.0';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.0';
+
+
+const CSS = `
+  :host { display: block; }
+  ha-card { overflow: hidden; background: var(--fps-bg); color: var(--fps-fg); font-family: var(--fps-font); border-radius: var(--ha-card-border-radius, 12px); }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; flex-wrap: wrap; }
+  .title { font-size: 18px; font-weight: 700; margin-right: auto; letter-spacing: -.01em; }
+  .seg { display: inline-flex; background: var(--fps-chip); border: 1px solid var(--fps-line); border-radius: 999px; padding: 2px; }
+  .seg button, .btn { all: unset; cursor: pointer; padding: 5px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--fps-muted); display: inline-flex; align-items: center; gap: 6px; }
+  .seg button.active { background: var(--fps-accent); color: #10161d; }
+  .btn { border: 1px solid var(--fps-line); background: var(--fps-chip); color: var(--fps-fg); }
+  .btn.active { border-color: var(--fps-accent); color: var(--fps-accent); }
+  .btn ha-icon, .seg ha-icon, .themesel ha-icon { --mdc-icon-size: 16px; }
+  .themesel { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--fps-chip); border: 1px solid var(--fps-line); color: var(--fps-accent); }
+  .themesel select { all: unset; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--fps-fg); padding: 3px 8px 3px 0; }
+  .themesel option { color: #111; }
+  .viewport { position: relative; overflow: hidden; }
+  .stage { position: relative; width: 100%; transform-origin: 0 0; transition: transform .55s cubic-bezier(.2,.8,.2,1); container-type: inline-size; }
+  .stage > svg { position: absolute; inset: 0; }
+  .items { position: absolute; inset: 0; pointer-events: none; }
+  ${PLAN_CSS}
+  .floor { cursor: pointer; }
+  .floor:hover { fill: color-mix(in srgb, var(--fps-floor) 88%, var(--fps-accent)); }
+  .item { position: absolute; transform: translate(-50%, -50%) scale(var(--k, 1)); pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; touch-action: none; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .3s; -webkit-tap-highlight-color: transparent; }
+  .item.hidden { opacity: 0; pointer-events: none; }
+  .bub { width: calc(2.9cqw * var(--fps-icon-scale, 1)); height: calc(2.9cqw * var(--fps-icon-scale, 1)); min-width: calc(24px * var(--fps-icon-scale, 1)); min-height: calc(24px * var(--fps-icon-scale, 1)); border-radius: 50%; display: grid; place-items: center;
+         background: var(--fps-off); border: 1.5px solid var(--fps-lamp-border, var(--fps-line)); color: var(--fps-muted); transition: background .3s, box-shadow .3s, color .3s; }
+  .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: max(14px, 1.6cqw); }
+  .item.on .bub { background: rgb(var(--c, var(--fps-accent-rgb))); color: #10161d; border: 2px solid var(--fps-ring, transparent);
+                  box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), .9), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), .45); }
+  .item.device .bub { border-radius: 22%; border-color: rgba(var(--fps-device-rgb), .5); color: var(--fps-device); }
+  .item.device.on .bub { background: rgba(var(--fps-device-rgb), .25); color: var(--fps-device); border-color: var(--fps-device); box-shadow: 0 0 1cqw rgba(var(--fps-device-rgb), .55); }
+  .item.sensor .bub { border-radius: 999px; width: auto; padding: 0 .8cqw; font-size: max(10px, 1.05cqw); font-weight: 600; color: var(--fps-fg); }
+  .tag { margin-top: .25cqw; font-size: max(9px, .8cqw); line-height: 1.2; padding: 0 .4cqw; border-radius: 4px; background: var(--fps-tag, var(--fps-off)); color: var(--fps-fg); border: 1px solid var(--fps-line); white-space: nowrap; }
+  .tag:empty, .notags .tag { display: none; }
+  .name { position: absolute; top: 100%; margin-top: .3cqw; white-space: nowrap; font-size: max(10px, .9cqw); padding: .2cqw .6cqw; border-radius: 6px;
+          background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
+  .item:hover .name { opacity: 1; }
+  .moving .item { cursor: grab; } .moving .item .bub { outline: 1px dashed var(--fps-accent); outline-offset: 3px; }
+  .floor, .glow, .walls { transition: opacity .5s ease; }
+  .floor.dim { opacity: .12; } .glow.dim { opacity: 0 !important; } .walls.dim { opacity: .35; }
+  .item.out { opacity: 0; pointer-events: none; }
+  .item.driving { transition: left 5s linear, top 5s linear, transform .55s, opacity .3s; z-index: 6; }
+  .item.driving .bub { box-shadow: 0 0 0 .35cqw rgba(var(--fps-device-rgb), .35), 0 0 1.4cqw rgba(var(--fps-device-rgb), .6); }
+  .roompanel { position: absolute; top: 0; right: 0; bottom: 0; width: 36%; z-index: 10; box-sizing: border-box; padding: 14px 16px; overflow-y: auto;
+               background: color-mix(in srgb, var(--fps-bg) 82%, transparent); backdrop-filter: blur(6px); border-left: 1px solid var(--fps-line);
+               transform: translateX(105%); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+  .roompanel.open { transform: none; }
+  .roompanel.narrow { top: auto; width: 100%; height: 46%; border-left: none; border-top: 1px solid var(--fps-line); transform: translateY(105%); }
+  .roompanel.narrow.open { transform: none; }
+  .pname { margin-top: 12px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-muted); }
+  .pname.on { color: var(--fps-accent); }
+  .ptemp { font-size: 44px; font-weight: 300; line-height: 1.1; color: var(--fps-fg); }
+  .pline { font-size: 13px; color: var(--fps-muted); margin-top: 2px; }
+  .prow2 { display: flex; align-items: center; gap: 8px; margin-top: 5px; --mdc-icon-size: 16px; }
+  .prow2.on { color: var(--fps-fg); } .prow2.on ha-icon, .prow2.on ha-state-icon { color: var(--fps-accent); } .prow2.warn, .prow2.warn ha-icon { color: #ff9f1c; }
+  .phead { margin: 16px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-muted); }
+  .prow { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--fps-fg); }
+  .prow:hover { background: var(--fps-chip); }
+  .prow ha-state-icon { --mdc-icon-size: 20px; color: var(--fps-muted); }
+  .prow.on ha-state-icon { color: var(--fps-accent); }
+  .prow .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow .v { color: var(--fps-muted); font-size: 12px; white-space: nowrap; }
+  .chip { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px;
+          background: var(--fps-chip); border: 1px solid var(--fps-line); color: var(--fps-fg); }
+  .chip.on { border-color: var(--fps-accent); color: var(--fps-accent); }
+  .chip ha-state-icon { --mdc-icon-size: 16px; }
+  .chip small { color: var(--fps-muted); }
+  .item.camera .bub { border-radius: 22%; color: var(--fps-device); border-color: rgba(var(--fps-device-rgb), .55); }
+  .camview { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.82);
+             cursor: zoom-out; animation: fpsfade .2s ease; }
+  .camview .frame { position: relative; width: 94%; max-height: 94%; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--fps-line), 0 10px 40px rgba(0,0,0,.6); }
+  .camview ha-camera-stream, .camview img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .camview .cap { position: absolute; left: 12px; bottom: 10px; font-size: 13px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; }
+  .camview .x { position: absolute; right: 12px; top: 10px; color: #fff; --mdc-icon-size: 22px; pointer-events: none; }
+  @keyframes fpsfade { from { opacity: 0; } to { opacity: 1; } }
+  .btn.icon { padding: 5px 8px; }
+  .kioskstart { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
+                background: rgba(0,0,0,.55); color: #fff; font-size: 18px; font-weight: 600; cursor: pointer; --mdc-icon-size: 64px; }
+  ha-card { position: relative; }
+  .msg { padding: 28px; color: var(--fps-muted); text-align: center; }
+  .note { font-size: 11px; color: var(--fps-muted); padding: 0 12px 8px; }
+  .t-hightech .title { text-transform: uppercase; letter-spacing: .12em; }
+  .alertbar { display: none; margin: 0 12px 8px; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .alertbar.alarm { display: flex; background: #d81b1b; color: #fff; animation: fpsBar 1s steps(2, jump-none) infinite; }
+  .alertbar.warn { display: flex; background: rgba(255, 159, 28, .16); color: #ffb347; border: 1px solid rgba(255, 159, 28, .5); }
+  .alertbar ha-icon { --mdc-icon-size: 18px; }
+  .alertbar span { cursor: pointer; }
+  @keyframes fpsBar { 0% { filter: brightness(1.15); } 100% { filter: brightness(.8); } }
+  .people { position: absolute; display: flex; gap: .3cqw; transform: translateY(-100%); pointer-events: none; transition: opacity .3s; }
+  .person { width: max(20px, 2.2cqw); height: max(20px, 2.2cqw); border-radius: 50%; display: grid; place-items: center; font-size: max(9px, .9cqw); font-weight: 700;
+            background: var(--fps-accent); color: #10161d; background-size: cover; background-position: center; box-shadow: 0 0 0 2px var(--fps-bg), 0 0 .8cqw rgba(var(--fps-accent-rgb), .7); }
+  .zoomed .people { opacity: 0; }
+  .pbtn { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .palert { margin-top: 10px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  .palert.alarm { background: #d81b1b; color: #fff; } .palert.warn { background: rgba(255, 159, 28, .16); color: #ffb347; }
+  .ppres { font-size: 13px; color: var(--fps-accent); margin-top: 6px; display: flex; gap: 6px; align-items: center; --mdc-icon-size: 16px; }
+  /* layout: plan + optional side column */
+  ha-card { container-type: inline-size; }
+  .layout { display: block; }
+  .layout.withside { display: grid; grid-template-columns: minmax(0, 1fr) clamp(250px, 25%, 340px); align-items: start; }
+  @container (max-width: 760px) { .layout.withside { grid-template-columns: 1fr; } }
+  .main { position: relative; min-width: 0; overflow: hidden; }
+  .title.greet { display: flex; flex-direction: column; gap: 2px; font-size: 26px; font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
+  .title.greet small { font-size: 12.5px; font-weight: 500; color: var(--fps-muted); letter-spacing: 0; }
+  /* room text blocks */
+  .labels { position: absolute; inset: 0; pointer-events: none; }
+  .rinfo { position: absolute; font-size: var(--fs); line-height: 1.25; color: var(--fps-fg); font-family: var(--fps-font); transition: opacity .4s; white-space: nowrap;
+           text-shadow: 0 0 .5em var(--fps-bg), 0 0 .2em var(--fps-bg); }
+  .rinfo .rn { font-size: .92em; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-muted); display: flex; align-items: center; gap: .5em; }
+  .rinfo.on .rn { color: var(--fps-accent); }
+  .rinfo .rh { font-size: 2.3em; font-weight: 300; line-height: 1.12; margin-top: .1em; font-variant-numeric: tabular-nums; }
+  .rinfo .rh:empty { display: none; }
+  .rinfo .rr { display: flex; align-items: center; gap: .45em; font-size: .9em; color: var(--fps-muted); margin-top: .28em; }
+  .rinfo .rr ha-icon, .rinfo .rr ha-state-icon { --mdc-icon-size: 1.15em; width: 1.15em; height: 1.15em; display: inline-flex; color: var(--fps-muted); opacity: .85; }
+  .rinfo .rr.on { color: var(--fps-fg); } .rinfo .rr.on ha-icon, .rinfo .rr.on ha-state-icon { color: var(--fps-accent); opacity: 1; }
+  .rinfo .rr.warn, .rinfo .rr.warn ha-icon { color: #ff9f1c; }
+  .rinfo .pd { display: none; width: .55em; height: .55em; border-radius: 50%; background: var(--fps-accent); box-shadow: 0 0 0 0 rgba(var(--fps-accent-rgb), .6); animation: fpsDot 2s infinite; }
+  .rinfo.present .pd { display: inline-block; }
+  @keyframes fpsDot { 70% { box-shadow: 0 0 0 .7em rgba(var(--fps-accent-rgb), 0); } 100% { box-shadow: 0 0 0 0 rgba(var(--fps-accent-rgb), 0); } }
+  .zoomed .rinfo { opacity: 0; pointer-events: none; }
+  .labels .rinfo { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .rinfo.off { display: none; }
+  .moving .rinfo { cursor: grab; outline: 1px dashed rgba(var(--fps-accent-rgb), .7); outline-offset: .4em; border-radius: 4px; }
+  .moving .rinfo.off { display: block; opacity: .35; }
+  .rinfo.dragging { cursor: grabbing; opacity: .85; }
+  .rinfo .rsz { display: none; position: absolute; right: -.9em; bottom: -.9em; width: 1.1em; height: 1.1em; min-width: 14px; min-height: 14px; border-radius: 3px;
+                background: var(--fps-accent); cursor: nwse-resize; box-shadow: 0 0 0 2px var(--fps-bg); }
+  .moving .rinfo .rsz, .can-edit .rinfo:hover .rsz { display: block; }
+  .can-edit .labels .rinfo { cursor: grab; }
+  .lmenu { position: absolute; z-index: 15; transform: translate(0, -4px); min-width: 170px; padding: 6px; border-radius: 12px; background: var(--fps-bg);
+           border: 1px solid var(--fps-line); box-shadow: 0 10px 30px rgba(0,0,0,.5); font-family: var(--fps-font); animation: fpsfade .15s ease; }
+  .lmenu .lm-t { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fps-muted); padding: 4px 8px 6px; }
+  .lmenu button { all: unset; display: flex; align-items: center; gap: 8px; width: calc(100% - 16px); padding: 7px 8px; border-radius: 8px; font-size: 13px; color: var(--fps-fg); cursor: pointer; --mdc-icon-size: 17px; }
+  .lmenu button:hover { background: var(--fps-chip); } .lmenu button ha-icon { color: var(--fps-accent); }
+  /* side column */
+  .side { padding: 10px 14px 14px 4px; display: flex; flex-direction: column; gap: 12px; font-family: var(--fps-font); }
+  .side .box { background: var(--fps-chip); border: 1px solid var(--fps-line); border-radius: 16px; padding: 12px 14px; }
+  .side .clock .time { font-size: 54px; font-weight: 300; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .side .clock .date { font-size: 13px; color: var(--fps-muted); margin-top: 6px; }
+  .side .wx { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+  .side .wx ha-icon { --mdc-icon-size: 34px; color: var(--fps-accent); }
+  .side .wx b { font-size: 22px; font-weight: 600; display: block; }
+  .side small { font-size: 11.5px; color: var(--fps-muted); display: block; line-height: 1.35; }
+  .side .mainbtn { display: flex; align-items: center; gap: 12px; cursor: pointer; border-color: rgba(var(--fps-accent-rgb), .35);
+                   background: linear-gradient(135deg, rgba(var(--fps-accent-rgb), .16), var(--fps-chip) 70%); }
+  .side .mainbtn b { font-size: 19px; display: block; margin-bottom: 3px; }
+  .side .mainbtn > div:first-child { flex: 1; min-width: 0; }
+  .side .pwr { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--fps-off); color: var(--fps-muted); flex: none; --mdc-icon-size: 22px; }
+  .side .mainbtn.on .pwr { background: var(--fps-accent); color: #10161d; box-shadow: 0 0 18px rgba(var(--fps-accent-rgb), .5); }
+  .side .btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+  .side .sbtn { all: unset; cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 12px; font-size: 12.5px; font-weight: 600;
+                background: var(--fps-chip); border: 1px solid var(--fps-line); color: var(--fps-fg); --mdc-icon-size: 16px; overflow: hidden; }
+  .side .sbtn ha-icon { color: var(--fps-accent); flex: none; }
+  .side .sbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side .energy { cursor: pointer; }
+  .side .energy .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .side .energy label { font-size: 10px; letter-spacing: .14em; color: var(--fps-muted); font-weight: 700; text-transform: uppercase; }
+  .side .energy b { display: block; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; }
+  .side .energy b.exp { color: #4cd38a; }
+  .side .bar { height: 4px; border-radius: 4px; background: var(--fps-off); margin: 10px 0 6px; overflow: hidden; }
+  .side .bar i { display: block; height: 100%; background: var(--fps-accent); border-radius: 4px; transition: width .6s; }
+  .side .status { display: flex; flex-direction: column; }
+  .side .srow { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: center; padding: 7px 2px; font-size: 13px; cursor: pointer;
+                border-bottom: 1px solid var(--fps-line); --mdc-icon-size: 17px; }
+  .side .srow:last-child { border-bottom: none; }
+  .side .srow ha-state-icon { color: var(--fps-accent); }
+  .side .srow .n { color: var(--fps-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side .srow .v { font-weight: 600; white-space: nowrap; }
+  .side .navbar { padding: 0; justify-content: flex-start; }
+  .navbar { display: flex; justify-content: center; gap: 8px; padding: 8px 12px 12px; flex-wrap: wrap; }
+  .toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 25; padding: 8px 14px; border-radius: 999px; font-size: 13px;
+           background: rgba(0,0,0,.8); color: #fff; animation: fpsfade .2s ease; pointer-events: none; }
+`;
+
+class FloorplanStudioCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._items = new Map();
+    this._zoomRoom = null;
+    this._moving = false;
+  }
+
+  static getStubConfig() { return { theme: 'warm', mode: 'all' }; }
+  static getConfigElement() { return document.createElement('floorplan-studio-card-editor'); }
+  getCardSize() { return 9; }
+  getGridOptions() { return { columns: 'full', rows: 'auto', min_columns: 6 }; }
+
+  setConfig(config) {
+    this._config = { show_toolbar: true, show_theme_toggle: false, ...config };
+    this._plan = null;
+    if (this._hass) this._load();
+  }
+
+  set hass(hass) {
+    const first = !this._hass;
+    this._hass = hass;
+    if (first) this._load();
+    else this._update();
+  }
+
+  connectedCallback() {
+    this._onChanged = (ev) => { if (!this._dragging && !this.planOverride) this._load(true); };
+    window.addEventListener('fps-plans-changed', this._onChanged);
+    this._fsHook = this._fsHook || (() => { if (this._built) this._build(); });
+    window.addEventListener('fps-fullscreen', this._fsHook);
+    this._usageTimer = setInterval(() => this._loadUsage(), 10 * 60 * 1000);
+    this._clock = setInterval(() => { if (this._config?.side || this._greet) this._update(); }, 20000);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('fps-plans-changed', this._onChanged);
+    window.removeEventListener('fps-fullscreen', this._fsHook);
+    clearInterval(this._usageTimer);
+    clearTimeout(this._liveTimer);
+    clearInterval(this._clock);
+  }
+
+  /* ---------------------------------------------------------- state */
+  _pref(key, fallback) {
+    try { return localStorage.getItem(`fps-${key}-${this._plan?.id}`) || fallback; } catch (e) { return fallback; }
+  }
+  _setPref(key, val) {
+    try { localStorage.setItem(`fps-${key}-${this._plan?.id}`, val); } catch (e) { /* private mode */ }
+  }
+  get _s() { return settingsOf(this._plan); }
+  get _mode() { return this._pref('mode', this._config.mode || this._s.default_mode); }
+  get _theme() { const ent = themeFromEntity(this._hass, this._s); if (ent) return ent; const base = this._config.theme || this._s.theme; return this._config.show_theme_toggle ? this._pref('theme', base) : base; }
+  get _realTheme() { return resolveTheme(this._theme, this._hass); }
+  get _tempOn() { return this._pref('temp', this._s.temp_color ? 'on' : 'off') === 'on'; }
+  get _showNav() { return Array.isArray(this._config.nav) && this._config.nav.length > 0 && (this._config.kiosk || isKiosk()); }
+  get _greet() { return this._config.greeting ?? (this._s.greeting && !!this._config.side); }
+  /** Themes you can pick: with a theme helper only the ones the helper has (in the helper's own words). */
+  get _themeChoices() {
+    const st = this._s.theme_entity && this._hass?.states[this._s.theme_entity];
+    if (st) {
+      const out = (st.attributes.options || []).map((o) => [themeKey(o), o]).filter(([k]) => k);
+      if (out.length) return out;
+    }
+    return Object.entries(THEMES).map(([k, v]) => [k, v.label]);
+  }
+  get _isAdmin() { return !!this._hass?.user?.is_admin; }
+
+  async _load(force = false) {
+    if (!this._hass) return;
+    if (!this._plan) this._message(t(this._hass, 'loading'));
+    if (this.planOverride) { this._plan = this.planOverride; await this._loadUsage(); this._build(); return; }
+    try {
+      const plans = await loadPlans(this._hass, force);
+      this._plan = (this._config.plan && plans.find((p) => p.id === this._config.plan)) || plans[0] || null;
+    } catch (e) {
+      this._message(`Floorplan Studio: ${esc(e.message || e)}`);
+      return;
+    }
+    if (!this._plan) { this._message(t(this._hass, 'no_plan')); return; }
+    await this._loadUsage();
+    this._build();
+  }
+
+  async _loadUsage() {
+    if (!this._hass || !this._plan) return;
+    const days = this._config.usage_days || this._s.usage_days;
+    try {
+      this._usage = await loadUsage(this._hass, days);
+    } catch (e) {
+      this._usage = null;
+    }
+    this._update();
+  }
+
+  _message(text) {
+    this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card class="t-${resolveTheme(this._config.theme, this._hass)}" style="${themeStyle(this._config.theme, this._hass)}"><div class="msg">${text}</div></ha-card>`;
+    this._built = false;
+  }
+
+  /* ---------------------------------------------------------- build */
+  _build() {
+    const plan = this._plan, h = this._hass, theme = this._theme;
+    const mode = this._mode;
+    const tb = this._config.show_toolbar ? `
+      <div class="toolbar">
+        ${this._greet ? `<div class="title greet"><span class="g1"></span><small class="g2"></small></div>` : `<div class="title">${esc(this._config.title ?? plan.name ?? '')}</div>`}
+        <div class="seg" id="mode">
+          <button data-mode="simple" class="${mode === 'simple' ? 'active' : ''}"><ha-icon icon="mdi:star-outline"></ha-icon>${t(h, 'simple')}</button>
+          <button data-mode="all" class="${mode === 'all' ? 'active' : ''}"><ha-icon icon="mdi:view-grid-outline"></ha-icon>${t(h, 'all')}</button>
+        </div>
+        ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
+        <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
+        <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
+        ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon>${t(h, this._moving ? 'done' : 'move')}</button>` : ''}
+      </div>` : '';
+    this.shadowRoot.innerHTML = `<style>${CSS}</style>
+      <ha-card class="t-${this._realTheme}" style="${themeStyle(theme, h, this._s)}">
+        <div class="layout ${this._config.side ? 'withside' : ''}"><div class="main">
+        ${tb}
+        <div class="alertbar"></div>
+        <div class="viewport"><div class="stage" style="aspect-ratio: ${plan.width} / ${plan.height}; --ar: ${plan.width / plan.height}">
+          ${planSVG(plan)}
+          <div class="labels"></div>
+          <div class="items"></div>
+          <div class="peoplelayer" style="position:absolute;inset:0;pointer-events:none"></div>
+        </div></div>
+        <div class="roompanel"></div>
+        <div class="note"></div>
+        ${this._showNav && !this._config.side ? navHTML(this._config.nav) : ''}
+        </div>${this._config.side ? '<aside class="side"></aside>' : ''}</div>
+        ${this._config.kiosk && !isFull() ? `<div class="kioskstart"><ha-icon icon="mdi:fullscreen"></ha-icon><span>${t(h, 'kiosk_tap')}</span></div>` : ''}
+      </ha-card>`;
+    const root = this.shadowRoot;
+    this._card = root.querySelector('ha-card');
+    this._stage = root.querySelector('.stage');
+    this._layer = root.querySelector('.items');
+    this._items.clear();
+    for (const it of plan.items || []) this._addItem(it);
+    this._buildLabels();
+    this._glows = new Map();
+
+    root.querySelectorAll('#mode button').forEach((b) => b.addEventListener('click', () => { this._setPref('mode', b.dataset.mode); this._build(); }));
+    root.querySelector('#theme')?.addEventListener('change', (ev) => {
+      const ent = this._s.theme_entity;
+      if (ent && this._hass.states[ent]) {   // the whole house follows the helper
+        const opts = this._hass.states[ent].attributes.options || [];
+        const opt = opts.find((o) => themeKey(o) === ev.target.value) || THEMES[ev.target.value].label;
+        this._hass.callService(ent.split('.')[0], 'select_option', { entity_id: ent, option: opt });
+      } else { this._setPref('theme', ev.target.value); this._build(); }
+    });
+    root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
+    root.querySelector('#move')?.addEventListener('click', () => { this._moving = !this._moving; this._build(); });
+    const fs = () => toggleFull();
+    root.querySelector('#fs')?.addEventListener('click', fs);
+    root.querySelector('.kioskstart')?.addEventListener('click', (ev) => { ev.stopPropagation(); ev.currentTarget.remove(); fs(); });
+    root.querySelector('svg.plan').addEventListener('click', (ev) => {
+      this._roomTap(ev.target.dataset?.room && plan.rooms.find((r) => r.id === ev.target.dataset.room));
+    });
+    root.addEventListener('pointerdown', (ev) => { if (!ev.composedPath().some((n) => n.classList?.contains('lmenu'))) this._closeLabelMenu(); });
+    this._card.classList.toggle('moving', this._moving);
+    this._card.classList.toggle('can-edit', this._isAdmin && !this.planOverride);
+    this._card.classList.toggle('notags', !this._s.show_tags);
+    this._built = true;
+    this._themeKey = undefined;
+    this._last = new Map();
+    if (!this._zoomRoom && this._config.room) {
+      const want = String(this._config.room).toLowerCase();
+      this._zoomRoom = plan.rooms.find((r) => [r.id, r.area_id, r.name].some((v) => v && String(v).toLowerCase() === want)) || null;
+    }
+    this._update(true);
+    if (this._zoomRoom) requestAnimationFrame(() => this._zoom(plan.rooms.find((r) => r.id === this._zoomRoom.id) || null, false));
+    root.querySelectorAll('.navbar [data-nav]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); kioskGo(b.dataset.nav); }));
+  }
+
+  /** Tap on a room (or its text block): zoom in, or open the room's page. */
+  _roomTap(room) {
+    if (this._moving || !this._s.tap_zoom || this._config.room) return;
+    if (room && this._s.room_tap === 'page' && this._config.room_pages && !this._zoomRoom) {
+      navigate(location.pathname.replace(/[^/]*$/, roomPath(room)) + location.search);
+      return;
+    }
+    this._zoom(room && room !== this._zoomRoom ? room : null);
+  }
+
+  _addItem(it) {
+    const st = this._hass.states[it.entity_id];
+    const domain = it.entity_id.split('.')[0];
+    const kind = LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
+    const el = document.createElement('div');
+    el.className = `item ${kind}`;
+    el.style.left = `${(it.x / this._plan.width) * 100}%`;
+    el.style.top = `${(it.y / this._plan.height) * 100}%`;
+    el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
+    const bub = el.querySelector('.bub');
+    if (kind !== 'sensor') {
+      const icon = document.createElement(it.icon ? 'ha-icon' : 'ha-state-icon');
+      if (it.icon) icon.icon = it.icon;
+      bub.appendChild(icon);
+    }
+    el.querySelector('.name').textContent = it.name || friendly(this._hass, it.entity_id);
+    this._pointer(el, it);
+    this._layer.appendChild(el);
+    this._items.set(it.entity_id, { el, it, kind, icon: bub.firstChild, st: null });
+    if (!st) el.style.opacity = '.35';
+  }
+
+  /* ---------------------------------------------------------- update */
+  _visible(entityId, it) {
+    if (this._mode !== 'simple' || it.pin) return true;
+    if (entityId.startsWith('vacuum.') && VACUUM_BUSY.includes(this._hass?.states[entityId]?.state)) return true;   // a vacuum on the move is always shown
+    const u = this._usage;
+    if (!u || (u.tracking_days < this._s.learning_days && u.entities.length < 3)) return true; // still learning
+    return u.entities.includes(entityId);
+  }
+
+  _update(force = false) {
+    if (!this._built || !this._hass) return;
+    const h = this._hass;
+    this._themeTick();
+    for (const [id, rec] of this._items) {
+      const st = h.states[id];
+      rec.el.classList.toggle('hidden', !this._visible(id, rec.it));
+      if (!force && st === rec.st) continue;
+      rec.st = st;
+      if (!st) continue;
+      if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON') { rec.icon.hass = h; rec.icon.stateObj = st; }
+      const on = isOn(st);
+      rec.el.classList.toggle('on', on);
+      if (rec.kind === 'lamp') {
+        // a fixed colour from the editor wins (e.g. a smart plug with a purple lamp in it)
+        const fixed = rec.it.color && /^#[0-9a-f]{6}$/i.test(rec.it.color) ? [1, 3, 5].map((i) => parseInt(rec.it.color.slice(i, i + 2), 16)).join(',') : null;
+        const c = fixed || lightColor(st);
+        if (c) rec.el.style.setProperty('--c', c); else rec.el.style.removeProperty('--c');
+      } else if (rec.kind === 'sensor') {
+        rec.el.querySelector('.bub').textContent = shortState(h, st);
+      } else {
+        rec.el.querySelector('.tag').textContent = ['climate', 'cover', 'media_player', 'vacuum'].includes(st.entity_id.split('.')[0]) ? shortState(h, st) : '';
+      }
+    }
+    for (const room of this._plan.rooms) this._updateRoom(room);
+    this._updateGlows();
+    this._updateSide();
+    if (this._greet) {
+      const g = greeting(h), root = this.shadowRoot;
+      const g1 = root.querySelector('.g1'), g2 = root.querySelector('.g2');
+      if (g1 && g1.textContent !== g.title) g1.textContent = g.title;
+      if (g2 && g2.textContent !== g.sub) g2.textContent = g.sub;
+    }
+    this._updateAlerts();
+    this._liveMap();
+    if (this._zoomRoom) this._renderPanel();
+    const note = this.shadowRoot.querySelector('.note');
+    if (note) {
+      const u = this._usage;
+      note.textContent = this._mode === 'simple' && u && u.tracking_days < this._s.learning_days && u.entities.length < 3 ? t(h, 'learning', { d: u.tracking_days }) : '';
+    }
+  }
+
+  _updateRoom(room) {
+    const h = this._hass, s = roomSummary(h, room), S = this._s;
+    const pres = S.presence ? roomPresence(h, room, S) : { occupied: false, by: [], people: [] };
+    const al = roomAlerts(h, room, S);
+    this._roomState = this._roomState || new Map();
+    this._roomState.set(room.id, { pres, al });
+    const tempOn = this._tempOn;
+    const info = roomInfo(h, room, S);
+    const key = [JSON.stringify(info), s.lit.join(), s.colors.join('|'), pres.by.join(), pres.people.join(), al.items.map((a) => a.id).join(), tempOn, S.glow_style].join('/');
+    if (this._last.get(room.id) === key) return;
+    this._last.set(room.id, key);
+    const root = this.shadowRoot;
+    // temperature colour + alerts on the floor
+    const tv = s.temp ? parseFloat(s.temp.state) : NaN;
+    root.querySelectorAll(`.floor[data-room="${room.id}"]`).forEach((f) => {
+      if (tempOn && !isNaN(tv)) f.style.fill = `color-mix(in srgb, var(--fps-floor) 62%, rgb(${tempColor(tv, S.temp_min, S.temp_max)}))`;
+      else f.style.removeProperty('fill');
+      f.classList.toggle('alarm', al.level === 'alarm');
+      f.classList.toggle('warn', al.level === 'warn');
+    });
+    this._updatePeople(room, pres);
+    const glow = root.getElementById(`glow-${room.id}`);
+    glow?.classList.toggle('on', s.lit.length > 0 && S.glow_style === 'room');
+    if (s.colors.length) {
+      const avg = [0, 1, 2].map((i) => Math.round(s.colors.reduce((a, c) => a + +c.split(',')[i], 0) / s.colors.length)).join(',');
+      root.getElementById(`g-${room.id}`)?.style.setProperty('--glow', avg);
+    }
+    const box = root.querySelector(`.rinfo[data-room="${room.id}"]`);
+    if (!box) return;
+    box.classList.toggle('on', s.lit.length > 0);
+    box.classList.toggle('present', pres.occupied);
+    box.querySelector('.rh').textContent = info.headline;
+    const rows = box.querySelector('.rrows');
+    rows.innerHTML = '';
+    for (const r of info.rows) {
+      const d = document.createElement('div');
+      d.className = `rr ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}`;
+      let ic;
+      if (r.icon) { ic = document.createElement('ha-icon'); ic.icon = r.icon; }
+      else { ic = document.createElement('ha-state-icon'); ic.hass = h; ic.stateObj = h.states[r.entity]; }
+      const sp = document.createElement('span'); sp.textContent = r.text;
+      d.append(ic, sp);
+      rows.appendChild(d);
+    }
+  }
+
+  /** Room text blocks as HTML (icons + rows), each on the freest spot of its room. */
+  _buildLabels() {
+    const layer = this.shadowRoot.querySelector('.labels'), plan = this._plan, S = this._s;
+    if (!layer) return;
+    layer.innerHTML = '';
+    for (const room of plan.rooms) {
+      const fs0 = Math.max(9, Math.min(13, roomTextWidth(room) / 12)) * (S.label_size / 100);
+      const fs = fs0 * (room.label_scale || 1);
+      const rows = this._hass ? roomInfo(this._hass, room, S).rows.length : 2;
+      const [x, y] = room.label ? [room.label.x, room.label.y] : labelSpot(plan, room, fs0, rows);
+      const d = document.createElement('div');
+      d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
+      d.style.left = `${(x / plan.width) * 100}%`; d.style.top = `${(y / plan.height) * 100}%`;
+      d.style.setProperty('--fs', `${(fs / plan.width) * 100}cqw`);
+      d.innerHTML = '<div class="rn"><span></span><i class="pd"></i></div><div class="rh"></div><div class="rrows"></div>';
+      d.querySelector('.rn span').textContent = room.name || '';
+      if (this._isAdmin && !this.planOverride) d.insertAdjacentHTML('beforeend', '<i class="rsz" title="Groter / kleiner"></i>');
+      this._labelPointer(d, room);
+      layer.appendChild(d);
+    }
+  }
+
+  /**
+   * Text block: tap = like tapping the room; hold = menu (admins); while moving icons: drag it,
+   * and drag the little corner to make it bigger or smaller.
+   */
+  _labelPointer(d, room) {
+    let timer = null, down = null, held = false;
+    const editable = () => this._isAdmin && !this.planOverride;
+    d.addEventListener('click', (ev) => ev.stopPropagation());
+    d.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    d.addEventListener('pointerdown', (ev) => {
+      ev.stopPropagation();
+      if (this._zoomRoom) return;
+      if (editable() && ev.target.classList.contains('rsz')) { this._labelResize(ev, d, room); return; }
+      if (editable() && this._moving) { this._labelDrag(ev, d, room); return; }
+      held = false; down = ev;
+      if (editable()) timer = setTimeout(() => { timer = null; held = true; this._labelMenu(d, room); }, this._s.hold_ms);
+    });
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    d.addEventListener('pointermove', (ev) => {
+      if (!down || held || Math.hypot(ev.clientX - down.clientX, ev.clientY - down.clientY) <= 8) return;
+      cancel();
+      const from = down; down = null;
+      if (editable()) this._labelDrag(from, d, room);   // press and move = drag the block straight away
+    });
+    d.addEventListener('pointercancel', () => { cancel(); down = null; });
+    d.addEventListener('pointerup', (ev) => {
+      ev.stopPropagation();
+      const tap = down && !held && !this._moving;
+      cancel(); down = null;
+      if (tap) this._roomTap(room);
+    });
+  }
+
+  _labelDrag(ev, d, room) {
+    const rect = this._stage.getBoundingClientRect(), plan = this._plan;
+    const px = (e) => [((e.clientX - rect.left) / rect.width) * plan.width, ((e.clientY - rect.top) / rect.height) * plan.height];
+    const [sx, sy] = px(ev);
+    const ox = sx - (parseFloat(d.style.left) / 100) * plan.width, oy = sy - (parseFloat(d.style.top) / 100) * plan.height;
+    this._dragging = true;
+    d.setPointerCapture(ev.pointerId);
+    d.classList.add('dragging');
+    let pos = null;
+    const move = (e) => {
+      const [x, y] = px(e);
+      pos = { x: Math.round(Math.max(0, Math.min(plan.width - 20, x - ox))), y: Math.round(Math.max(0, Math.min(plan.height - 20, y - oy))) };
+      d.style.left = `${(pos.x / plan.width) * 100}%`; d.style.top = `${(pos.y / plan.height) * 100}%`;
+    };
+    const up = async () => {
+      d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up);
+      d.classList.remove('dragging');
+      if (pos) await this._saveRoom(room, (r) => { r.label = pos; }, false); else this._dragging = false;
+    };
+    d.addEventListener('pointermove', move); d.addEventListener('pointerup', up);
+  }
+
+  _labelResize(ev, d, room) {
+    const r0 = d.getBoundingClientRect(), base = room.label_scale || 1;
+    const dist0 = Math.hypot(ev.clientX - r0.left, ev.clientY - r0.top) || 1;
+    const plan = this._plan;
+    this._dragging = true;
+    const handle = ev.target;
+    handle.setPointerCapture(ev.pointerId);
+    let scale = base;
+    const move = (e) => {
+      scale = Math.round(Math.max(0.5, Math.min(3, base * (Math.hypot(e.clientX - r0.left, e.clientY - r0.top) / dist0))) * 100) / 100;
+      d.style.setProperty('--fs', `${((d._fs * scale) / plan.width) * 100}cqw`);
+    };
+    const up = async () => {
+      handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up);
+      await this._saveRoom(room, (r) => { r.label_scale = scale; }, false);
+    };
+    handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up);
+  }
+
+  _labelMenu(d, room) {
+    this._closeLabelMenu();
+    const h = this._hass, m = document.createElement('div');
+    m.className = 'lmenu';
+    m.style.left = d.style.left; m.style.top = d.style.top;
+    const items = [
+      ['move', 'mdi:cursor-move', t(h, 'lbl_move')],
+      ['bigger', 'mdi:magnify-plus-outline', t(h, 'lbl_bigger')],
+      ['smaller', 'mdi:magnify-minus-outline', t(h, 'lbl_smaller')],
+      ['auto', 'mdi:auto-fix', t(h, 'lbl_auto')],
+      ['hide', room.label_hidden ? 'mdi:eye-outline' : 'mdi:eye-off-outline', t(h, room.label_hidden ? 'lbl_show' : 'lbl_hide')],
+    ];
+    m.innerHTML = `<div class="lm-t">${esc(room.name || '')}</div>` + items.map(([k, ic, txt]) => `<button data-a="${k}"><ha-icon icon="${ic}"></ha-icon>${esc(txt)}</button>`).join('');
+    m.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    m.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const a = ev.target.closest('button')?.dataset.a;
+      if (!a) return;
+      this._closeLabelMenu();
+      if (a === 'move') { this._moving = true; this._build(); return; }
+      if (a === 'bigger' || a === 'smaller') await this._saveRoom(room, (r) => { r.label_scale = Math.round(Math.max(0.5, Math.min(3, (r.label_scale || 1) * (a === 'bigger' ? 1.15 : 1 / 1.15))) * 100) / 100; });
+      if (a === 'auto') await this._saveRoom(room, (r) => { delete r.label; delete r.label_scale; });
+      if (a === 'hide') await this._saveRoom(room, (r) => { r.label_hidden = !r.label_hidden || undefined; });
+    });
+    this._stage.appendChild(m);
+    this._lmenu = m;
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) { /* ignore */ }
+  }
+  _closeLabelMenu() { this._lmenu?.remove(); this._lmenu = null; }
+
+  /** Change one room of the plan, save it, and redraw the text blocks. */
+  async _saveRoom(room, fn, rebuild = true) {
+    const r = this._plan.rooms.find((x) => x.id === room.id);
+    if (!r) return;
+    fn(r);
+    this._dragging = true;
+    try { await savePlan(this._hass, this._plan); } catch (e) { this._toast(String(e.message || e)); } finally { this._dragging = false; }
+    if (rebuild) { this._buildLabels(); this._last = new Map(); this._update(true); }
+  }
+
+  /** A soft pool of light around every lamp that is on, in the lamp's colour. */
+  _updateGlows() {
+    const g = this.shadowRoot.querySelector('.lampglows > g');
+    if (!g) return;
+    const on = this._s.glow_style === 'lamp';
+    for (const [id, rec] of this._items) {
+      const d = id.split('.')[0];
+      if (d !== 'light' && !rec.it.color) continue;
+      let c = this._glows.get(id);
+      if (!c) {
+        c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y); c.setAttribute('r', this._plan.width * 0.06);
+        g.appendChild(c); this._glows.set(id, c);
+      }
+      const st = this._hass.states[id], lit = on && !!st && isOn(st) && !rec.el.classList.contains('hidden');
+      const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
+      c.setAttribute('fill', `rgb(${col})`);
+      c.style.opacity = lit ? '' : '0';
+    }
+  }
+
+  /** Right-hand column: clock, weather, the big button, quick buttons, energy and a status list. */
+  _updateSide() {
+    const el = this.shadowRoot.querySelector('.side');
+    if (!el) return;
+    const h = this._hass, plan = this._plan, cfg = sideConfig(h, plan);
+    const now = new Date(), lang = (h.locale?.language || 'en');
+    const wx = weatherInfo(h, cfg.weather), main = mainAction(h, plan, cfg), en = energyInfo(h, cfg);
+    const stRows = cfg.status.map((id) => statusRow(h, id, cfg.names)).filter(Boolean);
+    const key = JSON.stringify([now.getHours(), now.getMinutes(), wx, main.title, main.sub, main.on, en, stRows, cfg.buttons.map((id) => h.states[id]?.state)]);
+    if (el.dataset.key === key) return;
+    el.dataset.key = key;
+    const date = now.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' });
+    el.innerHTML = `
+      <div class="clock"><div class="time">${now.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' })}</div><div class="date">${esc(date[0].toUpperCase() + date.slice(1))}</div></div>
+      ${wx ? `<div class="wx" data-more="${esc(cfg.weather)}"><ha-icon icon="${wx.icon}"></ha-icon><div><b>${esc(wx.temp)}</b><small>${esc(wx.text)}</small></div></div>` : ''}
+      <div class="box mainbtn ${main.on ? 'on' : ''}" id="mainbtn"><div><b>${esc(main.title)}</b><small>${esc(main.sub)}</small></div><div class="pwr"><ha-icon icon="${esc(main.icon || 'mdi:power')}"></ha-icon></div></div>
+      ${cfg.buttons.length ? `<div class="btns">${cfg.buttons.map((id) => `<button class="sbtn" data-btn="${esc(id)}"><ha-icon icon="${esc(h.states[id].attributes.icon || (id.startsWith('scene.') ? 'mdi:palette' : id.startsWith('script.') ? 'mdi:script-text-play' : 'mdi:gesture-tap'))}"></ha-icon><span>${esc(friendly(h, id))}</span></button>`).join('')}</div>` : ''}
+      ${en ? `<div class="box energy" data-more="${esc(cfg.solar || cfg.grid)}"><div class="cols">
+          ${en.solar != null ? `<div><label>${t(h, 'e_solar')}</label><b>${esc(en.solar)}</b></div>` : ''}
+          <div><label>${t(h, 'e_grid')}</label><b class="${en.exporting ? 'exp' : ''}">${esc(en.net)}</b></div>
+          ${en.price ? `<div><label>${t(h, 'e_price')}</label><b>${esc(en.price)}</b></div>` : ''}</div>
+          ${en.share != null ? `<div class="bar"><i style="width:${Math.round(en.share * 100)}%"></i></div>` : ''}${en.today ? `<small>${esc(en.today)}</small>` : ''}</div>` : ''}
+      ${stRows.length ? `<div class="status">${stRows.map((r) => `<div class="srow" data-more="${esc(r.id)}"><ha-state-icon data-id="${esc(r.id)}"></ha-state-icon><span class="n">${esc(r.name)}</span><span class="v">${esc(r.value)}</span></div>`).join('')}</div>` : ''}
+      ${this._showNav ? navHTML(this._config.nav) : ''}`;
+    el.querySelectorAll('ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
+    el.querySelectorAll('[data-more]').forEach((x) => x.addEventListener('click', () => fire(this, 'hass-more-info', { entityId: x.dataset.more })));
+    el.querySelector('#mainbtn')?.addEventListener('click', () => { if (main.call) h.callService(...main.call); });
+    el.querySelectorAll('[data-btn]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.btn, d = id.split('.')[0];
+      h.callService(d, ['scene', 'script'].includes(d) ? 'turn_on' : 'toggle', { entity_id: id });
+    }));
+    el.querySelectorAll('.navbar [data-nav]').forEach((b) => b.addEventListener('click', () => kioskGo(b.dataset.nav)));
+  }
+
+  /** Little avatars for people that are tracked to this room. */
+  _updatePeople(room, pres) {
+    const layer = this.shadowRoot.querySelector('.peoplelayer');
+    if (!layer) return;
+    let box = layer.querySelector(`.people[data-room="${room.id}"]`);
+    if (!pres.people.length) { box?.remove(); return; }
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'people'; box.dataset.room = room.id;
+      const [x0, , , y1] = roomBBox(room);
+      box.style.left = `${((x0 + 10) / this._plan.width) * 100}%`;
+      box.style.top = `${((y1 - 10) / this._plan.height) * 100}%`;
+      layer.appendChild(box);
+    }
+    box.innerHTML = '';
+    for (const p of pres.people) {
+      const st = this._hass.states[p], name = friendly(this._hass, p);
+      const d = document.createElement('div');
+      d.className = 'person'; d.title = name;
+      if (st?.attributes.entity_picture) d.style.backgroundImage = `url("${st.attributes.entity_picture}")`;
+      else d.textContent = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+      box.appendChild(d);
+    }
+  }
+
+  /** One banner with every alarm (red, flashing) or open door/window (orange). */
+  _updateAlerts() {
+    const bar = this.shadowRoot.querySelector('.alertbar');
+    if (!bar || !this._roomState) return;
+    const all = [];
+    for (const room of this._plan.rooms) for (const a of this._roomState.get(room.id)?.al.items || []) all.push({ ...a, room });
+    const alarms = all.filter((a) => a.level === 'alarm'), list = alarms.length ? alarms : all;
+    const key = list.map((a) => a.id).join();
+    if (bar.dataset.key === key) return;
+    bar.dataset.key = key;
+    bar.className = 'alertbar' + (alarms.length ? ' alarm' : list.length ? ' warn' : '');
+    bar.innerHTML = list.length ? `<ha-icon icon="${alarms.length ? 'mdi:alert' : 'mdi:door-open'}"></ha-icon>` : '';
+    for (const a of list) {
+      const sp = document.createElement('span');
+      sp.textContent = `${t(this._hass, 'a_' + a.dc)} – ${a.room.name}`;
+      sp.addEventListener('click', () => this._zoom(a.room));
+      bar.appendChild(sp);
+    }
+  }
+
+  /** The vacuum's own live map over the plan while it cleans, lined up with the traced background. */
+  _liveMap() {
+    const el = this.shadowRoot.querySelector('.livemap');
+    if (!el) return;
+    const h = this._hass, S = this._s, vac = planVacuum(h, this._plan), mapId = vacuumMapEntity(h, this._plan);
+    const busy = vac && VACUUM_BUSY.includes(h.states[vac]?.state);
+    const show = !!mapId && (S.vacuum_live === 'always' || (S.vacuum_live === 'cleaning' && busy));
+    const mode = S.vacuum_show || 'robot';              // robot: only the robot drives over your plan | map: the vacuum's own map | both
+    const showMap = show && mode !== 'robot';
+    el.classList.toggle('on', showMap && !!this._liveUrl);
+    el.setAttribute('opacity', S.vacuum_opacity);
+    if (!show || mode === 'map') this._robotAt(vac, null);
+    if (!show) return;
+    const st = h.states[mapId];
+    const src = st.attributes.entity_picture;
+    if (!src) return;
+    const stamp = `${src}|${st.last_updated || st.state}`;
+    const now = Date.now();
+    if (this._liveStamp === stamp && now - (this._liveAt || 0) < 5000) return;
+    if (this._liveBusy) return;
+    this._liveStamp = stamp; this._liveAt = now; this._liveBusy = true;
+    const img = new Image();
+    img.onload = () => {
+      this._liveBusy = false;
+      let c = img;
+      try { c = transformImage(img, this._plan.background?.ops || []); } catch (e) { /* use as is */ }
+      if (showMap) {
+        try { this._liveUrl = c.toDataURL ? c.toDataURL('image/png') : img.src; } catch (e) { this._liveUrl = img.src; }
+        el.setAttribute('href', this._liveUrl);
+        el.classList.add('on');
+      }
+      if (mode !== 'map') this._robotAt(vac, findRobot(c), c);
+    };
+    img.onerror = () => { this._liveBusy = false; };
+    img.src = src + (src.includes('?') ? '&' : '?') + '_=' + now;
+    clearTimeout(this._liveTimer);
+    this._liveTimer = setTimeout(() => this._update(), 5500);   // keep refreshing while it drives
+  }
+
+  /** Move the vacuum's icon to where the robot is on its map (null = back to its own spot), with a short trail. */
+  _robotAt(vac, pos, canvas) {
+    const rec = vac && this._items.get(vac), trail = this.shadowRoot.querySelector('.vactrail');
+    if (!rec) return;
+    const b = this._plan.background;
+    if (!pos || !b || !canvas) {
+      if (rec.el.classList.contains('driving')) {
+        rec.el.classList.remove('driving');
+        rec.el.style.left = `${(rec.it.x / this._plan.width) * 100}%`;
+        rec.el.style.top = `${(rec.it.y / this._plan.height) * 100}%`;
+      }
+      this._trail = [];
+      trail?.setAttribute('points', '');
+      return;
+    }
+    const w = canvas.width || canvas.naturalWidth, hh = canvas.height || canvas.naturalHeight;
+    const x = (b.x || 0) + (pos[0] / w) * b.w, y = (b.y || 0) + (pos[1] / hh) * b.h;
+    rec.el.classList.add('driving');
+    rec.el.style.left = `${(x / this._plan.width) * 100}%`;
+    rec.el.style.top = `${(y / this._plan.height) * 100}%`;
+    this._trail = [...(this._trail || []), [Math.round(x), Math.round(y)]].slice(-60);
+    trail?.setAttribute('points', this._trail.map((p) => p.join(',')).join(' '));
+  }
+
+
+  _toast(text) {
+    const old = this.shadowRoot.querySelector('.toast'); old?.remove();
+    const d = document.createElement('div');
+    d.className = 'toast'; d.textContent = text;
+    this._card.appendChild(d);
+    setTimeout(() => d.remove(), 3500);
+  }
+
+  /** Clean one room: vacuum.clean_area (HA areas) or, as a fallback, Roborock segment ids. */
+  async _cleanRoom(room) {
+    const h = this._hass, vac = planVacuum(h, this._plan);
+    if (!vac) return;
+    try {
+      if (h.services?.vacuum?.clean_area && room.area_id) {
+        await h.callService('vacuum', 'clean_area', { entity_id: vac, cleaning_area_id: room.area_id });
+      } else if (room.vacuum_segments) {
+        const segs = String(room.vacuum_segments).split(/[\s,;]+/).filter(Boolean).map((v) => (isNaN(+v) ? v : +v));
+        await h.callService('vacuum', 'send_command', { entity_id: vac, command: 'app_segment_clean', params: [{ segments: segs, repeat: 1 }] });
+      } else return;
+      this._toast(t(h, 'cleaning_sent'));
+    } catch (e) {
+      this._toast(t(h, 'clean_failed', { e: e.message || e }));
+    }
+  }
+  _canClean(room) {
+    const h = this._hass;
+    return !!planVacuum(h, this._plan) && ((h.services?.vacuum?.clean_area && room.area_id) || !!room.vacuum_segments);
+  }
+
+  /* theme follows the clock / the sun: re-apply when the effective look changes */
+  _themeTick() {
+    const real = this._realTheme;
+    const key = real + (THEMES[real]?.daylight ? '|' + daylightVars(this._hass, this._s).key : '');
+    const first = this._themeKey === undefined;
+    if (this._themeKey === key) return;
+    this._themeKey = key;
+    if (first) return;
+    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags');
+    this._card.setAttribute('style', themeStyle(this._theme, this._hass, this._s));
+    const sel = this.shadowRoot.querySelector('#theme');            // keep the dropdown in step when the theme changes elsewhere
+    if (sel && sel.value !== real) sel.value = real;
+  }
+
+  /* ---------------------------------------------------------- zoom */
+  /**
+   * Room view: the room is isolated (everything else dims away), zoomed into the left part of
+   * the card, and a side panel shows the room's data and everything in its area.
+   */
+  _zoom(room, animate = true) {
+    this._zoomRoom = room;
+    const plan = this._plan, W = plan.width, H = plan.height;
+    this._card.classList.toggle('zoomed', !!room);
+    this._stage.style.transition = animate ? '' : 'none';
+    const panel = this.shadowRoot.querySelector('.roompanel');
+    let k = 1;
+    if (!room) {
+      this._stage.style.transform = '';
+      panel.classList.remove('open');
+    } else {
+      const [x0, y0, x1, y1] = roomBBox(room);
+      const side = this._stage.clientWidth > 520 ? 0.36 : 0;        // room panel takes the right 36% on wide cards
+      const availW = W * (1 - side), cxT = availW / 2;
+      const s = Math.min(5, Math.min(availW / (x1 - x0), H / (y1 - y0)) * 0.86);
+      const tx = ((cxT - ((x0 + x1) / 2) * s) / W) * 100;
+      const ty = ((H / 2 - ((y0 + y1) / 2) * s) / H) * 100;
+      this._stage.style.transform = `translate(${tx}%, ${ty}%) scale(${s})`;
+      k = Math.min(1, 1.9 / s);
+      panel.classList.toggle('narrow', !side);
+      panel.classList.add('open');
+      this._renderPanel(true);
+    }
+    this._stage.style.setProperty('--k', k);
+    const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
+    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && (el.dataset.room || el.id.replace('glow-', '')) !== room.id));
+    this.shadowRoot.querySelector('.walls')?.classList.toggle('dim', !!room);
+    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
+    // the room's text moves to the side panel while zoomed (.zoomed .rinfo hides it)
+  }
+
+  _renderPanel(force = false) {
+    const room = this._zoomRoom, h = this._hass;
+    if (!room) return;
+    const panel = this.shadowRoot.querySelector('.roompanel');
+    const s = roomSummary(h, room), S = this._s;
+    const ids = areaEntities(h, room.area_id, [...PLACE_DOMAINS, 'sensor', 'binary_sensor', 'scene', 'script', 'button', 'select', 'number', 'input_boolean'])
+      .sort((a, b) => (isOn(h.states[b]) - isOn(h.states[a])) || friendly(h, a).localeCompare(friendly(h, b))).slice(0, 40);
+    const rs = this._roomState?.get(room.id) || { pres: { occupied: false, by: [], people: [] }, al: { items: [] } };
+    const key = [JSON.stringify(roomInfo(h, room, S)), s.lit.length, rs.pres.by.join(), rs.pres.people.join(), rs.al.items.map((a) => a.id).join(), ...ids.map((id) => `${id}=${h.states[id]?.state}`)].join('|');
+    if (!force && panel.dataset.key === key) return;
+    panel.dataset.key = key;
+    const info = roomInfo(h, room, S);
+    panel.innerHTML = `${this._config.room ? '' : `<button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button>`}
+      <div class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</div>
+      ${info.headline ? `<div class="ptemp">${esc(info.headline)}</div>` : ''}
+      <div class="prows">${info.rows.map((r) => `<div class="pline prow2 ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}">${r.icon ? `<ha-icon icon="${r.icon}"></ha-icon>` : `<ha-state-icon data-id="${esc(r.entity)}"></ha-state-icon>`}<span>${esc(r.text)}</span></div>`).join('')}</div>
+      ${rs.pres.occupied ? `<div class="ppres"><ha-icon icon="mdi:account"></ha-icon>${esc(rs.pres.people.length ? rs.pres.people.map((p) => friendly(h, p)).join(', ') : t(h, 'present'))}</div>` : ''}
+      ${rs.al.items.map((a) => `<div class="palert ${a.level}">${esc(t(h, 'a_' + a.dc))} · ${esc(friendly(h, a.id))}</div>`).join('')}
+      ${this._canClean(room) ? `<div class="pbtn"><button class="btn" id="clean"><ha-icon icon="mdi:robot-vacuum"></ha-icon>${t(h, 'clean_room')}</button></div>` : ''}
+      <div class="phead">${t(h, 'in_room')}</div><div class="plist"></div>`;
+    panel.querySelectorAll('.prows ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
+    panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._zoom(null); });
+    panel.querySelector('#clean')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._cleanRoom(room); });
+    const list = panel.querySelector('.plist');
+    for (const id of ids) {
+      const st = h.states[id];
+      const row = document.createElement('div');
+      row.className = `prow ${isOn(st) ? 'on' : ''}`;
+      row.innerHTML = '<ha-state-icon></ha-state-icon><span class="n"></span><span class="v"></span>';
+      const ic = row.querySelector('ha-state-icon'); ic.hass = h; ic.stateObj = st;
+      row.querySelector('.n').textContent = friendly(h, id);
+      row.querySelector('.v').textContent = shortState(h, st);
+      this._pointer(row, { entity_id: id });
+      list.appendChild(row);
+    }
+  }
+
+  /* ---------------------------------------------------------- input */
+  _pointer(el, it) {
+    let timer = null, held = false, start = null;
+    el.addEventListener('pointerdown', (ev) => {
+      ev.stopPropagation();
+      held = false; start = [ev.clientX, ev.clientY];
+      if (this._moving && el.classList.contains('item')) { this._startDrag(ev, el, it); return; }
+      timer = setTimeout(() => { held = true; fire(this, 'hass-more-info', { entityId: it.entity_id }); }, this._s.hold_ms);
+    });
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    el.addEventListener('pointerleave', cancel);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('pointermove', (ev) => { if (start && Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) > 10) cancel(); });
+    el.addEventListener('pointerup', (ev) => {
+      ev.stopPropagation();
+      if (this._moving || !timer) { cancel(); return; }
+      cancel();
+      if (!held) this._tap(it.entity_id);
+    });
+    el.addEventListener('click', (ev) => ev.stopPropagation());
+    el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  }
+
+  _tap(entityId) {
+    const h = this._hass, st = h.states[entityId], d = entityId.split('.')[0];
+    if (!st) return;
+    if (['light', 'switch', 'fan', 'input_boolean', 'humidifier', 'siren'].includes(d)) h.callService(d, 'toggle', { entity_id: entityId });
+    else if (d === 'cover' || d === 'valve') h.callService(d, 'toggle', { entity_id: entityId });
+    else if (d === 'media_player' && st.attributes.supported_features & 128) h.callService(d, 'toggle', { entity_id: entityId });
+    else if (d === 'scene' || d === 'script') h.callService(d, 'turn_on', { entity_id: entityId });
+    else if (d === 'button') h.callService(d, 'press', { entity_id: entityId });
+    else if (d === 'camera') this._showCamera(entityId);
+    else fire(this, 'hass-more-info', { entityId });
+    if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) { /* ignore */ }
+  }
+
+  /** Live camera view over the floorplan; tap anywhere on it to close. */
+  _showCamera(entityId) {
+    const h = this._hass, st = h.states[entityId];
+    this.shadowRoot.querySelector('.camview')?.remove();
+    const v = document.createElement('div');
+    v.className = 'camview';
+    v.innerHTML = '<div class="frame"></div>';
+    const frame = v.firstChild;
+    // a snapshot right away, with the live MJPEG stream on top (works for every camera integration)
+    const tok = st.attributes.access_token;
+    const snap = document.createElement('img');
+    snap.src = `/api/camera_proxy/${entityId}?token=${tok}&t=${Date.now()}`;
+    snap.style.minHeight = '30%';
+    const live = document.createElement('img');
+    live.src = `/api/camera_proxy_stream/${entityId}?token=${tok}`;
+    live.style.cssText = 'position:absolute;inset:0;';
+    frame.append(snap, live);
+    frame.insertAdjacentHTML('beforeend', `<div class="cap">${esc(friendly(h, entityId))}</div><ha-icon class="x" icon="mdi:close"></ha-icon>`);
+    v.addEventListener('click', (ev) => { ev.stopPropagation(); live.src = ''; snap.src = ''; v.remove(); });
+    this.shadowRoot.querySelector('.viewport').appendChild(v);
+  }
+
+  _startDrag(ev, el, it) {
+    const rect = this._stage.getBoundingClientRect();
+    const plan = this._plan, grid = 5;
+    this._dragging = true;
+    el.setPointerCapture(ev.pointerId);
+    const move = (e) => {
+      const x = Math.max(0, Math.min(plan.width, ((e.clientX - rect.left) / rect.width) * plan.width));
+      const y = Math.max(0, Math.min(plan.height, ((e.clientY - rect.top) / rect.height) * plan.height));
+      it.x = Math.round(x / grid) * grid; it.y = Math.round(y / grid) * grid;
+      el.style.left = `${(it.x / plan.width) * 100}%`;
+      el.style.top = `${(it.y / plan.height) * 100}%`;
+    };
+    const up = async () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      try { await savePlan(this._hass, this._plan); } finally { this._dragging = false; }
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  }
+}
+
+/* ---------------------------------------------------------- visual editor */
+/* ------------------------------------------------------------ kiosk menu */
+/*
+ * Full screen that survives switching tabs: the whole page goes full screen (not just the card),
+ * HA's header and sidebar are hidden (like kiosk-mode does), and the menu bar appears.
+ * Tabs are switched inside the app, so the browser stays in full screen.
+ */
+/** Where the robot is drawn on a vacuum map image: the centre of its white body (null if not found). */
+function findRobot(src) {
+  try {
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight, k = Math.min(1, 700 / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    // the robot is a filled white disc; a path may be white too but is thin: take the densest white spot
+    const cell = 6, gw = Math.ceil(c.width / cell), grid = new Uint16Array(gw * Math.ceil(c.height / cell));
+    const white = (i) => d[i + 3] > 200 && d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235;
+    let total = 0;
+    for (let i = 0; i < d.length; i += 4) if (white(i)) { const p = i / 4; grid[Math.floor(Math.floor(p / c.width) / cell) * gw + Math.floor((p % c.width) / cell)]++; total++; }
+    if (total < 6 || total > c.width * c.height * 0.05) return null;    // nothing, or a white map background: no robot to find
+    let best = 0, bi = 0;
+    for (let i = 0; i < grid.length; i++) {
+      const gx = i % gw, gy = Math.floor(i / gw);
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = gx + dx, y = gy + dy; if (x >= 0 && x < gw && y >= 0) sum += grid[y * gw + x] || 0; }
+      if (sum > best) { best = sum; bi = i; }
+    }
+    const cx = (bi % gw) * cell + cell / 2, cy = Math.floor(bi / gw) * cell + cell / 2, r = cell * 2.5;
+    let sx = 0, sy = 0, n = 0;
+    for (let y = Math.max(0, Math.floor(cy - r)); y < Math.min(c.height, cy + r); y++) {
+      for (let x = Math.max(0, Math.floor(cx - r)); x < Math.min(c.width, cx + r); x++) { if (white((y * c.width + x) * 4)) { sx += x; sy += y; n++; } }
+    }
+    return n ? [sx / n / k, sy / n / k] : null;
+  } catch (e) { return null; }
+}
+
+const FS_KEY = 'fps-fullscreen';
+const isFull = () => !!document.fullscreenElement && (() => { try { return sessionStorage.getItem(FS_KEY) === '1'; } catch (e) { return true; } })();
+const CHROME_CSS = {
+  main: 'ha-sidebar { display: none !important; } ha-drawer { --mdc-drawer-width: 0px !important; }',
+  drawer: '.sidebar-shell, .mdc-drawer { display: none !important; } .app-content, .mdc-drawer-app-content { padding-left: 0 !important; padding-inline-start: 0 !important; margin-left: 0 !important; margin-inline-start: 0 !important; }',
+  root: '.header { display: none !important; } :host { --header-height: 0px !important; } #view, hui-view-container { padding-top: 0 !important; margin-top: 0 !important; min-height: 100vh !important; }',
+};
+function haChrome(hide) {
+  const put = (root, css) => {
+    if (!root) return;
+    let st = root.querySelector('#fps-full');
+    if (!hide) { st?.remove(); return; }
+    if (!st) { st = document.createElement('style'); st.id = 'fps-full'; root.appendChild(st); }
+    st.textContent = css;
+  };
+  try {
+    const ms = document.querySelector('home-assistant')?.shadowRoot?.querySelector('home-assistant-main')?.shadowRoot;
+    put(ms, CHROME_CSS.main);
+    put(ms?.querySelector('ha-drawer')?.shadowRoot, CHROME_CSS.drawer);
+    put(ms?.querySelector('partial-panel-resolver ha-panel-lovelace, ha-panel-lovelace')?.shadowRoot?.querySelector('hui-root')?.shadowRoot, CHROME_CSS.root);
+  } catch (e) { /* HA changed its layout: full screen still works, the bars just stay */ }
+}
+function toggleFull() {
+  if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
+  try { sessionStorage.setItem(FS_KEY, '1'); } catch (e) { /* private mode */ }
+  document.documentElement.requestFullscreen?.().catch(() => {});
+}
+if (!window.__fpsFullHook) {
+  window.__fpsFullHook = true;
+  const sync = () => {
+    const on = isFull();
+    if (!document.fullscreenElement) { try { sessionStorage.removeItem(FS_KEY); } catch (e) { /* ignore */ } }
+    haChrome(on);
+    window.dispatchEvent(new CustomEvent('fps-fullscreen', { detail: { on } }));
+  };
+  document.addEventListener('fullscreenchange', sync);
+  // another tab or dashboard has its own header: hide that one too
+  window.addEventListener('location-changed', () => { if (isFull()) [50, 400, 1200].forEach((ms) => setTimeout(() => haChrome(true), ms)); });
+}
+
+const isKiosk = () => /[?&]kiosk(=|&|$)/.test(location.search) || isFull();
+/** Go to another tab of the same dashboard and stay in kiosk (full reload, so kiosk-mode applies). */
+function kioskGo(path) {
+  // inside the app (no reload), so full screen and kiosk-mode stay on
+  navigate(location.pathname.replace(/[^/]*$/, path) + (/[?&]kiosk(=|&|$)/.test(location.search) ? location.search : ''));
+}
+function navHTML(nav = []) {
+  const here = location.pathname.split('/').pop();
+  return `<div class="navbar">${nav.map((n) => `<button class="btn ${n.path === here ? 'active' : ''}" data-nav="${esc(n.path)}"><ha-icon icon="${esc(n.icon || 'mdi:circle-small')}"></ha-icon>${esc(n.title)}</button>`).join('')}</div>`;
+}
+
+/**
+ * Menu bar for the other tabs while in kiosk mode (?kiosk in the address).
+ * Outside kiosk mode it takes no space, because the normal tabs are visible then.
+ */
+class FloorplanStudioNav extends HTMLElement {
+  constructor() { super(); this.attachShadow({ mode: 'open' }); this._onFull = () => this._render(); }
+  connectedCallback() { window.addEventListener('fps-fullscreen', this._onFull); window.addEventListener('location-changed', this._onFull); this._render(); }
+  disconnectedCallback() { window.removeEventListener('fps-fullscreen', this._onFull); window.removeEventListener('location-changed', this._onFull); }
+  setConfig(c) { this._config = c; this._render(); }
+  set hass(h) { if (!this._hass) { this._hass = h; this._render(); } }
+  getCardSize() { return isKiosk() ? 1 : 0; }
+  _render() {
+    if (!this._config) return;
+    if (!isKiosk()) { this.shadowRoot.innerHTML = ''; this.style.display = 'none'; return; }
+    this.style.display = 'block';
+    const style = themeStyle(this._config.theme || 'warm', this._hass);
+    this.shadowRoot.innerHTML = `<style>
+      .navbar { display: flex; justify-content: center; gap: 8px; padding: 6px 0; flex-wrap: wrap; font-family: var(--fps-font); }
+      .btn { all: unset; cursor: pointer; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+             border: 1px solid var(--fps-line); background: var(--fps-chip); color: var(--fps-fg); --mdc-icon-size: 16px; }
+      .btn.active { border-color: var(--fps-accent); color: var(--fps-accent); }
+    </style><div style="${style}">${navHTML(this._config.nav)}</div>`;
+    this.shadowRoot.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => kioskGo(b.dataset.nav)));
+  }
+}
+
+class FloorplanStudioCardEditor extends HTMLElement {
+  setConfig(config) { this._config = { ...config }; this._render(); }
+  set hass(hass) {
+    const first = !this._hass; this._hass = hass;
+    if (first) loadPlans(hass).then((p) => { this._plans = p; this._render(); }).catch(() => {});
+  }
+  _render() {
+    if (!this._config) return;
+    const c = this._config, plans = this._plans || [];
+    const nl = (this._hass?.locale?.language || 'en').startsWith('nl');
+    const L = nl
+      ? { plan: 'Plattegrond', theme: 'Thema', mode: 'Standaard weergave', simple: 'Eenvoudig (laatst gebruikt)', all: 'Alles', toolbar: 'Knoppenbalk tonen', themetoggle: 'Thema-knoppen tonen', title: 'Titel (leeg = naam plattegrond)', open: 'Plattegronden tekenen en bewerken doe je via Floorplan in de zijbalk.' }
+      : { plan: 'Floorplan', theme: 'Theme', mode: 'Default view', simple: 'Simple (recently used)', all: 'All', toolbar: 'Show toolbar', themetoggle: 'Show theme buttons', title: 'Title (empty = plan name)', open: 'Draw and edit floorplans via Floorplan in the sidebar.' };
+    this.innerHTML = `<style>.r{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}label{font-size:13px;color:var(--secondary-text-color)}select,input[type=text]{padding:8px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color)}.c{flex-direction:row;align-items:center;gap:8px}p{font-size:12px;color:var(--secondary-text-color)}</style>
+      <div class="r"><label>${L.plan}</label><select data-k="plan">${plans.map((p) => `<option value="${p.id}" ${c.plan === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="r"><label>${L.title}</label><input type="text" data-k="title" value="${esc(c.title || '')}"></div>
+      <div class="r"><label>${L.theme}</label><select data-k="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${c.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+      <div class="r"><label>${L.mode}</label><select data-k="mode"><option value="all" ${c.mode !== 'simple' ? 'selected' : ''}>${L.all}</option><option value="simple" ${c.mode === 'simple' ? 'selected' : ''}>${L.simple}</option></select></div>
+      <div class="r c"><input type="checkbox" data-k="show_toolbar" ${c.show_toolbar !== false ? 'checked' : ''}><label>${L.toolbar}</label></div>
+      <div class="r c"><input type="checkbox" data-k="show_theme_toggle" ${c.show_theme_toggle ? 'checked' : ''}><label>${L.themetoggle}</label></div>
+      <p>${L.open}</p>`;
+    this.querySelectorAll('[data-k]').forEach((el) => el.addEventListener('change', () => {
+      const v = el.type === 'checkbox' ? el.checked : el.value;
+      this._config = { ...this._config, [el.dataset.k]: v };
+      if (v === '' ) delete this._config[el.dataset.k];
+      fire(this, 'config-changed', { config: this._config });
+    }));
+  }
+}
+
+if (!customElements.get('floorplan-studio-card')) {
+  customElements.define('floorplan-studio-card', FloorplanStudioCard);
+  customElements.define('floorplan-studio-card-editor', FloorplanStudioCardEditor);
+  customElements.define('floorplan-studio-nav', FloorplanStudioNav);
+  window.customCards = window.customCards || [];
+  window.customCards.push({ type: 'floorplan-studio-card', name: 'Floorplan Studio', description: 'Interactive floorplan with live lights, devices and room zoom.', preview: false, documentationURL: 'https://github.com/trackerr/home-assistant-floorplan-studio' });
+  console.info(`%c FLOORPLAN-STUDIO %c ${VERSION} `, 'background:#f2a541;color:#111;font-weight:700', 'background:#151b24;color:#eee');
+}
