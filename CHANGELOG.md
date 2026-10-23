@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+- Lampen tonen hun sterkte: het percentage onder de knop, en een gedimde lamp heeft een zachtere knop en lichtvlek (uit te zetten met *Sterkte van lampen tonen*).
+- De lichtvlek verhuist mee als je een lamp versleept.
+
 ## 1.0.0
 Eerste versie.
 

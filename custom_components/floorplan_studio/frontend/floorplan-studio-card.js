@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.0.0';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.0';
+} from './fps-core.js?v=1.0.1';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.1';
 
 
 const CSS = `
@@ -36,6 +36,9 @@ const CSS = `
   .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: max(14px, 1.6cqw); }
   .item.on .bub { background: rgb(var(--c, var(--fps-accent-rgb))); color: #10161d; border: 2px solid var(--fps-ring, transparent);
                   box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), .9), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), .45); }
+  .item.lamp.on .bub { background: color-mix(in srgb, rgb(var(--c, var(--fps-accent-rgb))) calc(45% + 55% * var(--b, 1)), var(--fps-off));
+                       box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), calc(.25 + .65 * var(--b, 1))), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), calc(.1 + .35 * var(--b, 1))); }
+  .nolevel .item.lamp.on .bub { --b: 1; }
   .item.device .bub { border-radius: 22%; border-color: rgba(var(--fps-device-rgb), .5); color: var(--fps-device); }
   .item.device.on .bub { background: rgba(var(--fps-device-rgb), .25); color: var(--fps-device); border-color: var(--fps-device); box-shadow: 0 0 1cqw rgba(var(--fps-device-rgb), .55); }
   .item.sensor .bub { border-radius: 999px; width: auto; padding: 0 .8cqw; font-size: max(10px, 1.05cqw); font-weight: 600; color: var(--fps-fg); }
@@ -345,6 +348,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._card.classList.toggle('moving', this._moving);
     this._card.classList.toggle('can-edit', this._isAdmin && !this.planOverride);
     this._card.classList.toggle('notags', !this._s.show_tags);
+    this._card.classList.toggle('nolevel', this._s.lamp_level === false);
     this._built = true;
     this._themeKey = undefined;
     this._last = new Map();
@@ -416,6 +420,10 @@ class FloorplanStudioCard extends HTMLElement {
         const fixed = rec.it.color && /^#[0-9a-f]{6}$/i.test(rec.it.color) ? [1, 3, 5].map((i) => parseInt(rec.it.color.slice(i, i + 2), 16)).join(',') : null;
         const c = fixed || lightColor(st);
         if (c) rec.el.style.setProperty('--c', c); else rec.el.style.removeProperty('--c');
+        // brightness: a dimmed lamp gets a softer button and glow, and its level as a small tag
+        const br = st.attributes.brightness, lvl = on && br != null ? Math.max(1, Math.round(br / 2.55)) : null;
+        rec.el.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
+        rec.el.querySelector('.tag').textContent = lvl != null && this._s.lamp_level !== false ? `${lvl}%` : '';
       } else if (rec.kind === 'sensor') {
         rec.el.querySelector('.bub').textContent = shortState(h, st);
       } else {
@@ -637,10 +645,12 @@ class FloorplanStudioCard extends HTMLElement {
         c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y); c.setAttribute('r', this._plan.width * 0.06);
         g.appendChild(c); this._glows.set(id, c);
       }
+      c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y);   // follows the lamp when it is moved
       const st = this._hass.states[id], lit = on && !!st && isOn(st) && !rec.el.classList.contains('hidden');
       const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
+      const b = this._s.lamp_level !== false ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
       c.setAttribute('fill', `rgb(${col})`);
-      c.style.opacity = lit ? '' : '0';
+      c.style.opacity = lit ? (0.3 + 0.7 * b).toFixed(2) : '0';
     }
   }
 
@@ -824,7 +834,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._themeKey === key) return;
     this._themeKey = key;
     if (first) return;
-    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags');
+    this._card.className = 't-' + real + (this._zoomRoom ? ' zoomed' : '') + (this._moving ? ' moving' : '') + (this._s.show_tags ? '' : ' notags') + (this._s.lamp_level === false ? ' nolevel' : '');
     this._card.setAttribute('style', themeStyle(this._theme, this._hass, this._s));
     const sel = this.shadowRoot.querySelector('#theme');            // keep the dropdown in step when the theme changes elsewhere
     if (sel && sel.value !== real) sel.value = real;

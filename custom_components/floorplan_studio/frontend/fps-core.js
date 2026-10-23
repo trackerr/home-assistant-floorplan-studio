@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -430,6 +430,7 @@ export const DEFAULT_SETTINGS = {
   theme_entity: '',
   room_tap: 'zoom',
   glow_style: 'lamp',       // lamp: a soft pool of light around each lamp | room: the whole room glows | off
+  lamp_level: true,         // dimmed lamps: softer button and glow, and their level ("40%") as a tag
   show_co2: true, show_covers: true, show_climate: true, show_media: true,   // extra rows in the room text
   info_rows: 5,             // at most this many rows under a room's name
   compass: null,            // north arrow: degrees (0 = up), empty = none

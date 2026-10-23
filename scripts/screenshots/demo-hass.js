@@ -11,7 +11,7 @@ const AREAS = {
 // [entity_id, state, attributes, area]
 const DEF = [
   ['light.woonkamer_plafond', 'on', { friendly_name: 'Plafondlamp woonkamer', color_temp_kelvin: 2700, brightness: 200 }, 'woonkamer'],
-  ['light.staande_lamp', 'on', { friendly_name: 'Staande lamp', rgb_color: [255, 140, 60], brightness: 160 }, 'woonkamer'],
+  ['light.staande_lamp', 'on', { friendly_name: 'Staande lamp', rgb_color: [255, 140, 60], brightness: 90 }, 'woonkamer'],
   ['light.leeslamp', 'off', { friendly_name: 'Leeslamp' }, 'woonkamer'],
   ['media_player.woonkamer_tv', 'playing', { friendly_name: 'Televisie', supported_features: 152463, media_title: 'Journaal', device_class: 'tv' }, 'woonkamer'],
   ['climate.woonkamer', 'heat', { friendly_name: 'Thermostaat', current_temperature: 21.3, temperature: 21, hvac_modes: ['off', 'heat'] }, 'woonkamer'],
