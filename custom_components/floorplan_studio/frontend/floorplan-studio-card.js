@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.1.0';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.0';
+} from './fps-core.js?v=1.1.1';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.1';
 
 
 const CSS = `
@@ -395,9 +395,12 @@ class FloorplanStudioCard extends HTMLElement {
     }
     this._update(true);
     if (this._compact) {
-      let want = this._zoomRoom?.id;
-      if (want === undefined) try { want = sessionStorage.getItem(`fps-croom-${plan.id}`) || ''; } catch (e) { want = ''; }
-      requestAnimationFrame(() => this._compactZoom(this._compactRooms().find((r) => r.id === want) || null));
+      // decided when the frame runs (a hidden tab delays it), so a room picked in between is kept
+      requestAnimationFrame(() => {
+        let want = this._zoomRoom?.id;
+        if (want === undefined) try { want = sessionStorage.getItem(`fps-croom-${plan.id}`) || ''; } catch (e) { want = ''; }
+        this._compactZoom(this._compactRooms().find((r) => r.id === want) || null);
+      });
     } else if (this._zoomRoom) requestAnimationFrame(() => this._zoom(plan.rooms.find((r) => r.id === this._zoomRoom.id) || null, false));
     root.querySelectorAll('.navbar [data-nav]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); kioskGo(b.dataset.nav); }));
   }
