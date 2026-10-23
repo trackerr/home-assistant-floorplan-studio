@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.0.1';
+import './floorplan-studio-card.js?v=1.0.2';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.0.1';
-import { buildDashboard } from './fps-dashboard.js?v=1.0.1';
+} from './fps-core.js?v=1.0.2';
+import { buildDashboard } from './fps-dashboard.js?v=1.0.2';
 
 const L = {
   en: {
@@ -28,7 +28,7 @@ const L = {
     finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', open: 'Open',
     set_title: 'Settings', set_intro: 'These are the defaults for every card that shows this floorplan. A card can still override them in its own options.',
     set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Behaviour', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
-    default_mode: 'Default view', learning_days: 'Show everything until … days of history exist', icon_size: 'Icon size', label_size: 'Room text size', glow: 'Glow strength',
+    default_mode: 'Default view', learning_days: 'Show everything until … days of history exist', plan_size: 'Floor plan size (%)', icon_size: 'Icon size', label_size: 'Room text size', glow: 'Glow strength',
     show_temp: 'Temperature', show_hum: 'Humidity', show_lights: 'Lights on (count)', show_tags: 'State labels under devices (21°, open…)',
     tap_zoom: 'Tap a room to zoom in', hold_ms: 'Hold time for details (ms)', sun_before: 'Starts getting light … minutes before sunrise', sun_ramp: 'Transition takes … minutes',
     auto_domains: 'Which kinds of devices', reset: 'Reset to defaults', simple: 'Simple', all: 'All',
@@ -76,7 +76,7 @@ const L = {
     finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Eenvoudig: toon wat de laatste … dagen gebruikt is', make_dash: 'Dashboard maken (Thuis · Plattegrond · Kiosk · Energie · Buiten · TV + pagina per ruimte)', dash_done: 'Dashboard gemaakt:', open: 'Openen',
     set_title: 'Instellingen', set_intro: 'Dit zijn de standaardwaarden voor elke kaart met deze plattegrond. Een kaart kan ze in zijn eigen opties nog overschrijven.',
     set_look: 'Uiterlijk', set_simple: 'Eenvoudig-modus', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Bediening', set_sun: 'Automatisch (zon)', set_auto: 'Automatisch plaatsen',
-    default_mode: 'Standaard weergave', learning_days: 'Toon alles tot er … dagen geschiedenis is', icon_size: 'Grootte iconen', label_size: 'Grootte kamertekst', glow: 'Sterkte gloed',
+    default_mode: 'Standaard weergave', learning_days: 'Toon alles tot er … dagen geschiedenis is', plan_size: 'Grootte plattegrond (%)', icon_size: 'Grootte iconen', label_size: 'Grootte kamertekst', glow: 'Sterkte gloed',
     show_temp: 'Temperatuur', show_hum: 'Vochtigheid', show_lights: 'Lampen aan (aantal)', show_tags: 'Statuslabels onder apparaten (21°, open…)',
     tap_zoom: 'Tik op ruimte = inzoomen', hold_ms: 'Vasthouden voor details (ms)', sun_before: 'Begint … minuten vóór zonsopkomst licht te worden', sun_ramp: 'Overgang duurt … minuten',
     auto_domains: 'Welke soorten apparaten', reset: 'Standaardwaarden herstellen', simple: 'Eenvoudig', all: 'Alles',
@@ -742,7 +742,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
       <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="mkhelper" style="flex:none">${l.make_helper}</button></div></div>
       <p>${l.theme_entity_hint}</p>
-      ${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
+      ${num('plan_size', 50, 100, 5)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
       <h3>${l.set_room}</h3>${chk('show_temp')}${chk('show_hum')}${chk('show_lights')}${chk('show_tags')}
       <h3>${l.set_simple}</h3>
       <div class="field"><span>${l.default_mode}</span><select data-set="default_mode"><option value="all" ${s.default_mode === 'all' ? 'selected' : ''}>${l.all}</option><option value="simple" ${s.default_mode === 'simple' ? 'selected' : ''}>${l.simple}</option></select></div>

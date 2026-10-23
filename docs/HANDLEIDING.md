@@ -123,7 +123,7 @@ Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rech
 
 | Onderdeel | Wat stel je in |
 |---|---|
-| **Uiterlijk** | Standaardthema, **thema voor het hele huis** (helper, zie hoofdstuk 6), grootte van iconen en kamertekst, sterkte van de gloed. |
+| **Uiterlijk** | Standaardthema, **thema voor het hele huis** (helper, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), grootte van iconen en kamertekst, sterkte van de gloed. |
 | **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan en statuslabels onder apparaten, elk los aan of uit. |
 | **Eenvoudig-modus** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
 | **Bediening** | Tikken op een ruimte aan/uit, wat er dan gebeurt (**inzoomen** of de **eigen pagina** van de ruimte openen) en hoe lang je moet vasthouden voor de details. |

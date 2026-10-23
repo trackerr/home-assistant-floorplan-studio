@@ -85,7 +85,7 @@ Open **Floorplan** in the sidebar and follow the steps.
 3. **Doors.** Choose *Door* or *Open passage* and click on a wall.
 4. **Devices.** Press **Place everything automatically**, then drag the icons to their real positions. You can add any other entity with the search box.
 5. **Settings.** Set the defaults for every card that shows this plan, with a live preview next to them:
-   - theme (or a helper that sets it for the whole house), icon size, room text size and glow strength;
+   - theme (or a helper that sets it for the whole house), floor plan size, icon size, room text size and glow strength;
    - temperature colours, presence (and who is tracked by which sensor), alerts, the vacuum (robot driving over the plan, or its live map), the side column and the smart button;
    - which lines the room text shows;
    - *Simple* mode: how many days to look back and how long the learning period is;
@@ -108,6 +108,7 @@ show_theme_toggle: false   # with a theme helper: only the helper's themes, and 
 title: Home           # optional, defaults to the plan name
 usage_days: 14        # optional, overrides the plan setting
 side: true            # optional: side column with clock, weather, buttons, energy and status
+size: 90              # optional: the plan uses 90% of the width – a more compact page (overrides the plan setting)
 greeting: true        # optional: "Good afternoon · Home: …" instead of the title (default: on with side)
 room: keuken          # optional: show only this room (room id, area id or name) – a "room page"
 room_pages: true      # set by Create dashboard: tapping a room may open its ruimte-<name> page

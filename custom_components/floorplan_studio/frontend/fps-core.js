@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.0.1';
+export const VERSION = '1.0.2';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -406,6 +406,7 @@ export const DEFAULT_SETTINGS = {
   default_mode: 'all',      // simple | all
   usage_days: 14,           // Simple: show what was used in the last N days
   learning_days: 3,         // Simple shows everything until this much history exists
+  plan_size: 100,           // % of the available width the plan uses (smaller = a more compact page)
   icon_size: 100,           // % of the normal icon size
   label_size: 100,          // % of the normal room-text size
   glow: 100,                // % strength of the room glow when lights are on

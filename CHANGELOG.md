@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.2
+- *Grootte plattegrond*: laat de plattegrond bijvoorbeeld 90% van de breedte gebruiken voor een compactere pagina; iconen, tekst en gloed schalen mee. Per kaart ook als `size: 90`.
+
 ## 1.0.1
 - Lampen tonen hun sterkte: het percentage onder de knop, en een gedimde lamp heeft een zachtere knop en lichtvlek (uit te zetten met *Sterkte van lampen tonen*).
 - De lichtvlek verhuist mee als je een lamp versleept.

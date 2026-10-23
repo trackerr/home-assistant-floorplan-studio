@@ -111,6 +111,7 @@ if (q.get('view') === 'panel') {
   if (q.get('mode')) cfg.mode = q.get('mode');
   if (q.get('room')) cfg.room = q.get('room');
   if (q.has('side')) cfg.side = true;
+  if (q.get('size')) cfg.size = Number(q.get('size'));
   if (q.has('kiosk')) cfg.nav = [{ title: 'Thuis', path: 'thuis', icon: 'mdi:home' }, { title: 'Plattegrond', path: 'demo.html', icon: 'mdi:floor-plan' }, { title: 'Energie', path: 'energie', icon: 'mdi:lightning-bolt' }, { title: 'Buiten', path: 'buiten', icon: 'mdi:pine-tree' }, { title: 'TV', path: 'tv', icon: 'mdi:television' }];
   el.setConfig(cfg);
   wrap.append(el);

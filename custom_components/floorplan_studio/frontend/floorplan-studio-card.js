@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.0.1';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.1';
+} from './fps-core.js?v=1.0.2';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.2';
 
 
 const CSS = `
@@ -306,7 +306,7 @@ class FloorplanStudioCard extends HTMLElement {
         <div class="layout ${this._config.side ? 'withside' : ''}"><div class="main">
         ${tb}
         <div class="alertbar"></div>
-        <div class="viewport"><div class="stage" style="aspect-ratio: ${plan.width} / ${plan.height}; --ar: ${plan.width / plan.height}">
+        <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${plan.width} / ${plan.height}; --ar: ${plan.width / plan.height}">
           ${planSVG(plan)}
           <div class="labels"></div>
           <div class="items"></div>
@@ -632,6 +632,12 @@ class FloorplanStudioCard extends HTMLElement {
   }
 
   /** A soft pool of light around every lamp that is on, in the lamp's colour. */
+  /** plan_size (or the card's own `size`): the plan uses less of the width, so the page gets more compact. */
+  _sizeStyle() {
+    const n = Number(this._config.size ?? this._s.plan_size ?? 100);
+    return n > 0 && n < 100 ? `width: ${n}%; margin: 0 auto;` : '';
+  }
+
   _updateGlows() {
     const g = this.shadowRoot.querySelector('.lampglows > g');
     if (!g) return;
