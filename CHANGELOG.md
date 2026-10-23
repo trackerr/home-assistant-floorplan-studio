@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.4
+- Het icoon dat je aanwijst komt met zijn naam naar de voorgrond, ook als het naast of onder andere iconen staat.
+
 ## 1.0.3
 - *Sterkte van lampen*: kies *altijd onder de lamp*, *alleen bij aanwijzen* (percentage naast de naam als je de lamp aanwijst) of *niet tonen*.
 

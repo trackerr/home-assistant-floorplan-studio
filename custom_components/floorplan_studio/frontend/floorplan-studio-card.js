@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.0.3';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.3';
+} from './fps-core.js?v=1.0.4';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.0.4';
 
 
 const CSS = `
@@ -47,6 +47,7 @@ const CSS = `
   .name { position: absolute; top: 100%; margin-top: .3cqw; white-space: nowrap; font-size: max(10px, .9cqw); padding: .2cqw .6cqw; border-radius: 6px;
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
+  .item:hover { z-index: 9; }   /* the item you point at, with its name, comes to the front */
   .moving .item { cursor: grab; } .moving .item .bub { outline: 1px dashed var(--fps-accent); outline-offset: 3px; }
   .floor, .glow, .walls { transition: opacity .5s ease; }
   .floor.dim { opacity: .12; } .glow.dim { opacity: 0 !important; } .walls.dim { opacity: .35; }
