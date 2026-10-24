@@ -1,7 +1,7 @@
 // Floorplan Studio – builds a complete dashboard around a floorplan:
 // Home · Floorplan · Kiosk · Energy · Outside · TV, plus a page per room (tabs are only added when there is something to show).
 // Uses only built-in cards, and nicer HACS cards (advanced-camera-card, clock-weather-card) when they are installed.
-import { entityArea, roomPath } from './fps-core.js?v=1.2.0';
+import { entityArea, roomPath } from './fps-core.js?v=1.2.1';
 
 const OUTSIDE = /buiten|tuin|outside|outdoor|garden|yard|oprit|driveway|terras|patio|balkon|balcony|garage|voortuin|achtertuin|poort|gate|dak|roof|straat|street/i;
 
@@ -14,7 +14,7 @@ export async function buildDashboard(hass, plan, nl, { home = true } = {}) {
   const visible = (id) => { const e = hass.entities?.[id]; return !e || (!e.hidden && !e.entity_category); };
   const ok = (id) => st[id] && !['unavailable', 'unknown'].includes(st[id].state);
   const has = (tag) => !!customElements.get(tag);
-  const card = { type: 'custom:floorplan-studio-card', plan: plan.id, show_theme_toggle: true, room_pages: true };
+  const card = { type: 'custom:floorplan-studio-card', plan: plan.id, show_theme_toggle: true, room_pages: true, floorplan_studio_managed_plan: plan.id };
 
   const views = [];
   // Home: a calm start page in the plan's theme (greeting, smart button, a tile per room, energy)

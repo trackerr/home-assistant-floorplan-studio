@@ -1,16 +1,16 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.2.0';
+import './floorplan-studio-card.js?v=1.2.1';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
-  PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.2.0';
-import { buildDashboard } from './fps-dashboard.js?v=1.2.0';
+  PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
+} from './fps-core.js?v=1.2.1';
+import { buildDashboard } from './fps-dashboard.js?v=1.2.1';
 
 const L = {
   en: {
     steps: ['Background', 'Rooms', 'Doors', 'Devices', 'Settings', 'Finish'],
     save: 'Save', saved: 'Saved ✓', unsaved: 'Unsaved changes', new_plan: 'New floorplan', delete_plan: 'Delete floorplan', undo: 'Undo',
-    confirm_delete: 'Delete this floorplan and its dashboard? You can’t undo this.', plan_name: 'Name', size: 'Canvas size (width × height)',
+    confirm_delete: 'Delete this floorplan and its generated dashboard? You can’t undo this.', confirm_discard: 'You have unsaved changes. Discard them?', bg_load_failed: 'The picture could not be loaded. Check the connection and try again.', plan_name: 'Name', size: 'Canvas size (width × height)',
     bg_title: 'What do you want to trace over?', bg_adjust: 'Line up the picture', bg_upload: 'Upload a picture', bg_upload_hint: 'A building plan, a photo of it, or a screenshot from your vacuum’s app.',
     bg_entity: 'Your robot vacuum’s map (or a camera)', bg_entity_hint: 'Uses the map your vacuum makes itself, e.g. from Roborock or Valetudo.', use: 'Use',
     bg_none: 'Draw without an example', bg_none_hint: 'Just draw your rooms on the grid.', opacity: 'Opacity', scale: 'Size', offx: 'Shift left/right', offy: 'Shift up/down',
@@ -25,7 +25,7 @@ const L = {
     items_title: 'Devices on the map', auto_place: 'Place everything for me', auto_hint: 'Puts lights, switches, heating, curtains and TVs in the room they belong to in Home Assistant.',
     unplaced: 'Not on the map yet', add: 'Add', search: 'Search anything in Home Assistant…', item: 'Device', show_always: 'Always show (also in Simple mode)', color: 'Light colour (for a plug with a coloured lamp)', no_color: 'automatic', icon: 'Icon (optional)', label: 'Name (optional)',
     remove: 'Remove from map', items_tip: 'Drag the icons to the right spot. On your dashboard: tap = on/off, hold = more info.',
-    finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', open: 'Open',
+    finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', dash_conflict: 'A dashboard already exists at /{url}, and Floorplan Studio did not create it. It was left unchanged.', dash_error: 'The dashboard could not be created: ', open: 'Open',
     set_title: 'Settings', set_intro: 'This applies to every card that shows this floorplan.',
     set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
     default_mode: 'Default view', learning_days: 'Show everything until … days of history exist', plan_size: 'Floor plan size in %', icon_size: 'Icon size', label_size: 'Room text size', glow: 'Glow strength',
@@ -58,7 +58,7 @@ const L = {
   nl: {
     steps: ['Achtergrond', 'Ruimtes', 'Deuren', 'Apparaten', 'Instellingen', 'Klaar'],
     save: 'Opslaan', saved: 'Opgeslagen ✓', unsaved: 'Niet opgeslagen', new_plan: 'Nieuwe plattegrond', delete_plan: 'Plattegrond verwijderen', undo: 'Ongedaan maken',
-    confirm_delete: 'Deze plattegrond en het dashboard dat erbij hoort verwijderen? Dit kun je niet terugdraaien.', plan_name: 'Naam', size: 'Grootte van het tekenvlak (breedte × hoogte)',
+    confirm_delete: 'Deze plattegrond en het dashboard dat ervoor is gemaakt verwijderen? Dit kun je niet terugdraaien.', confirm_discard: 'Je hebt wijzigingen die niet zijn opgeslagen. Wil je ze weggooien?', bg_load_failed: 'Het plaatje kon niet worden geladen. Controleer de verbinding en probeer het opnieuw.', plan_name: 'Naam', size: 'Grootte van het tekenvlak (breedte × hoogte)',
     bg_title: 'Waar wil je overheen tekenen?', bg_adjust: 'Plaatje goed leggen', bg_upload: 'Plaatje uploaden', bg_upload_hint: 'Een bouwtekening, een foto ervan, of een screenshot uit de app van je stofzuiger.',
     bg_entity: 'Kaart van je robotstofzuiger (of een camera)', bg_entity_hint: 'Gebruikt de kaart die je stofzuiger zelf maakt, bijvoorbeeld van Roborock of Valetudo.', use: 'Gebruiken',
     bg_none: 'Zonder voorbeeld tekenen', bg_none_hint: 'Je tekent de ruimtes gewoon op het raster.', opacity: 'Doorzichtigheid', scale: 'Grootte', offx: 'Naar links of rechts', offy: 'Omhoog of omlaag',
@@ -73,7 +73,7 @@ const L = {
     items_title: 'Apparaten op de kaart', auto_place: 'Alles vanzelf neerzetten', auto_hint: 'Zet lampen, schakelaars, verwarming, gordijnen en tv’s neer in de ruimte waar ze in Home Assistant bij horen.',
     unplaced: 'Nog niet op de kaart', add: 'Toevoegen', search: 'Zoek iets uit Home Assistant…', item: 'Apparaat', show_always: 'Altijd laten zien (ook bij Eenvoudig)', color: 'Kleur van het licht (voor een stekker met een gekleurde lamp)', no_color: 'automatisch', icon: 'Ander icoon (mag leeg)', label: 'Andere naam (mag leeg)',
     remove: 'Van de kaart halen', items_tip: 'Sleep de iconen naar de goede plek. Op je dashboard: tikken = aan/uit, vasthouden = meer info.',
-    finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Laat zien wat de laatste … dagen gebruikt is', make_dash: 'Maak een dashboard (Thuis, Plattegrond, Kiosk, Energie, Buiten, TV en een pagina per ruimte)', dash_done: 'Dashboard gemaakt:', open: 'Openen',
+    finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Laat zien wat de laatste … dagen gebruikt is', make_dash: 'Maak een dashboard (Thuis, Plattegrond, Kiosk, Energie, Buiten, TV en een pagina per ruimte)', dash_done: 'Dashboard gemaakt:', dash_conflict: 'Er bestaat al een dashboard op /{url} dat Floorplan Studio niet heeft gemaakt. Het is niet gewijzigd.', dash_error: 'Het dashboard kon niet worden gemaakt: ', open: 'Openen',
     set_title: 'Instellingen', set_intro: 'Dit geldt voor elke kaart met deze plattegrond.',
     set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
     default_mode: 'Begint op', learning_days: 'Laat alles zien zolang er minder dan … dagen geschiedenis is', plan_size: 'Grootte plattegrond in %', icon_size: 'Grootte iconen', label_size: 'Grootte tekst bij ruimtes', glow: 'Sterkte van de gloed',
@@ -257,7 +257,7 @@ class FloorplanStudioPanel extends HTMLElement {
   /* ------------------------------------------------------------ render */
   render() {
     const l = this.L, p = this.plan;
-    const planOpts = (this.plans || []).map((x) => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    const planOpts = (this.plans || []).map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
     this.shadowRoot.innerHTML = `<style>${CSS}</style>
       <div class="top">
         <button class="menu-btn" id="menu" title="Menu"><ha-icon icon="mdi:menu"></ha-icon></button>
@@ -281,16 +281,16 @@ class FloorplanStudioPanel extends HTMLElement {
   }
 
   canvasHTML() {
-    const p = this.plan, W = p.width, H = p.height, g = p.grid || 10;
+    const p = this.plan, W = safeNumber(p.width, 1000), H = safeNumber(p.height, 700), g = safeNumber(p.grid, 10) || 10;
     const out = [];
     const ratio = W / H;
     out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${W} / ${H};">`);
     out.push(`<svg viewBox="0 0 ${W} ${H}" id="svg">`);
     out.push(`<defs><pattern id="gm" width="${g}" height="${g}" patternUnits="userSpaceOnUse"><path class="gridline" d="M${g} 0H0V${g}" fill="none"/></pattern><pattern id="gM" width="${g * 5}" height="${g * 5}" patternUnits="userSpaceOnUse"><path class="gridline major" d="M${g * 5} 0H0V${g * 5}" fill="none"/></pattern></defs>`);
     out.push(`<rect width="${W}" height="${H}" fill="#0d1116" data-bg="1"/>`);
-    if (p.background?.url) {
+    if (safeImageData(p.background?.url)) {
       const b = p.background;
-      out.push(`<image href="${b.url}" x="${b.x || 0}" y="${b.y || 0}" width="${b.w}" height="${b.h}" opacity="${b.opacity ?? 0.5}" preserveAspectRatio="none" style="pointer-events:none"/>`);
+      out.push(`<image href="${safeImageData(b.url)}" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W)}" height="${safeNumber(b.h, H)}" opacity="${safeNumber(b.opacity, 0.5)}" preserveAspectRatio="none" style="pointer-events:none"/>`);
     }
     out.push(`<rect width="${W}" height="${H}" fill="url(#gm)" style="pointer-events:none"/><rect width="${W}" height="${H}" fill="url(#gM)" style="pointer-events:none"/>`);
     p.rooms.forEach((r, i) => {
@@ -298,11 +298,11 @@ class FloorplanStudioPanel extends HTMLElement {
       r.rects.map(norm).forEach((q, k) => {
         const s = this.sel?.type === 'room' && this.sel.id === r.id;
         const sp = s && this.sel.part === k;
-        out.push(`<rect class="rect ${sp ? 'sel' : ''}" data-room="${r.id}" data-part="${k}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="${c}" fill-opacity="${s ? 0.32 : 0.16}" stroke="${c}"/>`);
+        out.push(`<rect class="rect ${sp ? 'sel' : ''}" data-room="${esc(r.id)}" data-part="${k}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="${c}" fill-opacity="${s ? 0.32 : 0.16}" stroke="${c}"/>`);
       });
     });
     for (const w of computeWalls(p.rooms)) out.push(`<line class="wall ${w.kind}" data-wall="${w.x1},${w.y1},${w.x2},${w.y2}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
-    for (const o of p.openings) out.push(`<line class="op ${o.type} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${o.id}" x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}"/>`);
+    for (const o of p.openings) out.push(`<line class="op ${o.type === 'door' ? 'door' : 'open'} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${esc(o.id)}" x1="${safeNumber(o.x1)}" y1="${safeNumber(o.y1)}" x2="${safeNumber(o.x2)}" y2="${safeNumber(o.y2)}"/>`);
     p.rooms.forEach((r) => {
       const [x0, y0, x1, y1] = roomBBox(r);
       out.push(`<text class="rlabel" x="${(x0 + x1) / 2}" y="${(y0 + y1) / 2}" text-anchor="middle" dominant-baseline="middle">${esc(r.name || '')}</text>`);
@@ -316,7 +316,7 @@ class FloorplanStudioPanel extends HTMLElement {
     for (const it of p.items) {
       const d = it.entity_id.split('.')[0];
       const dev = !['light', 'switch', 'input_boolean', 'fan'].includes(d);
-      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${it.entity_id}" style="left:${(it.x / W) * 100}%;top:${(it.y / H) * 100}%">${it.icon ? `<ha-icon icon="${esc(it.icon)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
+      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${esc(it.entity_id)}" style="left:${(safeNumber(it.x) / W) * 100}%;top:${(safeNumber(it.y) / H) * 100}%">${it.icon ? `<ha-icon icon="${esc(it.icon)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
     }
     out.push('</div></div>');
     return out.join('');
@@ -336,14 +336,14 @@ class FloorplanStudioPanel extends HTMLElement {
         <div class="row"><select id="bgent">${list.map((id) => `<option value="${id}">${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="usebgent" style="flex:none">${l.use}</button></div></div>
       <div class="card click" id="nobg"><b>${l.bg_none}</b><p style="margin:0">${l.bg_none_hint}</p></div>
       ${b ? `<h3>${l.bg_adjust}</h3>
-        <div class="field"><span>${l.opacity}</span><input type="range" min="0.1" max="1" step="0.05" value="${b.opacity ?? 0.5}" data-bg="opacity"></div>
+        <div class="field"><span>${l.opacity}</span><input type="range" min="0.1" max="1" step="0.05" value="${safeNumber(b.opacity, 0.5)}" data-bg="opacity"></div>
         <div class="field"><span>${l.scale} (${scale}%)</span><input type="range" min="20" max="300" step="1" value="${scale}" data-bg="scale"></div>
-        <div class="field"><span>${l.offx}</span><input type="range" min="${-p.width}" max="${p.width}" step="1" value="${b.x || 0}" data-bg="x"></div>
-        <div class="field"><span>${l.offy}</span><input type="range" min="${-p.height}" max="${p.height}" step="1" value="${b.y || 0}" data-bg="y"></div>
+        <div class="field"><span>${l.offx}</span><input type="range" min="${-safeNumber(p.width, 1000)}" max="${safeNumber(p.width, 1000)}" step="1" value="${safeNumber(b.x)}" data-bg="x"></div>
+        <div class="field"><span>${l.offy}</span><input type="range" min="${-safeNumber(p.height, 700)}" max="${safeNumber(p.height, 700)}" step="1" value="${safeNumber(b.y)}" data-bg="y"></div>
         <div class="field"><span>${l.rotate}</span><div class="row"><button id="rotl"><ha-icon icon="mdi:rotate-left"></ha-icon>${l.rot_l}</button><button id="rotr"><ha-icon icon="mdi:rotate-right"></ha-icon>${l.rot_r}</button><button id="flipbg"><ha-icon icon="mdi:flip-horizontal"></ha-icon>${l.flip}</button></div></div>
         <div class="row"><button id="fitbg">${l.fit}</button><button id="rmbg" class="danger">${l.remove_bg}</button></div>` : ''}
       <h3>${l.size}</h3>
-      <div class="row"><input type="number" id="pw" value="${p.width}" min="200" max="4000" step="10"><input type="number" id="ph" value="${p.height}" min="200" max="4000" step="10"></div>
+      <div class="row"><input type="number" id="pw" value="${safeNumber(p.width, 1000)}" min="200" max="4000" step="10"><input type="number" id="ph" value="${safeNumber(p.height, 700)}" min="200" max="4000" step="10"></div>
       <p class="hint">${l.bg_tip}</p>
       ${this.navHTML()}
       ${p.id ? `<h3></h3><button class="danger" id="delplan"><ha-icon icon="mdi:delete"></ha-icon>${l.delete_plan}</button>` : ''}`;
@@ -382,7 +382,7 @@ class FloorplanStudioPanel extends HTMLElement {
           <div class="row">${r.rects.length > 1 ? `<button id="delpart">${l.delete_part}</button>` : ''}<button class="danger" id="delroom">${l.delete_room}</button></div>
         </div>` : ''}
       <h3>${l.rooms_list}</h3>
-      <div class="list">${p.rooms.length ? p.rooms.map((x, i) => `<div class="li ${r?.id === x.id ? 'sel' : ''}" data-selroom="${x.id}"><span class="sw" style="background:${ROOM_COLORS[i % ROOM_COLORS.length]}"></span>${esc(x.name || '?')}<small>${esc(this._hass.areas?.[x.area_id]?.name || '')}</small></div>`).join('') : `<p>${l.no_rooms}</p>`}</div>
+      <div class="list">${p.rooms.length ? p.rooms.map((x, i) => `<div class="li ${r?.id === x.id ? 'sel' : ''}" data-selroom="${esc(x.id)}"><span class="sw" style="background:${ROOM_COLORS[i % ROOM_COLORS.length]}"></span>${esc(x.name || '?')}<small>${esc(this._hass.areas?.[x.area_id]?.name || '')}</small></div>`).join('') : `<p>${l.no_rooms}</p>`}</div>
       ${areas.some((a) => !p.rooms.find((x) => x.area_id === a.area_id)) ? `<button id="fromareas" style="margin-top:10px;width:100%"><ha-icon icon="mdi:auto-fix"></ha-icon>${l.from_areas}</button>` : ''}
       ${this.navHTML()}`;
   }
@@ -414,15 +414,15 @@ class FloorplanStudioPanel extends HTMLElement {
       <button class="primary" id="autoplace" style="width:100%"><ha-icon icon="mdi:auto-fix"></ha-icon>${l.auto_place}</button>
       <p>${l.auto_hint}</p>
       <p>${l.items_tip}</p>
-      ${it ? `<div class="card"><b>${esc(friendly(h, it.entity_id))}</b><small class="hint">${it.entity_id}</small>
+      ${it ? `<div class="card"><b>${esc(friendly(h, it.entity_id))}</b><small class="hint">${esc(it.entity_id)}</small>
         <div class="field"><span>${l.label}</span><input id="iname" value="${esc(it.name || '')}"></div>
         <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
-        <div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${it.color || '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>
+        <div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>
         <label class="row" style="font-size:13px"><input type="checkbox" id="ipin" ${it.pin ? 'checked' : ''} style="flex:none">${l.show_always}</label>
         <button class="danger" id="idel" style="margin-top:8px"><ha-icon icon="mdi:map-marker-remove"></ha-icon>${l.remove}</button></div>` : ''}
       <div class="field"><input id="isearch" list="entlist" placeholder="${l.search}"><datalist id="entlist">${Object.keys(h.states).filter((id) => !placed.has(id)).sort().map((id) => `<option value="${id}">${esc(friendly(h, id))}</option>`).join('')}</datalist></div>
       ${groups.length ? `<h3>${l.unplaced}</h3>` : ''}
-      ${groups.map(([r, ids]) => `<b style="font-size:13px">${esc(r.name)}</b><div class="list" style="margin-bottom:8px">${ids.map((id) => `<div class="li" data-additem="${id}" data-room="${r.id}"><ha-state-icon data-sid="${id}"></ha-state-icon>${esc(friendly(h, id))}<small>+ ${l.add}</small></div>`).join('')}</div>`).join('')}
+      ${groups.map(([r, ids]) => `<b style="font-size:13px">${esc(r.name)}</b><div class="list" style="margin-bottom:8px">${ids.map((id) => `<div class="li" data-additem="${esc(id)}" data-room="${esc(r.id)}"><ha-state-icon data-sid="${esc(id)}"></ha-state-icon>${esc(friendly(h, id))}<small>+ ${l.add}</small></div>`).join('')}</div>`).join('')}
       ${this.navHTML()}`;
   }
 
@@ -456,9 +456,10 @@ class FloorplanStudioPanel extends HTMLElement {
       if (!f) return;
       try {
         const data = JSON.parse(await f.text());
-        if (!Array.isArray(data.rooms)) throw new Error(this.L.import_bad);
+        const imported = this.normalizeImportedPlan(data);
+        if (this.dirty && !confirm(this.L.confirm_discard)) { ev.target.value = ''; return; }
         // always a new plan: never overwrite an existing one by accident
-        this.plan = { ...newPlan(data.name || this.L.default_name), ...data, id: '', settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) } };
+        this.plan = imported;
         this.history = []; this.sel = null; this.step = 1; this.dirty = true; this.render();
       } catch (e) { alert(`${this.L.import_bad}\n${e.message || e}`); }
     });
@@ -469,8 +470,16 @@ class FloorplanStudioPanel extends HTMLElement {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     });
-    $('#newplan').addEventListener('click', () => { this.plan = newPlan(`${this.L.default_name} ${(this.plans?.length || 0) + 1}`); this.history = []; this.sel = null; this.step = 0; this.dirty = true; this.render(); });
-    $('#plansel')?.addEventListener('change', (ev) => { const x = this.plans.find((q) => q.id === ev.target.value); if (x) { this.plan = structuredClone(x); this.history = []; this.sel = null; this.dirty = false; this.render(); } });
+    $('#newplan').addEventListener('click', () => {
+      if (this.dirty && !confirm(this.L.confirm_discard)) return;
+      this.plan = newPlan(`${this.L.default_name} ${(this.plans?.length || 0) + 1}`); this.history = []; this.sel = null; this.step = 0; this.dirty = true; this.render();
+    });
+    $('#plansel')?.addEventListener('change', (ev) => {
+      const x = this.plans.find((q) => q.id === ev.target.value);
+      if (!x) return;
+      if (this.dirty && !confirm(this.L.confirm_discard)) { this.render(); return; }
+      this.plan = structuredClone(x); this.history = []; this.sel = null; this.dirty = false; this.render();
+    });
     $$('[data-step]').forEach((b) => b.addEventListener('click', () => { this.step = +b.dataset.step; this.sel = null; this.render(); }));
 
     // icons
@@ -497,8 +506,15 @@ class FloorplanStudioPanel extends HTMLElement {
     $('#usebgent').addEventListener('click', async () => {
       const id = $('#bgent').value, st = this._hass.states[id];
       if (!st?.attributes.entity_picture) return;
-      const r = await fetch(st.attributes.entity_picture);
-      this.setBackground({ ...(await this.toDataURL(await r.blob())), source: id });
+      try {
+        const r = await fetch(st.attributes.entity_picture);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        if (blob.type && !blob.type.toLowerCase().startsWith('image/')) throw new Error('The response is not an image.');
+        this.setBackground({ ...(await this.toDataURL(blob)), source: id });
+      } catch (e) {
+        alert(`${this.L.bg_load_failed}\n${e.message || e}`);
+      }
     });
     $('#nobg').addEventListener('click', () => { this.mut((pl) => { pl.background = null; }, false); this.step = 1; this.render(); });
     $$('[data-bg]').forEach((el) => el.addEventListener('input', () => {
@@ -543,23 +559,159 @@ class FloorplanStudioPanel extends HTMLElement {
     const ws = this._hass.connection;
     let dashes = [];
     try { dashes = await ws.sendMessagePromise({ type: 'lovelace/dashboards/list' }); } catch (e) { return; }
+    const url = this.dashboardPath(planId);
     for (const d of dashes) {
-      if (!d.url_path?.startsWith('floorplan-')) continue;
+      if (d.url_path !== url) continue;
       let cfg = null;
       try { cfg = await ws.sendMessagePromise({ type: 'lovelace/config', url_path: d.url_path }); } catch (e) { /* empty */ }
-      const used = JSON.stringify(cfg || {});
-      const ours = used.includes('custom:floorplan-studio-card');
-      const forThis = used.includes(`"plan":"${planId}"`) || d.url_path === `floorplan-${planId}`.replace(/_/g, '-').slice(0, 40);
-      if (ours && forThis) {
+      if (this.dashboardOwnedBy(cfg, planId)) {
         try { await ws.sendMessagePromise({ type: 'lovelace/dashboards/delete', dashboard_id: d.id }); } catch (e) { /* ignore */ }
       }
     }
   }
 
+  dashboardPath(planId) {
+    return `floorplan-${String(planId || '').replace(/_/g, '-').slice(0, 40)}`;
+  }
+
+  dashboardOwnedBy(config, planId) {
+    const seen = new WeakSet();
+    const visit = (value) => {
+      if (!value || typeof value !== 'object' || seen.has(value)) return false;
+      seen.add(value);
+      if (value.type === 'custom:floorplan-studio-card' && value.floorplan_studio_managed_plan === planId) return true;
+      return Object.values(value).some(visit);
+    };
+    return visit(config?.config || config) || this.legacyDashboardOwnedBy(config, planId);
+  }
+
+  /** v1.2.0 dashboards predate the ownership marker; recognize only the generated page structure. */
+  legacyDashboardOwnedBy(config, planId) {
+    const root = config?.config || config;
+    if (!root || typeof root !== 'object' || !Array.isArray(root.views)) return false;
+    const views = root.views;
+    const cardsFor = (view) => Array.isArray(view?.cards) ? view.cards : [];
+    const coreCard = (view) => {
+      const cards = cardsFor(view);
+      if (view?.type !== 'panel' || cards.length !== 1) return null;
+      const card = cards[0];
+      return card?.type === 'custom:floorplan-studio-card' && card.plan === planId && card.room_pages === true ? card : null;
+    };
+    const matching = (path) => views.filter((view) => view?.path === path);
+    const planViews = matching('plan'), kioskViews = matching('kiosk');
+    if (planViews.length !== 1 || kioskViews.length !== 1) return false;
+    const planCard = coreCard(planViews[0]), kioskCard = coreCard(kioskViews[0]);
+    if (planCard?.side !== true || kioskCard?.kiosk !== true) return false;
+
+    const homeViews = matching('thuis');
+    if (homeViews.length > 1 || (homeViews.length && coreCard(homeViews[0])?.home !== true)) return false;
+    for (const view of views) {
+      if (view?.type !== 'panel' || ['plan', 'kiosk', 'thuis'].includes(view.path)) continue;
+      if (view?.subview !== true || typeof view.path !== 'string' || !view.path.startsWith('ruimte-') ||
+          !['thuis', 'plan'].includes(view.back_path)) return false;
+      const roomCard = coreCard(view);
+      if (!roomCard || typeof roomCard.room !== 'string' || roomCard.show_theme_toggle !== false) return false;
+    }
+    return true;
+  }
+
+  normalizeImportedPlan(data) {
+    const bad = () => new Error(this.L.import_bad);
+    const isRecord = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
+    const number = (value) => {
+      if (typeof value !== 'number' && !(typeof value === 'string' && value.trim())) return NaN;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    };
+    const uniqueId = (value, prefix, index, used) => {
+      const base = typeof value === 'string' && value.trim() ? value : `${prefix}-${index + 1}`;
+      let id = base, suffix = 2;
+      while (used.has(id)) id = `${base}-${suffix++}`;
+      used.add(id);
+      return id;
+    };
+    if (!isRecord(data) || !Array.isArray(data.rooms) || (data.openings != null && !Array.isArray(data.openings)) ||
+        (data.items != null && !Array.isArray(data.items)) || (data.settings != null && !isRecord(data.settings))) throw bad();
+
+    const usedRoomIds = new Set();
+    const rooms = data.rooms.map((room, index) => {
+      if (!isRecord(room) || !Array.isArray(room.rects) || !room.rects.length) throw bad();
+      const rects = room.rects.map((rect) => {
+        if (!Array.isArray(rect) || rect.length !== 4) throw bad();
+        const coordinates = rect.map(number);
+        if (coordinates.some((coordinate) => !Number.isFinite(coordinate)) || coordinates[0] === coordinates[2] || coordinates[1] === coordinates[3]) throw bad();
+        return coordinates;
+      });
+      const normalized = { ...room, id: uniqueId(room.id, 'room', index, usedRoomIds), name: typeof room.name === 'string' ? room.name : `Room ${index + 1}`, rects };
+      if (room.area_id != null && typeof room.area_id !== 'string') delete normalized.area_id;
+      if (room.label != null) {
+        const x = isRecord(room.label) ? number(room.label.x) : NaN;
+        const y = isRecord(room.label) ? number(room.label.y) : NaN;
+        if (Number.isFinite(x) && Number.isFinite(y)) normalized.label = { x, y };
+        else delete normalized.label;
+      }
+      if (room.label_scale != null) {
+        const scale = number(room.label_scale);
+        if (Number.isFinite(scale) && scale > 0) normalized.label_scale = scale;
+        else delete normalized.label_scale;
+      }
+      normalized.label_hidden = room.label_hidden === true;
+      return normalized;
+    });
+
+    const usedOpeningIds = new Set();
+    const openings = (data.openings || []).map((opening, index) => {
+      if (!isRecord(opening) || !['door', 'open'].includes(opening.type)) throw bad();
+      const coordinates = ['x1', 'y1', 'x2', 'y2'].map((key) => number(opening[key]));
+      if (coordinates.some((coordinate) => !Number.isFinite(coordinate))) throw bad();
+      return { ...opening, id: uniqueId(opening.id, 'opening', index, usedOpeningIds), type: opening.type, x1: coordinates[0], y1: coordinates[1], x2: coordinates[2], y2: coordinates[3] };
+    });
+
+    const usedItems = new Set();
+    const items = (data.items || []).map((item) => {
+      if (!isRecord(item) || typeof item.entity_id !== 'string' || !item.entity_id.trim()) throw bad();
+      if (usedItems.has(item.entity_id)) throw bad();
+      usedItems.add(item.entity_id);
+      const x = number(item.x), y = number(item.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) throw bad();
+      const normalized = { ...item, entity_id: item.entity_id, x, y };
+      for (const key of ['name', 'icon']) if (normalized[key] != null && typeof normalized[key] !== 'string') delete normalized[key];
+      normalized.pin = item.pin === true;
+      normalized.icon_only = item.icon_only === true;
+      return normalized;
+    });
+
+    const settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+    if (data.settings?.auto_domains != null && (!Array.isArray(data.settings.auto_domains) || data.settings.auto_domains.some((domain) => typeof domain !== 'string'))) throw bad();
+    for (const key of ['people', 'side']) if (data.settings?.[key] != null && !isRecord(data.settings[key])) throw bad();
+    settings.people = { ...(settings.people || {}) };
+    settings.side = { ...(settings.side || {}) };
+    settings.people = Object.fromEntries(Object.entries(settings.people).filter(([, sensor]) => typeof sensor === 'string'));
+    for (const key of ['buttons', 'status']) {
+      if (settings.side[key] != null && (!Array.isArray(settings.side[key]) || settings.side[key].some((value) => typeof value !== 'string'))) throw bad();
+    }
+    if (settings.side.smart != null && (!Array.isArray(settings.side.smart) || settings.side.smart.some((slot) => !isRecord(slot)))) throw bad();
+    if (settings.side.names != null && !isRecord(settings.side.names)) settings.side.names = {};
+    settings.auto_domains = Array.isArray(settings.auto_domains) ? settings.auto_domains : [...DEFAULT_SETTINGS.auto_domains];
+
+    const width = Math.min(4000, Math.max(200, safeNumber(data.width, 1000)));
+    const height = Math.min(4000, Math.max(200, safeNumber(data.height, 700)));
+    const backgroundDimension = (value, fallback) => Math.min(12000, Math.max(0.01, safeNumber(value, fallback)));
+    const background = safeImageData(data.background?.url) && isRecord(data.background) ? {
+      url: safeImageData(data.background.url), x: safeNumber(data.background.x), y: safeNumber(data.background.y),
+      w: backgroundDimension(data.background.w, width), h: backgroundDimension(data.background.h, height),
+      opacity: Math.min(1, Math.max(0.1, safeNumber(data.background.opacity, 0.5))),
+      ...(typeof data.background.source === 'string' ? { source: data.background.source } : {}),
+      ...(Array.isArray(data.background.ops) ? { ops: data.background.ops.filter((op) => ['left', 'right', 'flip'].includes(op)) } : {}),
+    } : null;
+    return { ...newPlan(typeof data.name === 'string' && data.name.trim() ? data.name : this.L.default_name), id: '', width, height,
+      grid: Math.min(100, Math.max(2, safeNumber(data.grid, 10))), background, rooms, openings, items, settings };
+  }
+
   /** Rotate the background 90° (or mirror it); the image itself is turned so it stays sharp and saves correctly. */
   async transformBackground(how) {
     const b = this.plan.background;
-    if (!b?.url) return;
+    if (!safeImageData(b?.url)) return;
     const img = new Image();
     img.src = b.url;
     await img.decode();
@@ -700,15 +852,34 @@ class FloorplanStudioPanel extends HTMLElement {
   wireFinish($) {
     const p = this.plan;
     $('#mkdash').addEventListener('click', async () => {
-      const url = `floorplan-${p.id}`.replace(/_/g, '-').slice(0, 40);
+      const url = this.dashboardPath(p.id);
       const ws = this._hass.connection;
-      const dashes = await ws.sendMessagePromise({ type: 'lovelace/dashboards/list' });
-      if (!dashes.find((d) => d.url_path === url)) {
-        await ws.sendMessagePromise({ type: 'lovelace/dashboards/create', url_path: url, title: p.name || 'Floorplan', icon: 'mdi:floor-plan', show_in_sidebar: true, require_admin: false, mode: 'storage' });
+      const done = $('#dashdone');
+      try {
+        const dashes = await ws.sendMessagePromise({ type: 'lovelace/dashboards/list' });
+        const existing = dashes.find((d) => d.url_path === url);
+        if (existing) {
+          const config = await ws.sendMessagePromise({ type: 'lovelace/config', url_path: url });
+          if (!this.dashboardOwnedBy(config, p.id)) {
+            done.textContent = this.L.dash_conflict.replace('{url}', url);
+            return;
+          }
+        } else {
+          await ws.sendMessagePromise({ type: 'lovelace/dashboards/create', url_path: url, title: p.name || 'Floorplan', icon: 'mdi:floor-plan', show_in_sidebar: true, require_admin: false, mode: 'storage' });
+        }
+        const nl = (this._hass.locale?.language || 'en').startsWith('nl');
+        await ws.sendMessagePromise({ type: 'lovelace/config/save', url_path: url, config: await buildDashboard(this._hass, p, nl, { home: $('#mkhome')?.checked !== false }) });
+        const message = document.createElement('p');
+        message.append(document.createTextNode(`${this.L.dash_done} `));
+        const planLink = document.createElement('a');
+        planLink.href = `/${url}/plan`; planLink.textContent = `/${url}`;
+        const kioskLink = document.createElement('a');
+        kioskLink.href = `/${url}/kiosk?kiosk`; kioskLink.textContent = `/${url}/kiosk?kiosk`;
+        message.append(planLink, document.createTextNode(' · kiosk: '), kioskLink);
+        done.replaceChildren(message);
+      } catch (e) {
+        done.textContent = `${this.L.dash_error}${e.message || e}`;
       }
-      const nl = (this._hass.locale?.language || 'en').startsWith('nl');
-      await ws.sendMessagePromise({ type: 'lovelace/config/save', url_path: url, config: await buildDashboard(this._hass, p, nl, { home: $('#mkhome')?.checked !== false }) });
-      $('#dashdone').innerHTML = `<p>${this.L.dash_done} <a href="/${url}/plan">/${url}</a> · kiosk: <a href="/${url}/kiosk?kiosk">/${url}/kiosk?kiosk</a></p>`;
     });
   }
 
@@ -724,7 +895,10 @@ class FloorplanStudioPanel extends HTMLElement {
 
   sideSettings() {
     const l = this.L, s = settingsOf(this.plan);
-    const num = (k, min, max, step = 1) => `<div class="field"><span>${l[k]} (${s[k]})</span><input type="range" min="${min}" max="${max}" step="${step}" value="${s[k]}" data-set="${k}" data-num="1"></div>`;
+    const num = (k, min, max, step = 1) => {
+      const value = safeNumber(s[k], safeNumber(DEFAULT_SETTINGS[k]));
+      return `<div class="field"><span>${l[k]} (${value})</span><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-set="${k}" data-num="1"></div>`;
+    };
     const chk = (k) => `<label class="row" style="font-size:13px;margin-bottom:6px"><input type="checkbox" data-set="${k}" ${s[k] ? 'checked' : ''} style="flex:none">${l[k]}</label>`;
     const doms = ['light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'vacuum', 'lock', 'humidifier', 'water_heater', 'valve', 'lawn_mower', 'camera'];
     const ids = Object.keys(this._hass.states).sort();
@@ -753,7 +927,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <h3>${l.set_text}</h3>
       <div class="field"><span>${l.glow_style}</span><select data-set="glow_style">${['lamp', 'room', 'off'].map((k) => `<option value="${k}" ${s.glow_style === k ? 'selected' : ''}>${l['glow_' + k]}</option>`).join('')}</select></div>
       <div class="field"><span>${l.lamp_level}</span><select data-set="lamp_level">${['fixed', 'hover', 'off'].map((k) => `<option value="${k}" ${levelMode(s) === k ? 'selected' : ''}>${l['lvl_' + k]}</option>`).join('')}</select></div>${chk('show_co2')}${chk('show_covers')}${chk('show_climate')}${chk('show_media')}${num('info_rows', 1, 8)}
-      <div class="field"><span>${l.compass}</span><input type="number" min="0" max="359" id="compass" value="${s.compass ?? ''}"></div>
+      <div class="field"><span>${l.compass}</span><input type="number" min="0" max="359" id="compass" value="${s.compass == null || s.compass === '' ? '' : safeNumber(s.compass, '')}"></div>
       ${chk('greeting')}
       <h3>${l.set_side}</h3><p>${l.side_hint}</p>
       ${sideSel('weather', ids.filter((id) => id.startsWith('weather.')))}
@@ -952,7 +1126,7 @@ class FloorplanStudioPanel extends HTMLElement {
       if (corner.includes('w')) q[0] = Math.min(sx, q[2] - 20); else q[2] = Math.max(sx, q[0] + 20);
       if (corner.includes('n')) q[1] = Math.min(sy, q[3] - 20); else q[3] = Math.max(sy, q[1] + 20);
       r.rects[part] = q;
-      const el = this.shadowRoot.querySelector(`.rect[data-room="${r.id}"][data-part="${part}"]`);
+      const el = [...this.shadowRoot.querySelectorAll('.rect')].find((node) => node.dataset.room === r.id && +node.dataset.part === part);
       el.setAttribute('x', q[0]); el.setAttribute('y', q[1]); el.setAttribute('width', q[2] - q[0]); el.setAttribute('height', q[3] - q[1]);
     };
     const up = () => {

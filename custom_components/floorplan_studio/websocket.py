@@ -29,7 +29,29 @@ def async_register(hass: HomeAssistant) -> None:
 @callback
 def ws_plans(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Return every floorplan."""
-    connection.send_result(msg["id"], {"plans": list(_data(hass)["plans"].plans.values())})
+    plans = list(_data(hass)["plans"].plans.values())
+    if not connection.user.is_admin:
+        # The editor is admin-only, while dashboard cards are available to
+        # regular users. Keep the plan layout and settings for cards, but do
+        # not expose the original embedded floorplan image to those users.
+        plans = [
+            {
+                **plan,
+                "background": {
+                    key: value
+                    for key, value in plan["background"].items()
+                    if not (
+                        key == "url"
+                        and isinstance(value, str)
+                        and value.startswith("data:image/")
+                    )
+                },
+            }
+            if isinstance(plan.get("background"), dict)
+            else plan
+            for plan in plans
+        ]
+    connection.send_result(msg["id"], {"plans": plans})
 
 
 @websocket_api.websocket_command(

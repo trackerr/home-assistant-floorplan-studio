@@ -2,10 +2,10 @@
 import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
-  themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
+  themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.2.0';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.0';
+} from './fps-core.js?v=1.2.1';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.1';
 
 
 const CSS = `
@@ -373,9 +373,9 @@ class FloorplanStudioCard extends HTMLElement {
         ${tb}
         ${this._compact ? `<div class="crooms">${[['', t(h, 'overview')], ...this._compactRooms().map((r) => [r.id, r.name])].map(([id, n]) => `<button data-croom="${esc(id)}">${esc(n)}<i></i></button>`).join('')}</div><div class="chead"></div>` : ''}
         <div class="alertbar"></div>
-        <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${plan.width} / ${plan.height}; --ar: ${plan.width / plan.height}">
+        <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${safeNumber(plan.width, 1000)} / ${safeNumber(plan.height, 700)}; --ar: ${safeNumber(plan.width, 1000) / safeNumber(plan.height, 700)}">
           ${planSVG(plan)}
-          <svg class="ghost" viewBox="0 0 ${plan.width} ${plan.height}" preserveAspectRatio="none"></svg>
+          <svg class="ghost" viewBox="0 0 ${safeNumber(plan.width, 1000)} ${safeNumber(plan.height, 700)}" preserveAspectRatio="none"></svg>
           <div class="labels"></div>
           <div class="items"></div>
           <div class="peoplelayer" style="position:absolute;inset:0;pointer-events:none"></div>
@@ -549,20 +549,21 @@ class FloorplanStudioCard extends HTMLElement {
     const root = this.shadowRoot;
     // temperature colour + alerts on the floor
     const tv = s.temp ? parseFloat(s.temp.state) : NaN;
-    root.querySelectorAll(`.floor[data-room="${room.id}"]`).forEach((f) => {
+    root.querySelectorAll('.floor').forEach((f) => {
+      if (f.dataset.room !== room.id) return;
       if (tempOn && !isNaN(tv)) f.style.fill = `color-mix(in srgb, var(--fps-floor) 62%, rgb(${tempColor(tv, S.temp_min, S.temp_max)}))`;
       else f.style.removeProperty('fill');
       f.classList.toggle('alarm', al.level === 'alarm');
       f.classList.toggle('warn', al.level === 'warn');
     });
     this._updatePeople(room, pres);
-    const glow = root.getElementById(`glow-${room.id}`);
+    const glow = root.getElementById(`glow-${safeSvgId(room.id)}`);
     glow?.classList.toggle('on', s.lit.length > 0 && S.glow_style === 'room');
     if (s.colors.length) {
       const avg = [0, 1, 2].map((i) => Math.round(s.colors.reduce((a, c) => a + +c.split(',')[i], 0) / s.colors.length)).join(',');
-      root.getElementById(`g-${room.id}`)?.style.setProperty('--glow', avg);
+      root.getElementById(`g-${safeSvgId(room.id)}`)?.style.setProperty('--glow', avg);
     }
-    const box = root.querySelector(`.rinfo[data-room="${room.id}"]`);
+    const box = [...root.querySelectorAll('.rinfo')].find((el) => el.dataset.room === room.id);
     if (!box) return;
     box.classList.toggle('on', s.lit.length > 0);
     box.classList.toggle('present', pres.occupied);
@@ -785,7 +786,7 @@ class FloorplanStudioCard extends HTMLElement {
   _updatePeople(room, pres) {
     const layer = this.shadowRoot.querySelector('.peoplelayer');
     if (!layer) return;
-    let box = layer.querySelector(`.people[data-room="${room.id}"]`);
+    let box = [...layer.querySelectorAll('.people')].find((el) => el.dataset.room === room.id);
     if (!pres.people.length) { box?.remove(); return; }
     if (!box) {
       box = document.createElement('div');
@@ -1125,7 +1126,7 @@ class FloorplanStudioCard extends HTMLElement {
       if (on) b.parentElement.scrollTo({ left: b.offsetLeft - (b.parentElement.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' });
     });
     const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
-    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && (el.dataset.room || el.id.replace('glow-', '')) !== room.id));
+    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && el.dataset.room !== room.id));
     for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
     this._ghost(room);
     this._compactLayout();
@@ -1136,7 +1137,7 @@ class FloorplanStudioCard extends HTMLElement {
     const g = this.shadowRoot.querySelector('svg.ghost');
     if (!g) return;
     if (!room) { g.classList.remove('on'); return; }
-    const W = this._plan.width, H = this._plan.height, e = 5;   // keep the room's own walls clear
+    const W = safeNumber(this._plan.width, 1000), H = safeNumber(this._plan.height, 700), e = 5;   // keep the room's own walls clear
     const holes = room.rects.map((q) => {
       const x0 = Math.min(q[0], q[2]) - e, y0 = Math.min(q[1], q[3]) - e, x1 = Math.max(q[0], q[2]) + e, y1 = Math.max(q[1], q[3]) + e;
       return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="#000"/>`;
@@ -1213,7 +1214,7 @@ class FloorplanStudioCard extends HTMLElement {
     }
     this._stage.style.setProperty('--k', k);
     const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
-    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && (el.dataset.room || el.id.replace('glow-', '')) !== room.id));
+    this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && el.dataset.room !== room.id));
     for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
     this._ghost(room);
     // the room's text moves to the side panel while zoomed (.zoomed .rinfo hides it)

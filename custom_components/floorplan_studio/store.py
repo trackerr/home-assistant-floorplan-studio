@@ -36,7 +36,14 @@ class PlanStore:
         self.plans = data.get("plans", {})
 
     async def async_save_plan(self, plan: dict[str, Any]) -> dict[str, Any]:
-        plan_id = plan.get("id") or slugify_id(plan.get("name", "plan"))
+        plan_id = plan.get("id")
+        if not plan_id:
+            base_id = slugify_id(plan.get("name", "plan"))
+            plan_id = base_id
+            suffix = 2
+            while plan_id in self.plans:
+                plan_id = f"{base_id}_{suffix}"
+                suffix += 1
         plan["id"] = plan_id
         plan["updated"] = time.time()
         self.plans[plan_id] = plan

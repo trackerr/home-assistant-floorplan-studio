@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+- Beschermt niet-opgeslagen wijzigingen bij wisselen, importeren en een nieuwe plattegrond maken; foutmeldingen bij het laden van achtergrondafbeeldingen zijn duidelijker.
+- Controleert geïmporteerde plattegronden en tekent gebruikersgegevens veilig in de editor en kaart.
+- Beheert alleen dashboards die bij de plattegrond horen, met herkenning van ongewijzigde dashboards uit versie 1.2.0.
+- Geeft nieuwe plattegronden met dezelfde naam een eigen ID en verbergt ingebedde achtergrondafbeeldingen voor niet-beheerders.
+- Zet GitHub Actions vast op specifieke revisies.
+
 ## 1.2.0
 - **Nieuwe startpagina Thuis** in het thema van je plattegrond: begroeting met tijd, buitentemperatuur en wie er thuis is; de slimme knop en je knoppen; een tegel per kamer (gloeit als er licht aan is, tik = lampen aan/uit, vasthouden = pagina van de kamer) plus gordijnen, klimaat en tv; energie nu, weer en status. Op een eigen dashboard met `home: true`.
 

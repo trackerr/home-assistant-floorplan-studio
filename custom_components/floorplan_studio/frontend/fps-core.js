@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.2.1';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -487,10 +487,11 @@ export function labelSpot(plan, room, fs, rows = 2) {
  * card fades in when lights in that room are on.
  */
 export function planSVG(plan, { showBackground = false, editor = false } = {}) {
-  const W = plan.width, H = plan.height, out = [];
+  const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), out = [];
+  const grid = safeNumber(plan.grid, 10) || 10;
   const walls = computeWalls(plan.rooms);
   out.push(`<svg class="plan" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`);
-  out.push(`<defs><pattern id="fps-grid" width="${plan.grid * 4}" height="${plan.grid * 4}" patternUnits="userSpaceOnUse"><path d="M${plan.grid * 4} 0H0V${plan.grid * 4}" fill="none" class="gridline"/></pattern>`);
+  out.push(`<defs><pattern id="fps-grid" width="${grid * 4}" height="${grid * 4}" patternUnits="userSpaceOnUse"><path d="M${grid * 4} 0H0V${grid * 4}" fill="none" class="gridline"/></pattern>`);
   out.push(`<pattern id="fps-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" class="dot"/></pattern>`);
   out.push('<pattern id="fps-plate" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect x="4" y="14" width="18" height="5" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/><rect x="21" y="-3" width="5" height="18" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/></pattern>');
   out.push('<pattern id="fps-scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" fill-opacity=".3"/></pattern>');
@@ -500,7 +501,7 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
   out.push('<pattern id="fps-tiles" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" class="tex"/></pattern>');
   out.push('<pattern id="fps-wood" width="60" height="12" patternUnits="userSpaceOnUse"><path d="M0 12H60M30 0V12" fill="none" class="tex"/></pattern>');
   for (const room of plan.rooms) {
-    out.push(`<radialGradient id="g-${room.id}" cx="50%" cy="50%" r="60%"><stop offset="0" class="g0"/><stop offset=".55" class="g1"/><stop offset="1" class="g2"/></radialGradient>`);
+    out.push(`<radialGradient id="g-${safeSvgId(room.id)}" cx="50%" cy="50%" r="60%"><stop offset="0" class="g0"/><stop offset=".55" class="g1"/><stop offset="1" class="g2"/></radialGradient>`);
   }
   out.push('</defs>');
   out.push(`<rect class="bg" width="${W}" height="${H}"/>`);
@@ -508,13 +509,13 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
     .map(([x, y, r, c]) => `<circle cx="${x * W}" cy="${y * H}" r="${r * W}" fill="${c}" fill-opacity=".38" filter="url(#fps-blur)"/>`).join('')}</g>`);
   out.push(`<g class="deco d-stage">${[0.1, 0.45, 0.85].map((x, i) => `<path d="M${x * W},-20 L${x * W - 160},${H} L${x * W + 160},${H} Z" fill="${i === 1 ? '#ff7a00' : '#e10600'}" fill-opacity=".08" filter="url(#fps-blur)"/>`).join('')}</g>`);
   out.push(`<rect class="deco d-grid" width="${W}" height="${H}" fill="url(#fps-grid)"/><rect class="deco d-dots" width="${W}" height="${H}" fill="url(#fps-dots)"/><rect class="deco d-plate" width="${W}" height="${H}" fill="url(#fps-plate)"/>`);
-  if (showBackground && plan.background?.url) {
+  if (showBackground && safeImageData(plan.background?.url)) {
     const b = plan.background;
-    out.push(`<image href="${b.url}" x="${b.x || 0}" y="${b.y || 0}" width="${b.w || W}" height="${b.h || H}" opacity="${b.opacity ?? 0.5}" preserveAspectRatio="none"/>`);
+    out.push(`<image href="${safeImageData(b.url)}" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" opacity="${safeNumber(b.opacity, 0.5)}" preserveAspectRatio="none"/>`);
   }
   for (const room of plan.rooms) {
     for (const q of room.rects.map(norm)) {
-      out.push(`<rect class="floor" data-room="${room.id}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`);
+      out.push(`<rect class="floor" data-room="${esc(room.id)}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`);
     }
   }
   for (const room of plan.rooms) {
@@ -523,9 +524,10 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
   }
   for (const room of plan.rooms) {
     const [x0, y0, x1, y1] = roomBBox(room);
+    const ref = safeSvgId(room.id);
     // glow layer: one gradient over the room's bounding box, clipped to its rects
-    out.push(`<clipPath id="c-${room.id}">${room.rects.map(norm).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
-    out.push(`<rect class="glow" id="glow-${room.id}" clip-path="url(#c-${room.id})" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#g-${room.id})"/>`);
+    out.push(`<clipPath id="c-${ref}">${room.rects.map(norm).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
+    out.push(`<rect class="glow" data-room="${esc(room.id)}" id="glow-${ref}" clip-path="url(#c-${ref})" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#g-${ref})"/>`);
   }
   if (!editor) {
     out.push(`<clipPath id="c-all">${plan.rooms.flatMap((r) => r.rects.map(norm)).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
@@ -535,21 +537,22 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
   if (!editor && plan.background) {
     // live vacuum map, lined up with the background it was traced from (shown by the card while cleaning)
     const b = plan.background;
-    out.push(`<image class="livemap" clip-path="url(#c-all)" x="${b.x || 0}" y="${b.y || 0}" width="${b.w || W}" height="${b.h || H}" preserveAspectRatio="none"/>`);
+    out.push(`<image class="livemap" clip-path="url(#c-all)" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" preserveAspectRatio="none"/>`);
   }
   if (!editor) out.push('<polyline class="vactrail" points=""/>');
   out.push('<g class="walls">');
   for (const w of walls) out.push(`<line class="wall ${w.kind}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
   out.push('</g>');
   for (const o of plan.openings || []) {
-    const h = o.y1 === o.y2;
-    out.push(`<line class="gap" data-opening="${o.id}" x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}"/>`);
+    const x1 = safeNumber(o.x1), y1 = safeNumber(o.y1), x2 = safeNumber(o.x2), y2 = safeNumber(o.y2);
+    const h = y1 === y2;
+    out.push(`<line class="gap" data-opening="${esc(o.id)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
     if (o.type === 'door') {
-      for (const [x, y] of [[o.x1, o.y1], [o.x2, o.y2]]) {
+      for (const [x, y] of [[x1, y1], [x2, y2]]) {
         out.push(h ? `<line class="jamb" x1="${x}" y1="${y - 7}" x2="${x}" y2="${y + 7}"/>` : `<line class="jamb" x1="${x - 7}" y1="${y}" x2="${x + 7}" y2="${y}"/>`);
       }
     } else {
-      out.push(`<line class="open-edge" x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}"/>`);
+      out.push(`<line class="open-edge" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
     }
   }
   // HUD corner brackets (only visible in the high-tech theme)
@@ -625,6 +628,19 @@ export const PLAN_CSS = `
 
 export function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+export function safeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+export function safeImageData(value) {
+  return typeof value === 'string' && /^data:image\/(?:png|jpeg);base64,[a-z\d+/]+={0,2}$/i.test(value) ? value : '';
+}
+
+export function safeSvgId(value) {
+  return Array.from(String(value ?? ''), (c) => c.codePointAt(0).toString(16)).join('_') || 'room';
 }
 
 /* ------------------------------------------------------------ data api */
