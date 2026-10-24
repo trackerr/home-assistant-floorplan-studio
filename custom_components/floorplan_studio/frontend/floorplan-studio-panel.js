@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.2.1';
+import './floorplan-studio-card.js?v=1.2.2';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
-} from './fps-core.js?v=1.2.1';
-import { buildDashboard } from './fps-dashboard.js?v=1.2.1';
+} from './fps-core.js?v=1.2.2';
+import { buildDashboard } from './fps-dashboard.js?v=1.2.2';
 
 const L = {
   en: {
@@ -45,7 +45,7 @@ const L = {
     import: 'Load a floorplan from a file', export: 'Save the floorplan as a file', import_bad: 'This is not a Floorplan Studio file.',
     room_tap: 'Tap on a room', tap_zoom_opt: 'Zoom in on the card', tap_page_opt: 'Open the room’s own page (created dashboards)', make_home: 'With a “Home” start page (greeting, smart button, rooms and energy)',
     set_temp: 'Temperature colours', temp_color: 'Colour rooms by temperature by default (also on/off with the thermometer button)', temp_min: 'Blue at … °C or colder', temp_max: 'Red at … °C or warmer',
-    set_presence: 'Presence', presence: 'A dot when someone is in the room',
+    set_presence: 'Presence', presence: 'An icon when someone is in the room',
     people_hint: 'Want to see who is where? Pick, per person, the sensor that says which room they are in.',
     set_alerts: 'Alerts', alerts: 'Smoke, gas, carbon monoxide and water leak: the room flashes red + a banner on top', alert_open: 'Open doors and windows: orange edge',
     set_vacuum: 'Vacuum', vacuum: 'Vacuum', vacuum_live: 'Live map over the floorplan', live_cleaning: 'Only while cleaning', live_always: 'Always', live_off: 'Off',
@@ -93,7 +93,7 @@ const L = {
     import: 'Plattegrond inladen uit een bestand', export: 'Plattegrond bewaren als bestand', import_bad: 'Dit bestand is geen plattegrond van Floorplan Studio.',
     room_tap: 'Tik op een ruimte', tap_zoom_opt: 'Inzoomen op de kaart', tap_page_opt: 'De eigen pagina van de ruimte openen', make_home: 'Met een startpagina “Thuis” (begroeting, slimme knop, kamers en energie)',
     set_temp: 'Kleur op temperatuur', temp_color: 'Ruimtes kleuren naar temperatuur (kan ook met het thermometer-knopje)', temp_min: 'Blauw bij … °C of kouder', temp_max: 'Rood bij … °C of warmer',
-    set_presence: 'Aanwezigheid', presence: 'Stipje als er iemand in de ruimte is',
+    set_presence: 'Aanwezigheid', presence: 'Icoontje als er iemand in de ruimte is',
     people_hint: 'Wil je zien wie waar is? Kies per persoon de sensor die zegt in welke ruimte hij of zij is.',
     set_alerts: 'Meldingen', alerts: 'Rook, gas, koolmonoxide of lekkage: de ruimte knippert rood en er komt een melding bovenaan', alert_open: 'Deur of raam open: oranje rand',
     set_vacuum: 'Stofzuiger', vacuum: 'Stofzuiger', vacuum_live: 'Stofzuiger live op de kaart', live_cleaning: 'Alleen tijdens het zuigen', live_always: 'Altijd', live_off: 'Uit',

@@ -35,7 +35,7 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 - **Soft light per lamp** in the lamp's own colour, tiled or wooden floors, and a compass.
 - **Room view.** Tap a room: the rest of the house fades away, the room zooms in and a side panel lists everything in its area. Or choose that a tap opens the room's **own page** (same look, with its own link).
 - **Temperature colours.** One tap on the thermometer colours every room from blue (cold) to red (warm).
-- **Presence.** Rooms with active motion/occupancy/presence sensors get a pulsing dot; people tracked per room (Bermuda, ESPresense…) show as avatars.
+- **Presence.** Rooms with active motion/occupancy/presence sensors get a softly blinking motion icon next to their name; people tracked per room (Bermuda, ESPresense…) show as avatars.
 - **Alerts on the map.** Smoke, gas, CO or water leak: the room flashes red and a banner appears (also in kiosk). Open doors and windows turn the room orange.
 - **Vacuum.** While it cleans, the vacuum icon drives over your plan to where the robot really is, with a trail (or show the vacuum's own live map instead), lined up with the background you traced. *Vacuum this room* in the room view uses `vacuum.clean_area` (or Roborock segment ids on older HA).
 - **Simple / All.** *Simple* only shows the devices that someone in the household actually operated in the last 14 days, by dashboard, app or voice assistant. Changes made by automations don't count. The list keeps adapting itself, and you can pin devices so they always show.

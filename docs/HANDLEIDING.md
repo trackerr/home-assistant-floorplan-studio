@@ -135,7 +135,7 @@ Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rech
 | **Tekstblok en licht** | Lichtvlek per lamp, hele ruimte laten gloeien of geen gloed; welke regels het tekstblok toont (CO2, gordijnen, verwarming/airco, wat er speelt) en hoeveel; het kompas; de begroeting. |
 | **Zijkolom** | Weer, de grote knop, drie knoppen, de energiesensoren en de statuslijst. Leeg laten = automatisch gekozen. |
 | **Kleur op temperatuur** | Standaard aan of uit, en bij welke temperatuur een ruimte blauw (koud) en rood (warm) is. |
-| **Aanwezigheid** | Stip bij bezette ruimtes aan/uit, en per persoon de sensor die zegt in welke ruimte hij of zij is. |
+| **Aanwezigheid** | Bewegingsicoontje bij bezette ruimtes aan/uit, en per persoon de sensor die zegt in welke ruimte hij of zij is. |
 | **Meldingen** | Alarm (rook, gas, koolmonoxide, lekkage) en open deuren/ramen, elk los aan of uit. |
 | **Stofzuiger** | Welke stofzuiger, wanneer de live kaart verschijnt, welke kaart-entiteit en hoe doorzichtig. |
 | **Automatisch plaatsen** | Welke soorten apparaten *Alles vanzelf neerzetten* meeneemt. |
@@ -316,7 +316,7 @@ Het blok zoekt zelf de plek in de ruimte met de minste iconen eronder. Wil je he
 - **Houd het blok even vast** (zonder te bewegen) voor een menu: *Verplaatsen*, *Groter*, *Kleiner*, *Automatische plek en grootte* (terug naar de vrijste plek) en *Verbergen* (of weer *Tonen*).
 - In **Iconen verplaatsen** zie je ook verborgen blokken doorschijnend, zodat je ze terug kunt zetten.
 - Kort tikken op een blok doet hetzelfde als tikken op de ruimte.
- Een pulserende stip achter de naam betekent dat er iemand is. Regels die je niet wilt zet je uit bij stap 5.
+ Een zacht knipperend bewegingsicoontje achter de naam betekent dat er iemand is. Regels die je niet wilt zet je uit bij stap 5.
 
 ### Licht
 
@@ -332,9 +332,9 @@ Tik op de **thermometer** in de werkbalk. Elke ruimte kleurt dan van **blauw** (
 
 ### Aanwezigheid
 
-![Aanwezigheid: stip bij de naam en Anna/Tom per ruimte](img/aanwezigheid.png)
+![Aanwezigheid: bewegingsicoontje bij de naam en Anna/Tom per ruimte](img/aanwezigheid.png)
 
-- **Stip bij de naam:** staat er in de area van een ruimte een **beweging-, aanwezigheids- of bezettingssensor** aan, dan krijgt de naam een pulserende stip. Detectie van dieren of auto's door camera's (bijv. Frigate `…_dog_occupancy`) telt niet mee.
+- **Icoontje bij de naam:** staat er in de area van een ruimte een **beweging-, aanwezigheids- of bezettingssensor** aan, dan krijgt de naam een bewegingsicoontje (ook op de kamertegel van de startpagina). Detectie van dieren of auto's door camera's (bijv. Frigate `…_dog_occupancy`) telt niet mee.
 - **Personen per ruimte:** heb je per persoon een sensor die zegt in welke ruimte iemand is (bijv. [Bermuda](https://github.com/agittins/bermuda) of [ESPresense](https://espresense.com)), koppel die dan bij stap 5 → **Aanwezigheid**. De waarde van de sensor moet de naam van de ruimte of de area zijn. Er verschijnt dan een rondje met de foto of de initialen van die persoon in de ruimte. Wie op "niet thuis" staat, wordt niet getoond.
 
 ### Meldingen op de kaart

@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.2.1';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.1';
+} from './fps-core.js?v=1.2.2';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.2';
 
 
 const CSS = `
@@ -154,6 +154,8 @@ const CSS = `
                     margin-bottom: 10px; --mdc-icon-size: 19px; transition: background .3s, box-shadow .3s; }
   .home .tile.on { border-color: rgba(var(--fps-accent-rgb), .45); background: linear-gradient(135deg, rgba(var(--fps-accent-rgb), .22), var(--fps-chip) 72%); }
   .home .tile.on .ti { background: var(--fps-accent); color: #10161d; box-shadow: 0 0 14px rgba(var(--fps-accent-rgb), .55); }
+  .home .tile { position: relative; }
+  .home .tile .tpres { position: absolute; top: 12px; right: 12px; --mdc-icon-size: 18px; color: var(--fps-accent); filter: drop-shadow(0 0 5px rgba(var(--fps-accent-rgb), .7)); animation: fpsPres 2.4s ease-in-out infinite; }
   .home .tile b { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .home .tile small { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .home .etiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; cursor: pointer; }
@@ -184,9 +186,10 @@ const CSS = `
   .rinfo .rr ha-icon, .rinfo .rr ha-state-icon { --mdc-icon-size: 1.15em; width: 1.15em; height: 1.15em; display: inline-flex; color: var(--fps-muted); opacity: .85; }
   .rinfo .rr.on { color: var(--fps-fg); } .rinfo .rr.on ha-icon, .rinfo .rr.on ha-state-icon { color: var(--fps-accent); opacity: 1; }
   .rinfo .rr.warn, .rinfo .rr.warn ha-icon { color: #ff9f1c; }
-  .rinfo .pd { display: none; width: .55em; height: .55em; border-radius: 50%; background: var(--fps-accent); box-shadow: 0 0 0 0 rgba(var(--fps-accent-rgb), .6); animation: fpsDot 2s infinite; }
-  .rinfo.present .pd { display: inline-block; }
-  @keyframes fpsDot { 70% { box-shadow: 0 0 0 .7em rgba(var(--fps-accent-rgb), 0); } 100% { box-shadow: 0 0 0 0 rgba(var(--fps-accent-rgb), 0); } }
+  /* someone in the room: a small motion-sensor icon that breathes */
+  .rinfo .pd { display: none; --mdc-icon-size: 1.25em; width: 1.25em; height: 1.25em; align-items: center; justify-content: center; color: var(--fps-accent); filter: drop-shadow(0 0 .35em rgba(var(--fps-accent-rgb), .7)); animation: fpsPres 2.4s ease-in-out infinite; }
+  .rinfo.present .pd { display: inline-flex; }
+  @keyframes fpsPres { 50% { opacity: .45; } }
   .zoomed .rinfo { opacity: 0; pointer-events: none; }
   .labels .rinfo { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
   .rinfo.off { display: none; }
@@ -596,7 +599,7 @@ class FloorplanStudioCard extends HTMLElement {
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
       d.style.left = `${(x / plan.width) * 100}%`; d.style.top = `${(y / plan.height) * 100}%`;
       d.style.setProperty('--fs', `${(fs / plan.width) * 100}cqw`);
-      d.innerHTML = '<div class="rn"><span></span><i class="pd"></i></div><div class="rh"></div><div class="rrows"></div>';
+      d.innerHTML = '<div class="rn"><span></span><span class="pd"><ha-icon icon="mdi:motion-sensor"></ha-icon></span></div><div class="rh"></div><div class="rrows"></div>';
       d.querySelector('.rn span').textContent = room.name || '';
       if (this._isAdmin && !this.planOverride) d.insertAdjacentHTML('beforeend', '<i class="rsz" title="Groter / kleiner"></i>');
       this._labelPointer(d, room);
@@ -974,12 +977,13 @@ class FloorplanStudioCard extends HTMLElement {
     const rooms = plan.rooms.filter((r) => r.name).map((r) => {
       const s = roomSummary(h, r), info = roomInfo(h, r, S);
       const sub = s.lit.length ? t(h, 'n_on', { n: s.lit.length }) : info.headline || (s.lights.length ? t(h, 'off') : '');
-      return { id: r.id, name: r.name, icon: this._homeIcon(r), on: s.lit.length > 0, sub, lights: s.lights };
+      const pres = S.presence ? roomPresence(h, r, S).occupied : false;
+      return { id: r.id, name: r.name, icon: this._homeIcon(r), on: s.lit.length > 0, sub, lights: s.lights, pres };
     });
     const devs = this._homeDevices();
     const stRows = cfg.status.map((id) => statusRow(h, id, cfg.names)).filter(Boolean);
     const time = now.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
-    const key = JSON.stringify([time, wx, main.title, main.sub, main.on, en, g, rooms.map((r) => [r.on, r.sub]), devs.map((id) => h.states[id].state), stRows, cfg.buttons.map((id) => h.states[id]?.state), this._realTheme]);
+    const key = JSON.stringify([time, wx, main.title, main.sub, main.on, en, g, rooms.map((r) => [r.on, r.sub, r.pres]), devs.map((id) => h.states[id].state), stRows, cfg.buttons.map((id) => h.states[id]?.state), this._realTheme]);
     if (!force && this._homeKey === key) return;
     this._homeKey = key;
     const hello = [time, wx ? `${wx.temp} ${t(h, 'outside')}` : '', g.sub].filter(Boolean).join(' · ');
@@ -989,7 +993,7 @@ class FloorplanStudioCard extends HTMLElement {
       ${cfg.buttons.length ? `<div class="btns two">${cfg.buttons.map((id) => `<button class="sbtn" data-btn="${esc(id)}"><ha-icon icon="${esc(h.states[id].attributes.icon || (id.startsWith('scene.') ? 'mdi:palette' : id.startsWith('script.') ? 'mdi:script-text-play' : 'mdi:gesture-tap'))}"></ha-icon><span>${esc(friendly(h, id))}</span></button>`).join('')}</div>` : ''}
       ${this._showNav ? navHTML(this._config.nav) : ''}`;
     c2.innerHTML = `<div class="hlabel">${t(h, 'rooms')}</div><div class="tiles">
-      ${rooms.map((r) => `<div class="tile ${r.on ? 'on' : ''}" data-room="${esc(r.id)}"><div class="ti"><ha-icon icon="${esc(r.icon)}"></ha-icon></div><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></div>`).join('')}
+      ${rooms.map((r) => `<div class="tile ${r.on ? 'on' : ''}" data-room="${esc(r.id)}">${r.pres ? '<ha-icon class="tpres" icon="mdi:motion-sensor"></ha-icon>' : ''}<div class="ti"><ha-icon icon="${esc(r.icon)}"></ha-icon></div><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></div>`).join('')}
       ${devs.map((id) => `<div class="tile ${isOn(h.states[id]) ? 'on' : ''}" data-dev="${esc(id)}"><div class="ti"><ha-state-icon data-id="${esc(id)}"></ha-state-icon></div><b>${esc(plan.items.find((i) => i.entity_id === id)?.name || friendly(h, id))}</b><small>${esc(shortState(h, h.states[id]))}</small></div>`).join('')}
     </div>`;
     c3.innerHTML = `${en ? `<div class="hlabel">${t(h, 'energy_now')}</div><div class="etiles" data-more="${esc(cfg.solar || cfg.grid)}">

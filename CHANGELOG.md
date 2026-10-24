@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.2
+- Aanwezigheid: in plaats van een stipje staat er een zacht knipperend **bewegingsicoontje** achter de naam van een bezette ruimte, en ook op de kamertegel van de startpagina.
+
 ## 1.2.1
 - Beschermt niet-opgeslagen wijzigingen bij wisselen, importeren en een nieuwe plattegrond maken; foutmeldingen bij het laden van achtergrondafbeeldingen zijn duidelijker.
 - Controleert geïmporteerde plattegronden en tekent gebruikersgegevens veilig in de editor en kaart.
