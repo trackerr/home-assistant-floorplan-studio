@@ -75,7 +75,13 @@ if (!customElements.get('ha-card')) customElements.define('ha-card', class exten
 
 const q = new URLSearchParams(location.search);
 const plan = await (await fetch('../../examples/voorbeeldhuis.json')).json();
-if (q.get('bg')) plan.background = { url: '/scripts/screenshots/vacuum-map.svg', x: 0, y: 0, w: 1000, h: 700, opacity: Number(q.get('bg')) || 0.5, source: 'image.robotstofzuiger_kaart', ops: [] };
+// the editor only keeps PNG/JPEG backgrounds (it converts uploads itself), so turn the demo's SVG map into a PNG first
+async function pngFrom(url, w, h) {
+  const img = new Image(); img.src = url; await img.decode();
+  const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+if (q.get('bg')) plan.background = { url: await pngFrom('/scripts/screenshots/vacuum-map.svg', 1000, 700), x: 0, y: 0, w: 1000, h: 700, opacity: Number(q.get('bg')) || 0.5, source: 'image.robotstofzuiger_kaart', ops: [] };
 if (q.get('people')) plan.settings.people = { 'person.anna': 'sensor.anna_ruimte', 'person.tom': 'sensor.tom_ruimte' };
 if (q.get('temp')) plan.settings.temp_color = true;
 if (q.get('lvl')) plan.settings.lamp_level = q.get('lvl');
