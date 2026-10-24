@@ -1,7 +1,7 @@
 // Floorplan Studio – builds a complete dashboard around a floorplan:
 // Home · Floorplan · Kiosk · Energy · Outside · TV, plus a page per room (tabs are only added when there is something to show).
 // Uses only built-in cards, and nicer HACS cards (advanced-camera-card, clock-weather-card) when they are installed.
-import { entityArea, roomPath } from './fps-core.js?v=1.1.4';
+import { entityArea, roomPath } from './fps-core.js?v=1.2.0';
 
 const OUTSIDE = /buiten|tuin|outside|outdoor|garden|yard|oprit|driveway|terras|patio|balkon|balcony|garage|voortuin|achtertuin|poort|gate|dak|roof|straat|street/i;
 
@@ -16,19 +16,9 @@ export async function buildDashboard(hass, plan, nl, { home = true } = {}) {
   const has = (tag) => !!customElements.get(tag);
   const card = { type: 'custom:floorplan-studio-card', plan: plan.id, show_theme_toggle: true, room_pages: true };
 
-  // ---- Home: one area card per room (tap = that room's own page), people on top
-  const people = ids.filter((id) => id.startsWith('person.'));
-  const homeCards = [];
-  const weatherHome = ids.find((id) => id.startsWith('weather.') && ok(id));
-  if (weatherHome) homeCards.push({ type: 'tile', entity: weatherHome, grid_options: { columns: 12 } });
-  const areaRooms = plan.rooms.filter((r) => r.area_id && hass.areas?.[r.area_id]);
   const views = [];
-  if (home && areaRooms.length) {
-    views.push({ title: T.home, path: 'thuis', icon: 'mdi:home', type: 'sections', max_columns: 4,
-      badges: people.map((id) => ({ type: 'entity', entity: id })),
-      sections: [{ type: 'grid', cards: [{ type: 'heading', heading: T.rooms }, ...homeCards] },
-        ...areaRooms.map((r) => ({ type: 'grid', cards: [{ type: 'area', area: r.area_id, navigation_path: roomPath(r), grid_options: { columns: 12 } }] }))] });
-  }
+  // Home: a calm start page in the plan's theme (greeting, smart button, a tile per room, energy)
+  if (home && plan.rooms.length) views.push({ title: T.home, path: 'thuis', icon: 'mdi:home', type: 'panel', cards: [{ ...card, home: true }] });
   views.push(
     { title: T.plan, path: 'plan', icon: 'mdi:floor-plan', type: 'panel', cards: [{ ...card, side: true }] },
     { title: T.kiosk, path: 'kiosk', icon: 'mdi:fullscreen', type: 'panel', cards: [{ ...card, kiosk: true, side: true }] },
@@ -86,7 +76,7 @@ export async function buildDashboard(hass, plan, nl, { home = true } = {}) {
 
   // ---- a page per room (sub-view: not a tab, but you can link to it and it has a back arrow)
   for (const r of plan.rooms) {
-    views.push({ title: r.name || T.plan, path: roomPath(r), subview: true, back_path: home && areaRooms.length ? 'thuis' : 'plan', type: 'panel',
+    views.push({ title: r.name || T.plan, path: roomPath(r), subview: true, back_path: home && plan.rooms.length ? 'thuis' : 'plan', type: 'panel',
       cards: [{ ...card, show_theme_toggle: false, room: r.id }] });
   }
 

@@ -30,6 +30,7 @@ const filter = process.argv[2];
 /** name, query, viewport, optional action inside the page before the shot */
 const SHOTS = [
   ['dashboard', 'theme=warm&side=1&people=1&tiles=1&smart=1', [1440, 860]],
+  ['thuis', 'theme=warm&home=1&side=1&people=1&smart=1', [1440, 800]],
   ['kaart-warm', 'theme=warm', [1100, 820]],
   ['kaart-zon', 'theme=sun', [1100, 820]],
   ['kaart-hightech', 'theme=hightech', [1100, 820]],

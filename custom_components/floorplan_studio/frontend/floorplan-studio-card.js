@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage,
   labelSpot, roomTextWidth,
-} from './fps-core.js?v=1.1.4';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.1.4';
+} from './fps-core.js?v=1.2.0';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.0';
 
 
 const CSS = `
@@ -136,6 +136,34 @@ const CSS = `
   .compact .themesel select { max-width: 110px; }
   svg.ghost { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; opacity: 0; transition: opacity .35s; }
   svg.ghost rect:not([fill]) { fill: var(--fps-bg); } svg.ghost.on { opacity: .82; }
+  /* home page (home: true): same theme, calm start screen */
+  .side.home { padding: 22px; gap: 0; }
+  .home .hgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px; align-items: start; }
+  .home .hc { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .home .hello b { font-size: 28px; font-weight: 700; display: block; letter-spacing: -.01em; margin-bottom: 4px; }
+  .home .mainbtn.big { padding: 16px 18px; min-height: 104px; }
+  .home .mainbtn.big b { font-size: 24px; margin: 6px 0 4px; }
+  .home .mainbtn label, .home .hlabel, .home .etiles label { font-size: 10.5px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; color: var(--fps-accent); }
+  .home .mainbtn .pwr { width: 54px; height: 54px; --mdc-icon-size: 26px; }
+  .home .btns.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home .btns.two .sbtn { padding: 12px 14px; border-radius: 999px; }
+  .home .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .home .tile { cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; background: var(--fps-chip); border: 1px solid var(--fps-line);
+                border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; min-height: 78px; transition: background .3s, border-color .3s; }
+  .home .tile .ti { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(var(--fps-accent-rgb), .14); color: var(--fps-accent);
+                    margin-bottom: 10px; --mdc-icon-size: 19px; transition: background .3s, box-shadow .3s; }
+  .home .tile.on { border-color: rgba(var(--fps-accent-rgb), .45); background: linear-gradient(135deg, rgba(var(--fps-accent-rgb), .22), var(--fps-chip) 72%); }
+  .home .tile.on .ti { background: var(--fps-accent); color: #10161d; box-shadow: 0 0 14px rgba(var(--fps-accent-rgb), .55); }
+  .home .tile b { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home .tile small { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home .etiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; cursor: pointer; }
+  .home .etiles .box { padding: 12px 14px; }
+  .home .etiles label { color: var(--fps-muted); }
+  .home .etiles b { display: block; font-size: 21px; font-weight: 700; margin-top: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .home .etiles b.exp { color: #4cd38a; }
+  .home .esub .bar { margin-top: 0; }
+  .home .etiles label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @container (max-width: 520px) { .side.home { padding: 14px; } .home .etiles { gap: 8px; } .home .etiles .box { padding: 10px 11px; } .home .etiles label { font-size: 9.5px; letter-spacing: .08em; } .home .etiles b { font-size: 17px; margin-top: 8px; } .home .hello b { font-size: 24px; } }
   /* layout: plan + optional side column */
   ha-card { container-type: inline-size; }
   .layout { display: block; }
@@ -322,6 +350,7 @@ class FloorplanStudioCard extends HTMLElement {
 
   /* ---------------------------------------------------------- build */
   _build() {
+    if (this._config.home) return this._buildHome();
     this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
     const mode = this._mode;
@@ -458,6 +487,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (!this._built || !this._hass) return;
     const h = this._hass;
     this._themeTick();
+    if (this._config.home) { this._updateHome(force); return; }
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       rec.el.classList.toggle('hidden', !this._visible(id, rec.it));
@@ -901,6 +931,111 @@ class FloorplanStudioCard extends HTMLElement {
     this._card.setAttribute('style', themeStyle(this._theme, this._hass, this._s));
     const sel = this.shadowRoot.querySelector('#theme');            // keep the dropdown in step when the theme changes elsewhere
     if (sel && sel.value !== real) sel.value = real;
+  }
+
+  /* ---------------------------------------------------------- home page */
+  /**
+   * `home: true`: a calm start page instead of the plan, in the plan's theme. Greeting, the smart button and
+   * quick buttons; a tile per room (tap = its lights on/off, hold = its own page); energy and a status list.
+   */
+  _buildHome() {
+    const h = this._hass;
+    this.shadowRoot.innerHTML = `<style>${CSS}</style>
+      <ha-card class="t-${this._realTheme}" style="${themeStyle(this._theme, h, this._s)}">
+        <div class="side home"><div class="hgrid"><div class="hc hc1"></div><div class="hc hc2"></div><div class="hc hc3"></div></div></div>
+      </ha-card>`;
+    this._card = this.shadowRoot.querySelector('ha-card');
+    this._built = true;
+    this._themeKey = undefined;
+    this._update(true);
+  }
+  _homeIcon(room) {
+    const a = this._hass.areas?.[room.area_id];
+    if (a?.icon) return a.icon;
+    const n = (room.name || '').toLowerCase();
+    const M = [[/woon|living|lounge/, 'mdi:sofa'], [/keuken|kitchen/, 'mdi:countertop'], [/eet|tafel|dining/, 'mdi:silverware-fork-knife'], [/slaap|bed/, 'mdi:bed'],
+      [/bad|douche|bath|shower/, 'mdi:shower'], [/wc|toilet/, 'mdi:toilet'], [/kantoor|werk|office|studeer|study/, 'mdi:desk'], [/hal|gang|entree|hall/, 'mdi:door'],
+      [/closet|kast|wardrobe/, 'mdi:hanger'], [/kind|baby|nursery|kids/, 'mdi:teddy-bear'], [/berging|zolder|storage|attic/, 'mdi:archive'], [/garage/, 'mdi:garage'],
+      [/tuin|garden|terras|patio|balkon/, 'mdi:flower'], [/was|laundry/, 'mdi:washing-machine']];
+    return (M.find(([re]) => re.test(n)) || [, 'mdi:floor-plan'])[1];
+  }
+  _homeDevices() {
+    const h = this._hass, items = this._plan.items.map((i) => i.entity_id).filter((id) => h.states[id]);
+    const pick = (d, test = () => true) => items.find((id) => id.startsWith(d + '.') && test(h.states[id]));
+    return [pick('cover'), pick('climate'), pick('media_player', (s) => s.attributes.device_class === 'tv') || pick('media_player')].filter(Boolean);
+  }
+  _updateHome(force = false) {
+    const h = this._hass, plan = this._plan, root = this.shadowRoot, S = this._s;
+    const c1 = root.querySelector('.hc1'), c2 = root.querySelector('.hc2'), c3 = root.querySelector('.hc3');
+    if (!c1) return;
+    const cfg = sideConfig(h, plan), now = new Date(), lang = h.locale?.language || 'en';
+    const wx = weatherInfo(h, cfg.weather), main = mainAction(h, plan, cfg), en = energyInfo(h, cfg), g = greeting(h);
+    const rooms = plan.rooms.filter((r) => r.name).map((r) => {
+      const s = roomSummary(h, r), info = roomInfo(h, r, S);
+      const sub = s.lit.length ? t(h, 'n_on', { n: s.lit.length }) : info.headline || (s.lights.length ? t(h, 'off') : '');
+      return { id: r.id, name: r.name, icon: this._homeIcon(r), on: s.lit.length > 0, sub, lights: s.lights };
+    });
+    const devs = this._homeDevices();
+    const stRows = cfg.status.map((id) => statusRow(h, id, cfg.names)).filter(Boolean);
+    const time = now.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+    const key = JSON.stringify([time, wx, main.title, main.sub, main.on, en, g, rooms.map((r) => [r.on, r.sub]), devs.map((id) => h.states[id].state), stRows, cfg.buttons.map((id) => h.states[id]?.state), this._realTheme]);
+    if (!force && this._homeKey === key) return;
+    this._homeKey = key;
+    const hello = [time, wx ? `${wx.temp} ${t(h, 'outside')}` : '', g.sub].filter(Boolean).join(' · ');
+    c1.innerHTML = `
+      <div class="box hello"><b>${esc(g.title)}</b><small>${esc(hello)}</small></div>
+      <div class="box mainbtn big ${main.on ? 'on' : ''}" id="mainbtn"><div><label>${t(h, 'right_now')}</label><b>${esc(main.title)}</b><small>${esc(main.sub)}</small></div><div class="pwr"><ha-icon icon="${esc(main.icon || 'mdi:power')}"></ha-icon></div></div>
+      ${cfg.buttons.length ? `<div class="btns two">${cfg.buttons.map((id) => `<button class="sbtn" data-btn="${esc(id)}"><ha-icon icon="${esc(h.states[id].attributes.icon || (id.startsWith('scene.') ? 'mdi:palette' : id.startsWith('script.') ? 'mdi:script-text-play' : 'mdi:gesture-tap'))}"></ha-icon><span>${esc(friendly(h, id))}</span></button>`).join('')}</div>` : ''}
+      ${this._showNav ? navHTML(this._config.nav) : ''}`;
+    c2.innerHTML = `<div class="hlabel">${t(h, 'rooms')}</div><div class="tiles">
+      ${rooms.map((r) => `<div class="tile ${r.on ? 'on' : ''}" data-room="${esc(r.id)}"><div class="ti"><ha-icon icon="${esc(r.icon)}"></ha-icon></div><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></div>`).join('')}
+      ${devs.map((id) => `<div class="tile ${isOn(h.states[id]) ? 'on' : ''}" data-dev="${esc(id)}"><div class="ti"><ha-state-icon data-id="${esc(id)}"></ha-state-icon></div><b>${esc(plan.items.find((i) => i.entity_id === id)?.name || friendly(h, id))}</b><small>${esc(shortState(h, h.states[id]))}</small></div>`).join('')}
+    </div>`;
+    c3.innerHTML = `${en ? `<div class="hlabel">${t(h, 'energy_now')}</div><div class="etiles" data-more="${esc(cfg.solar || cfg.grid)}">
+        ${en.solar != null ? `<div class="box"><label>${t(h, 'h_solar')}</label><b>${esc(en.solar)}</b></div>` : ''}
+        <div class="box"><label>${t(h, en.exporting ? 'h_return' : 'h_grid')}</label><b class="${en.exporting ? 'exp' : ''}">${esc(en.net)}</b></div>
+        ${en.price ? `<div class="box"><label>${t(h, 'h_price')}</label><b>${esc(en.price)}</b></div>` : ''}</div>
+        ${en.share != null || en.today ? `<div class="esub">${en.share != null ? `<div class="bar"><i style="width:${Math.round(en.share * 100)}%"></i></div>` : ''}${en.today ? `<small>${esc(en.today)}</small>` : ''}</div>` : ''}` : ''}
+      ${wx ? `<div class="box wx" data-more="${esc(cfg.weather)}"><ha-icon icon="${wx.icon}"></ha-icon><div><b>${esc(wx.temp)}</b><small>${esc(wx.text)}</small></div></div>` : ''}
+      ${stRows.length ? `<div class="status">${stRows.map((r) => `<div class="srow" data-more="${esc(r.id)}"><ha-state-icon data-id="${esc(r.id)}"></ha-state-icon><span class="n">${esc(r.name)}</span><span class="v">${esc(r.value)}</span></div>`).join('')}</div>` : ''}`;
+    root.querySelectorAll('.home ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
+    root.querySelectorAll('.home [data-more]').forEach((x) => x.addEventListener('click', () => fire(this, 'hass-more-info', { entityId: x.dataset.more })));
+    root.querySelector('#mainbtn')?.addEventListener('click', () => { if (main.call) h.callService(...main.call); });
+    root.querySelectorAll('.home [data-btn]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.btn, d = id.split('.')[0];
+      h.callService(d, ['scene', 'script'].includes(d) ? 'turn_on' : 'toggle', { entity_id: id });
+    }));
+    root.querySelectorAll('.home .navbar [data-nav]').forEach((b) => b.addEventListener('click', () => kioskGo(b.dataset.nav)));
+    // room tile: tap = its lights on/off, hold = the room's own page (or its details)
+    root.querySelectorAll('.home .tile').forEach((tile) => {
+      let timer = null, held = false;
+      tile.addEventListener('pointerdown', () => {
+        held = false;
+        timer = setTimeout(() => {
+          held = true;
+          if (tile.dataset.dev) { fire(this, 'hass-more-info', { entityId: tile.dataset.dev }); return; }
+          const room = plan.rooms.find((r) => r.id === tile.dataset.room);
+          if (room && this._config.room_pages) navigate(location.pathname.replace(/[^/]*$/, roomPath(room)) + location.search);
+        }, S.hold_ms);
+      });
+      const cancel = () => clearTimeout(timer);
+      tile.addEventListener('pointerleave', cancel);
+      tile.addEventListener('pointercancel', cancel);
+      tile.addEventListener('pointerup', () => {
+        clearTimeout(timer);
+        if (held) return;
+        if (tile.dataset.dev) {
+          const id = tile.dataset.dev, d = id.split('.')[0];
+          if (d === 'climate') fire(this, 'hass-more-info', { entityId: id });
+          else h.callService(d, 'toggle', { entity_id: id });
+          return;
+        }
+        const r = rooms.find((x) => x.id === tile.dataset.room);
+        if (!r) return;
+        if (r.lights.length) h.callService('homeassistant', r.on ? 'turn_off' : 'turn_on', { entity_id: r.lights });
+        else if (this._config.room_pages) navigate(location.pathname.replace(/[^/]*$/, roomPath(plan.rooms.find((x) => x.id === r.id))) + location.search);
+      });
+    });
   }
 
   /* ---------------------------------------------------------- small screens: room by room */

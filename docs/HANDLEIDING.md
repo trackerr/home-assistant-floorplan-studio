@@ -160,7 +160,7 @@ Je kunt de kaart ook op een bestaand dashboard zetten: bewerk het dashboard, kie
 
 | Tabblad | Wat staat erop |
 |---|---|
-| **Thuis** *(optioneel)* | Startpagina met het weer, wie er thuis is, en per ruimte een kaart. Tik op een ruimte om de pagina van die ruimte te openen. |
+| **Thuis** *(optioneel)* | Een rustige startpagina in het thema van je plattegrond: begroeting, de slimme knop, je knoppen, een tegel per kamer, energie, weer en de statuslijst. Zie hieronder. |
 | **Plattegrond** | De plattegrond schermvullend. |
 | **Kiosk** | De plattegrond voor een wandtablet of tv, met een menubalk naar de andere tabbladen. |
 | **Energie** | Het HA-energiedashboard (of, als dat niet is ingesteld, je stroomsensoren). |
@@ -169,6 +169,23 @@ Je kunt de kaart ook op een bestaand dashboard zetten: bewerk het dashboard, kie
 | **Pagina per ruimte** | Elke ruimte heeft een eigen pagina (bijv. `/floorplan-…/ruimte-keuken`) die er precies zo uitziet als inzoomen op de kaart. Ze staan niet als tabblad bovenin, maar je kunt er rechtstreeks naar linken, en ze hebben een terug-pijl. |
 
 ![Een ruimte als eigen pagina](img/ruimte-pagina.png)
+
+### De startpagina Thuis
+
+![Startpagina Thuis](img/thuis.png)
+
+- **Links:** de begroeting met de tijd, de temperatuur buiten en wie er thuis is, de **slimme knop** (zie hoofdstuk 5) en je knoppen.
+- **Midden:** een **tegel per kamer**. Een tegel gloeit als er licht aan is en zegt hoeveel ("2 aan"); anders staat er de temperatuur. **Tik** = de lampen in die kamer aan of uit. **Vasthouden** = de pagina van die kamer. Daaronder staan gordijnen, verwarming of airco en de tv als tegel (tik = aan/uit).
+- **Rechts:** energie nu (zon, van of naar het net, stroomprijs), het weer en de statuslijst.
+
+Alles neemt de kleuren en letters van je thema over. Op een telefoon komen de drie kolommen onder elkaar. Op een eigen dashboard zet je hem met:
+
+```yaml
+type: custom:floorplan-studio-card
+plan: thuis
+home: true
+room_pages: true   # vasthouden op een kamer opent zijn pagina
+```
 
 Heb je via HACS **advanced-camera-card** of **clock-weather-card** geïnstalleerd, dan gebruikt het dashboard die automatisch voor de camera's en de klok. Zonder die kaarten werkt alles ook, met de standaardkaarten van HA.
 

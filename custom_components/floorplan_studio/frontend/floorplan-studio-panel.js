@@ -1,10 +1,10 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.1.4';
+import './floorplan-studio-card.js?v=1.2.0';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc,
-} from './fps-core.js?v=1.1.4';
-import { buildDashboard } from './fps-dashboard.js?v=1.1.4';
+} from './fps-core.js?v=1.2.0';
+import { buildDashboard } from './fps-dashboard.js?v=1.2.0';
 
 const L = {
   en: {
@@ -43,7 +43,7 @@ const L = {
     from: 'From', slot_name: 'Name', slot_action: 'Does', slot_sub: 'Caption', slot_on: 'While a light is on', same: 'the same', smart_on: 'What counts as “light on”', any_lamp: 'a lamp on the plan', lights_off: 'lights off',
     s_grid: 'Power from the grid (W)', s_grid_return: 'Power returned (W)', s_price: 'Electricity price', s_solar_today: 'Solar today (kWh)', s_status: 'Status list',
     import: 'Load a floorplan from a file', export: 'Save the floorplan as a file', import_bad: 'This is not a Floorplan Studio file.',
-    room_tap: 'Tap on a room', tap_zoom_opt: 'Zoom in on the card', tap_page_opt: 'Open the room’s own page (created dashboards)', make_home: 'With a “Home” start page (a card per room)',
+    room_tap: 'Tap on a room', tap_zoom_opt: 'Zoom in on the card', tap_page_opt: 'Open the room’s own page (created dashboards)', make_home: 'With a “Home” start page (greeting, smart button, rooms and energy)',
     set_temp: 'Temperature colours', temp_color: 'Colour rooms by temperature by default (also on/off with the thermometer button)', temp_min: 'Blue at … °C or colder', temp_max: 'Red at … °C or warmer',
     set_presence: 'Presence', presence: 'A dot when someone is in the room',
     people_hint: 'Want to see who is where? Pick, per person, the sensor that says which room they are in.',
@@ -91,7 +91,7 @@ const L = {
     from: 'Vanaf', slot_name: 'Naam', slot_action: 'Doet', slot_sub: 'Tekst eronder', slot_on: 'Als er al licht aan is', same: 'hetzelfde', smart_on: 'Wanneer is er “licht aan”', any_lamp: 'een lamp op de kaart', lights_off: 'lampen uit',
     s_grid: 'Stroom van het net', s_grid_return: 'Stroom terug naar het net', s_price: 'Stroomprijs', s_solar_today: 'Zon vandaag', s_status: 'Lijstje onderaan',
     import: 'Plattegrond inladen uit een bestand', export: 'Plattegrond bewaren als bestand', import_bad: 'Dit bestand is geen plattegrond van Floorplan Studio.',
-    room_tap: 'Tik op een ruimte', tap_zoom_opt: 'Inzoomen op de kaart', tap_page_opt: 'De eigen pagina van de ruimte openen', make_home: 'Met een startpagina “Thuis” (een kaart per ruimte)',
+    room_tap: 'Tik op een ruimte', tap_zoom_opt: 'Inzoomen op de kaart', tap_page_opt: 'De eigen pagina van de ruimte openen', make_home: 'Met een startpagina “Thuis” (begroeting, slimme knop, kamers en energie)',
     set_temp: 'Kleur op temperatuur', temp_color: 'Ruimtes kleuren naar temperatuur (kan ook met het thermometer-knopje)', temp_min: 'Blauw bij … °C of kouder', temp_max: 'Rood bij … °C of warmer',
     set_presence: 'Aanwezigheid', presence: 'Stipje als er iemand in de ruimte is',
     people_hint: 'Wil je zien wie waar is? Kies per persoon de sensor die zegt in welke ruimte hij of zij is.',
