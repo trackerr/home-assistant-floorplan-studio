@@ -1,9 +1,9 @@
 // Floorplan Studio – walk through your own home (first person, WebGL).
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
-  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight,
+  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b8';
+} from './fps-core.js?v=1.4.0b9';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -528,7 +528,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const st = hass.states[it.entity_id], d = it.entity_id.split('.')[0];
       const x = safeNumber(it.x), y = safeNumber(it.y), room = itemRoom(it);
       const lampKind = it.kind !== 'device' && (d === 'light' || it.kind === 'lamp');
-      const under = furnAt(plan, x, y), own = it.height != null && it.height !== '';
+      const under = furnAt(plan, x, y), own = ownHeight(it) != null;
       const ceil = lampKind && isCeilingLamp(it, st);
       // where it really is: a device drawn on a wall hangs just in front of it, in its own room
       let [px, pz] = [M(x), M(y)];
@@ -545,7 +545,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         let lightY = h;
         if (lampType === 'strip') {
           // an LED strip: a thin glowing band along the drawn line, lighting the room at a few points along it
-          const pts = strip.map(([sx, sy]) => [M(sx), M(sy)]), tw = 0.014;
+          // a strip drawn on a wall line runs just in front of that wall, inside its own room
+          const pts = strip.map(([sx, sy]) => (room ? insideRoom(room, M(sx), M(sy), 0.13) : [M(sx), M(sy)])), tw = 0.014;
           for (let i = 1; i < pts.length; i++) {
             const [ax, az] = pts[i - 1], [bx, bz] = pts[i], L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw;
             markers.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], h - 0.012, h + 0.012, [1, 1, 1]);
@@ -897,7 +898,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const rec = items.find((I) => I.it.entity_id === sel.id);
       if (rec) {
         const it = rec.it, lampish = it.kind !== 'device' && (rec.d === 'light' || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(rec.d));
-        const h0 = it.height != null && it.height !== '' ? +it.height : rec.h;
+        const h0 = rec.h;   // what you see (your own height, or the usual one)
         html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button></div>
           ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>` : ''}`;
       }
@@ -912,12 +913,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   function sheetAction(a) {
     const it = sel?.type === 'item' ? plan.items.find((i) => i.entity_id === sel.id) : null, f = sel?.type === 'furn' ? (plan.furniture || []).find((x) => x.id === sel.id) : null;
     if (a === 'h-' || a === 'h+') {
-      const rec = items.find((I) => I.it === it), cur = it.height != null && it.height !== '' ? +it.height : rec?.h ?? 1;
-      it.height = Math.round(Math.max(0, Math.min(H, cur + (a === 'h+' ? 0.1 : -0.1))) * 100) / 100;
+      const rec = items.find((I) => I.it === it), cur = rec?.h ?? ownHeight(it) ?? 1;
+      it.height = Math.round(Math.max(0, Math.min(H - 0.05, cur + (a === 'h+' ? 0.1 : -0.1))) * 100) / 100;
       dirtyEdit = true; buildItems();
     } else if (a === 'strip') {
       const rec = items.find((I) => I.it === it);
-      stripY = it.height != null && it.height !== '' ? +it.height : rec?.h ?? 1; stripDraft = []; drawDraft();
+      stripY = rec?.h ?? ownHeight(it) ?? 1; stripDraft = []; drawDraft();
     } else if (a === 'icon') { delete it.shape; dirtyEdit = true; buildItems(); }
     else if (a === 'sy-' || a === 'sy+') { stripY = Math.round(Math.max(0.05, Math.min(H - 0.02, stripY + (a === 'sy+' ? 0.1 : -0.1))) * 100) / 100; drawDraft(); }
     else if (a === 'sundo') { stripDraft.pop(); drawDraft(); }
@@ -1149,5 +1150,6 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     /** For tests: move the walk on by this many seconds at once. */
     _advance(sec) { for (let t = 0; t < sec; t += 0.05) step(0.05); },
     _state() { return { cam: { ...cam }, next: route.slice(0, 3), room: lastRoom }; },
+    _setCam(x, z, yaw, pitch = -0.06) { route = []; setTouring(false); Object.assign(cam, { x, z, yaw, pitch }); },
   };
 }

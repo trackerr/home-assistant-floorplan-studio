@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b8';
+export const VERSION = '1.4.0b9';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -736,6 +736,15 @@ export function furnAt(plan, x, y) {
   }
   return null;
 }
+/**
+ * Your own height for a device in metres, or null. A number above 6 was meant in centimetres (100 = 1 m).
+ */
+export function ownHeight(it) {
+  if (it?.height == null || it.height === '') return null;
+  const v = +String(it.height).replace(',', '.');
+  if (!Number.isFinite(v) || v < 0) return null;
+  return v > 6 ? v / 100 : v;
+}
 /** A drawn LED strip: its points (plan units), or null when the lamp is just an icon. */
 export const stripPath = (it) => (it?.shape === 'strip' && Array.isArray(it.path) && it.path.length >= 2 ? it.path.map(([x, y]) => [safeNumber(x), safeNumber(y)]) : null);
 /** Length of a line through these points, and the point halfway along it. */
@@ -776,7 +785,7 @@ export function ceilingMount(it, st) {
  * for its kind (ceiling lamp high, thermostat at chest height, vacuum on the floor).
  */
 export function itemHeight(it, st) {
-  if (it.height != null && it.height !== '' && Number.isFinite(+it.height)) return Math.max(0, +it.height);
+  if (ownHeight(it) != null) return ownHeight(it);
   if (it.radar?.height) return +it.radar.height;
   if (ceilingMount(it, st) === 'hanging') return 2.0;   // a lamp on a cord hangs lower than one against the ceiling
   const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
@@ -796,11 +805,11 @@ export function lampStyle(plan, it, st) {
   const d = it.entity_id.split('.')[0];
   if (it.kind === 'device' || !(d === 'light' || it.kind === 'lamp')) return null;
   if (stripPath(it)) return 'strip';
-  const own = it.height != null && it.height !== '' && Number.isFinite(+it.height);
+  const own = ownHeight(it) != null;
   const mount = ceilingMount(it, st);
   if (mount === 'hanging') return 'pendant';
   // a lamp against the ceiling that you gave a lower height hangs on a cord
-  if (mount === 'flush') return own && +it.height < WALL_H - 0.25 ? 'pendant' : 'ceiling';
+  if (mount === 'flush') return own && ownHeight(it) < WALL_H - 0.25 ? 'pendant' : 'ceiling';
   const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   if (FLOORLAMP_RE.test(label)) return 'floor';
   const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y));
@@ -809,9 +818,9 @@ export function lampStyle(plan, it, st) {
   return 'other';
 }
 export function deviceHeight(plan, it, st) {
-  const own = it.height != null && it.height !== '' && Number.isFinite(+it.height);
+  const own = ownHeight(it) != null;
   let h;
-  if (own) h = +it.height;
+  if (own) h = ownHeight(it);
   else {
     const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y)), style = lampStyle(plan, it, st);
     if (style === 'ceiling') h = WALL_H - 0.12;
@@ -1027,7 +1036,7 @@ function stripsSVG(plan, proj) {
     if (!sp) continue;
     let pts = sp, w = 1;
     if (proj) {
-      const own = it.height != null && it.height !== '' && Number.isFinite(+it.height), z = (own ? +it.height : itemHeight(it, null)) * proj.sc * proj.lift;
+      const z = Math.min(ownHeight(it) ?? itemHeight(it, null), WALL_H - 0.05) * proj.sc * proj.lift;
       pts = sp.map(([x, y]) => proj.P(x, y, z)); w = proj.s;
     }
     const pl = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
