@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b5';
+import './floorplan-studio-card.js?v=1.4.0b6';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.4.0b5';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b5';
+} from './fps-core.js?v=1.4.0b6';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b6';
 
 const L = {
   en: {
@@ -61,7 +61,7 @@ const L = {
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
     f_hob: 'Hob (on a worktop)', f_sink: 'Sink', f_stove: 'Cooker', f_fridge: 'Fridge', f_island: 'Kitchen island', f_wallcab: 'Wall cupboard', lamp_size: 'Lamps (size in %)', device_size: 'Other devices (size in %)', f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_z: 'Height (cm, for the 2.5D view)', f_turn: 'Turn 90°',
     more_options_room: 'More options (sensors, text, floor…)', more_options: 'More options (icon, colour, height…)', kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
-    i_height: 'Height in metres (for the 2.5D view, empty = usual)', ceil_q: 'Ceiling lamp?', shape_q: 'Shape on the map', shape_icon: 'Icon', shape_strip: 'Line (LED strip)', strip_draw: 'Draw the line', strip_redraw: 'Draw again', strip_done: 'Done', strip_clear: 'Remove line', strip_hint: 'Tap point by point along the strip; double-tap or Done to stop. Lines snap to 45°; hold Shift for any angle. Set the height of the strip under More options.', strip_len: 'Length', strip_none: 'No line drawn yet.', yes: 'yes', no: 'no', ceil_auto: 'Automatic (from the name)', ceil_yes: 'Yes, against the ceiling', ceil_hang: 'Yes, hanging (pendant)', hang_h: 'Hangs at (m above the floor)', hang_auto: 'hanging', ceil_no: 'No (floor, table, wall or strip)',
+    i_height: 'Height in metres (for the 2.5D view, empty = usual)', ceil_q: 'Ceiling lamp?', ai: 'AI help', ai_ph: 'Ask something, e.g. put the kitchen lamps above the dining table', ai_send: 'Send', ai_agent: 'Assistant', ai_busy: 'Thinking…', ai_saved_first: 'Your changes were saved first, so the assistant sees them.', ai_needs: 'Pick an AI assistant (e.g. Ollama or OpenAI) that has “Control Home Assistant” switched on; the built-in one cannot move things on the floorplan.', ai_err: 'The assistant did not answer', ai_hello: 'Hi! I can move devices for you, tell you what is where, or help you get started. What would you like?', ai_s1: 'Which devices are not on the map yet?', ai_s2: 'Put the lamps above the dining table', ai_s3: 'Place the motion sensors in the corners of their rooms', ai_ctx: '(You are helping in the Floorplan Studio editor of Home Assistant. To see the floorplan use the tool FloorplanDescribe or the action floorplan_studio.describe; to move a device use the tool FloorplanPlaceDevice or the action floorplan_studio.place_device with device, room, spot (plain words such as above the dining table, left wall, middle), and optionally height in metres and mount (ceiling, hanging, wall, floor, table). Answer briefly.)', shape_q: 'Shape on the map', shape_icon: 'Icon', shape_strip: 'Line (LED strip)', strip_draw: 'Draw the line', strip_redraw: 'Draw again', strip_done: 'Done', strip_clear: 'Remove line', strip_hint: 'Tap point by point along the strip; double-tap or Done to stop. Lines snap to 45°; hold Shift for any angle. Set the height of the strip under More options.', strip_len: 'Length', strip_none: 'No line drawn yet.', yes: 'yes', no: 'no', ceil_auto: 'Automatic (from the name)', ceil_yes: 'Yes, against the ceiling', ceil_hang: 'Yes, hanging (pendant)', hang_h: 'Hangs at (m above the floor)', hang_auto: 'hanging', ceil_no: 'No (floor, table, wall or strip)',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
     radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
     motion_fade: 'Motion icon fades out over … minutes (0 = straight away)', height_25d: 'Height of walls and icons in the 2.5D view', perspective: 'Perspective in 2.5D (nearer looks a little bigger)', show_stalks: 'Thin lines from the floor to the icons (2.5D)', turn_ghost: 'Fade the icons while turning (2.5D)', turn_ghost_pct: 'Visible while turning, in %', turn_hint: 'Turning in 2.5D: right mouse button (or Shift) and drag; on a phone or tablet twist two fingers. Up/down tilts.', h25_real: 'real size', h25_custom: 'own value (% of real)',
@@ -119,7 +119,7 @@ const L = {
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht (blad)', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
     f_hob: 'Kookplaat (op het aanrecht)', f_sink: 'Gootsteen', f_stove: 'Fornuis', f_fridge: 'Koelkast', f_island: 'Kookeiland', f_wallcab: 'Bovenkast', lamp_size: 'Lampen (grootte in %)', device_size: 'Andere apparaten (grootte in %)', f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_z: 'Hoogte (cm, voor de 2.5D-weergave)', f_turn: 'Kwartslag draaien',
     more_options_room: 'Meer opties (sensoren, tekst, vloer…)', more_options: 'Meer opties (icoon, kleur, hoogte…)', kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
-    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)', ceil_q: 'Plafondlamp?', shape_q: 'Vorm op de kaart', shape_icon: 'Icoon', shape_strip: 'Lijn (ledstrip)', strip_draw: 'Lijn tekenen', strip_redraw: 'Opnieuw tekenen', strip_done: 'Klaar', strip_clear: 'Lijn weghalen', strip_hint: 'Tik punt voor punt langs de strip; dubbeltik of Klaar om te stoppen. Lijnen springen naar 45°; houd Shift ingedrukt voor een vrije hoek. De hoogte van de strip zet je onder Meer opties.', strip_len: 'Lengte', strip_none: 'Nog geen lijn getekend.', yes: 'ja', no: 'nee', ceil_auto: 'Automatisch (uit de naam)', ceil_yes: 'Ja, tegen het plafond', ceil_hang: 'Ja, hangend (hanglamp)', hang_h: 'Hangt op (m boven de vloer)', hang_auto: 'hangend', ceil_no: 'Nee (staand, tafel, wand of strip)',
+    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)', ceil_q: 'Plafondlamp?', ai: 'AI-hulp', ai_ph: 'Vraag iets, bijv. zet de keukenlampen boven de eettafel', ai_send: 'Verstuur', ai_agent: 'Assistent', ai_busy: 'Even denken…', ai_saved_first: 'Je wijzigingen zijn eerst opgeslagen, zodat de assistent ze ziet.', ai_needs: 'Kies een AI-assistent (bijv. Ollama of OpenAI) met “Home Assistant besturen” aan; de ingebouwde assistent kan niets op de plattegrond verplaatsen.', ai_err: 'De assistent gaf geen antwoord', ai_hello: 'Hoi! Ik kan apparaten voor je verplaatsen, vertellen wat waar staat, of je op weg helpen. Wat wil je?', ai_s1: 'Welke apparaten staan nog niet op de kaart?', ai_s2: 'Zet de lampen boven de eettafel', ai_s3: 'Zet de bewegingssensoren in de hoek van hun ruimte', ai_ctx: '(Je helpt in de Floorplan Studio-editor van Home Assistant. Om de plattegrond te zien gebruik je de tool FloorplanDescribe of de actie floorplan_studio.describe; om een apparaat te verplaatsen de tool FloorplanPlaceDevice of de actie floorplan_studio.place_device met device, room, spot (gewone woorden zoals boven de eettafel, linker muur, midden), en eventueel height in meter en mount (ceiling, hanging, wall, floor, table). Antwoord kort, in het Nederlands.)', shape_q: 'Vorm op de kaart', shape_icon: 'Icoon', shape_strip: 'Lijn (ledstrip)', strip_draw: 'Lijn tekenen', strip_redraw: 'Opnieuw tekenen', strip_done: 'Klaar', strip_clear: 'Lijn weghalen', strip_hint: 'Tik punt voor punt langs de strip; dubbeltik of Klaar om te stoppen. Lijnen springen naar 45°; houd Shift ingedrukt voor een vrije hoek. De hoogte van de strip zet je onder Meer opties.', strip_len: 'Lengte', strip_none: 'Nog geen lijn getekend.', yes: 'ja', no: 'nee', ceil_auto: 'Automatisch (uit de naam)', ceil_yes: 'Ja, tegen het plafond', ceil_hang: 'Ja, hangend (hanglamp)', hang_h: 'Hangt op (m boven de vloer)', hang_auto: 'hangend', ceil_no: 'Nee (staand, tafel, wand of strip)',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
     radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
     motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)', height_25d: 'Hoogte van muren en iconen in de 2.5D-weergave', perspective: 'Perspectief in 2.5D (dichterbij is iets groter)', show_stalks: 'Hulplijntjes van de vloer naar de iconen (2.5D)', turn_ghost: 'Iconen vervagen tijdens draaien (2.5D)', turn_ghost_pct: 'Zichtbaar tijdens draaien, in %', turn_hint: 'Draaien in 2.5D: rechtermuisknop (of Shift) ingedrukt en slepen; op telefoon of tablet twee vingers draaien. Omhoog/omlaag kantelt.', h25_real: 'echte maat', h25_custom: 'eigen waarde (% van echt)',
@@ -127,6 +127,19 @@ const L = {
 };
 
 const CSS = `
+  .aibtn { position: fixed; right: 18px; bottom: 18px; z-index: 20; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 22px; border: 0; background: var(--primary-color, #03a9f4); color: #fff; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  .aichat { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: min(380px, calc(100vw - 36px)); height: min(520px, calc(100vh - 120px)); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--card-background-color, #1c1f26); color: var(--primary-text-color, #eee); box-shadow: 0 8px 32px rgba(0,0,0,.45); border: 1px solid var(--divider-color, rgba(255,255,255,.12)); }
+  .aihead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--divider-color, rgba(255,255,255,.12)); }
+  .aihead b { flex: 1; } .aihead select { max-width: 150px; } .aihead button { border: 0; background: none; color: inherit; cursor: pointer; padding: 4px; }
+  .aimsgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .aim { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: normal; }
+  .aim.me { align-self: flex-end; background: var(--primary-color, #03a9f4); color: #fff; border-bottom-right-radius: 4px; }
+  .aim.ai { align-self: flex-start; background: rgba(127,127,127,.18); border-bottom-left-radius: 4px; }
+  .aim.busy { opacity: .7; font-style: italic; } .aim.note { align-self: center; max-width: 95%; font-size: 12px; opacity: .8; text-align: center; background: none; }
+  .aisugg { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .aisugg button { border: 1px solid var(--divider-color, rgba(255,255,255,.2)); background: none; color: inherit; border-radius: 12px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+  .aiform { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--divider-color, rgba(255,255,255,.12)); }
+  .aiform input { flex: 1; min-width: 0; }
   :host { display: block; height: 100%; background: var(--primary-background-color); color: var(--primary-text-color); font-family: var(--ha-font-family-body, Roboto, sans-serif); }
   * { box-sizing: border-box; }
   .top { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 56px; border-bottom: 1px solid var(--divider-color); background: var(--app-header-background-color, var(--card-background-color)); color: var(--app-header-text-color, var(--primary-text-color)); }
@@ -303,6 +316,73 @@ class FloorplanStudioPanel extends HTMLElement {
     this.render();
   }
 
+  /* ------------------------------------------------------------ AI chat */
+  /** A chat with the AI assistant of Home Assistant, which can move devices on the plan for you. */
+  chatHTML() {
+    const l = this.L, c = (this._chat = this._chat || { open: false, msgs: [], draft: '', busy: false });
+    if (!c.open) return `<button class="aibtn" id="aiopen"><ha-icon icon="mdi:robot-outline"></ha-icon>${l.ai}</button>`;
+    const agents = c.agents || [];
+    const msgs = c.msgs.length ? c.msgs : [{ who: 'ai', text: l.ai_hello }];
+    return `<div class="aichat">
+      <div class="aihead"><ha-icon icon="mdi:robot-outline"></ha-icon><b>${l.ai}</b>
+        ${agents.length ? `<select id="aiagent" title="${l.ai_agent}">${agents.map((a) => `<option value="${esc(a.id)}" ${a.id === c.agent ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>` : ''}
+        <button id="aiclose" title="×"><ha-icon icon="mdi:close"></ha-icon></button></div>
+      <div class="aimsgs" id="aimsgs">${msgs.map((m) => `<div class="aim ${m.who}">${esc(m.text).replace(/\n/g, '<br>')}</div>`).join('')}
+        ${c.busy ? `<div class="aim ai busy">${l.ai_busy}</div>` : ''}
+        ${!c.msgs.length ? `<div class="aisugg">${[l.ai_s1, l.ai_s2, l.ai_s3].map((t) => `<button data-sugg="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
+        ${c.agent === 'conversation.home_assistant' || c.agent === 'homeassistant' ? `<div class="aim note">${l.ai_needs}</div>` : ''}</div>
+      <form class="aiform" id="aiform"><input id="aiinput" placeholder="${esc(l.ai_ph)}" value="${esc(c.draft)}" ${c.busy ? 'disabled' : ''} autocomplete="off"><button class="primary" ${c.busy ? 'disabled' : ''} title="${l.ai_send}"><ha-icon icon="mdi:send"></ha-icon></button></form>
+    </div>`;
+  }
+  wireChat() {
+    const $ = (s) => this.shadowRoot.querySelector(s), c = this._chat;
+    $('#aiopen')?.addEventListener('click', async () => { c.open = true; this.render(); await this.loadAgents(); this.render(); $('#aiinput')?.focus(); });
+    $('#aiclose')?.addEventListener('click', () => { c.open = false; this.render(); });
+    $('#aiagent')?.addEventListener('change', (ev) => { c.agent = ev.target.value; c.conv = null; try { localStorage.setItem('fps-ai-agent', c.agent); } catch (e) { /* ignore */ } this.render(); });
+    $('#aiinput')?.addEventListener('input', (ev) => { c.draft = ev.target.value; });
+    $('#aiform')?.addEventListener('submit', (ev) => { ev.preventDefault(); this.askAI(c.draft); });
+    this.shadowRoot.querySelectorAll('[data-sugg]').forEach((b) => b.addEventListener('click', () => this.askAI(b.dataset.sugg)));
+    const box = $('#aimsgs'); if (box) box.scrollTop = box.scrollHeight;
+  }
+  async loadAgents() {
+    const c = this._chat, h = this._hass, lang = h.locale?.language || h.language || 'en';
+    if (c.agents) return;
+    try { c.agents = (await h.callWS({ type: 'conversation/agent/list', language: lang })).agents || []; } catch (e) { c.agents = []; }
+    let saved = null;
+    try { saved = localStorage.getItem('fps-ai-agent'); } catch (e) { /* ignore */ }
+    if (saved && c.agents.some((a) => a.id === saved)) { c.agent = saved; return; }
+    // the agent of the preferred voice assistant, otherwise the first one that is not the built-in agent
+    try {
+      const pl = await h.callWS({ type: 'assist_pipeline/pipeline/list' });
+      const pref = (pl.pipelines || []).find((p) => p.id === pl.preferred_pipeline);
+      if (pref?.conversation_engine && c.agents.some((a) => a.id === pref.conversation_engine)) c.agent = pref.conversation_engine;
+    } catch (e) { /* ignore */ }
+    if (!c.agent || c.agent === 'conversation.home_assistant') c.agent = (c.agents.find((a) => !['conversation.home_assistant', 'homeassistant'].includes(a.id)) || c.agents[0])?.id;
+  }
+  async askAI(text) {
+    const c = this._chat, l = this.L, h = this._hass;
+    text = (text || '').trim();
+    if (!text || c.busy) return;
+    c.msgs.push({ who: 'me', text }); c.draft = ''; c.busy = true;
+    // the assistant works on the saved plan: save first, so it sees what you just changed
+    if (this.dirty && this.plan.id) { await this.save(); c.msgs.push({ who: 'note', text: l.ai_saved_first }); }
+    this.render();
+    try {
+      const first = !c.conv;
+      const r = await h.callWS({ type: 'conversation/process', text: first ? `${l.ai_ctx} ${text}` : text, agent_id: c.agent, conversation_id: c.conv || undefined, language: h.locale?.language || h.language });
+      c.conv = r.conversation_id || c.conv;
+      c.msgs.push({ who: 'ai', text: r.response?.speech?.plain?.speech || r.response?.data?.code || '…' });
+    } catch (e) { c.msgs.push({ who: 'note', text: `${l.ai_err}: ${e.message || e.code || e}` }); }
+    c.busy = false;
+    // show what the assistant changed
+    try {
+      this.plans = await loadPlans(h, true);
+      const fresh = this.plans.find((p) => p.id === this.plan.id);
+      if (fresh && fresh.updated !== this.plan.updated && !this.dirty) this.plan = structuredClone(fresh);
+    } catch (e) { /* ignore */ }
+    this.render();
+  }
+
   /* ------------------------------------------------------------ render */
   render() {
     const l = this.L, p = this.plan;
@@ -325,8 +405,9 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="main">
         <div class="canvaswrap">${this.step >= 4 ? '<div class="preview" id="preview"></div>' : `<div class="cwcol">${this.step >= 1 ? this.zoomBar() : ''}${this.canvasHTML()}</div>`}</div>
         <div class="side">${[this.sideBg, this.sideRooms, this.sideDoors, this.sideItems, this.sideSettings, this.sideFinish][this.step].call(this)}</div>
-      </div>`;
+      </div>${this.chatHTML()}`;
     this.wire();
+    this.wireChat();
   }
 
   /** The part of the plan the canvas shows: everything, or one room (zoomed in) with a little space around it. */

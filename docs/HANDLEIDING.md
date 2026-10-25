@@ -468,6 +468,25 @@ Zoom in op een ruimte en tik op **Deze ruimte zuigen**.
 
 ---
 
+### AI-assistent: apparaten plaatsen door het te vragen
+
+Floorplan Studio werkt samen met de AI-assistent van Home Assistant (bijv. Google AI, OpenAI, Ollama of Extended OpenAI Conversation). Vraag gewoon *"Hang de keukentafellampen boven de eettafel op 1,8 meter"* of *"Zet de bewegingssensor rechtsboven in de hoek van de badkamer"*, en het icoon staat meteen goed: op het dashboard, in 2.5D en in de wandeling. Open kaarten werken zichzelf bij.
+
+- **In de editor:** rechtsonder zit de knop **AI-hulp**. Kies bovenin de assistent; je chat in het venster, en wat de assistent verplaatst zie je direct op de tekening. Heb je nog niet opgeslagen, dan slaat hij eerst op, zodat de assistent je laatste versie ziet.
+- **Wat de assistent kan:** twee hulpmiddelen. **FloorplanDescribe** geeft de plattegrond (ruimtes, meubels en apparaten met hun plek in meters). **FloorplanPlaceDevice** zet een apparaat ergens neer: *boven/op/naast* een meubel (tafel, bank, bureau, kast, aanrecht, bed, tv ...), *tegen de linker/rechter/boven/onder muur*, *in een hoek* of *in het midden*, met eventueel een hoogte en *plafond/hangend/muur/vloer/tafel*.
+- **Assistent instellen:** bij een assistent die de officiële AI-koppeling van Home Assistant gebruikt (Google AI, OpenAI, Ollama, Anthropic) zet je in de instellingen van die assistent **Home Assistant besturen (Assist)** aan; de hulpmiddelen staan er dan vanzelf bij. Bij *Extended OpenAI Conversation* gaat het via zijn functie om acties uit te voeren; de editor vertelt de assistent welke actie hij moet gebruiken.
+- **Ook als actie** voor automatiseringen, scripts of je eigen assistent via de API: `floorplan_studio.place_device` (velden `device`, `room`, `spot`, `height`, `mount`) en `floorplan_studio.describe` (geeft de plattegrond terug als antwoord).
+
+```yaml
+action: floorplan_studio.place_device
+data:
+  device: Keukentafel 1
+  room: Eettafel
+  spot: boven de tafel
+  mount: hanging
+  height: 1.8
+```
+
 ## 6. Thema's
 
 | | |
