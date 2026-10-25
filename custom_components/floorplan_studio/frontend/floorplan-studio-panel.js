@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b13';
+import './floorplan-studio-card.js?v=1.3.0b14';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b13';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b13';
+} from './fps-core.js?v=1.3.0b14';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b14';
 
 const L = {
   en: {

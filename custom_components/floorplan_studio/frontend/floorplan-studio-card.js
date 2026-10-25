@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b13';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b13';
+} from './fps-core.js?v=1.3.0b14';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b14';
 
 
 const CSS = `
@@ -233,6 +233,7 @@ const CSS = `
   .rinfo.present .pd { display: inline-flex; }
   @keyframes fpsPres { 50% { opacity: .45; } }
   .zoomed .rinfo { opacity: 0; pointer-events: none; }
+  .zoomed.pmin .rinfo.cur { opacity: 1; font-size: calc(var(--fs) * var(--k, 1)); }   /* panel made small: the room's own text shows on the plan */
   .labels .rinfo { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
   .rinfo.off { display: none; }
   .moving .rinfo { cursor: grab; outline: 1px dashed rgba(var(--fps-accent-rgb), .7); outline-offset: .4em; border-radius: 4px; }
@@ -1427,6 +1428,8 @@ class FloorplanStudioCard extends HTMLElement {
       this._renderPanel(true);
     }
     this._stage.style.setProperty('--k', k);
+    this._card.classList.toggle('pmin', !!room && !!this._panelMin);
+    this.shadowRoot.querySelectorAll('.rinfo').forEach((el) => el.classList.toggle('cur', !!room && el.dataset.room === room.id));
     const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
     this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && el.dataset.room !== room.id));
     for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
