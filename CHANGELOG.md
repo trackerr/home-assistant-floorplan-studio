@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Een tv op een kast of tv-meubel heeft geen voet meer: alleen het scherm op kleine pootjes (wandeling en 2.5D).
+- Stap 5: *De rondleiding begint in* — kies een ruimte; de rondleiding begint dan bij de deur van die ruimte.
 - Kaartoptie `walk: tour`: de wandeling opent vanzelf en de rondleiding loopt steeds opnieuw — voor een tv (Home Assistant Cast), wandtablet of kiosk. De kaart staat nu ook vanzelf bij de dashboard-resources (en houdt zijn versie bij), zodat Home Assistant Cast en kioskbrowsers hem vinden.
 - **Camerawand** (controlekamer) als meubel: in de wandeling een donkere wand vol schermen met je camerabeelden, in perspectief op de wand, met naam per scherm; ververst één voor één (elke paar seconden). Breedte met de handvatten, onder- en bovenkant en welke camera's instelbaar (editor en wandeling); tik op een scherm voor het grote beeld.
 - Wandeling: een apparaat blijft altijd in zijn eigen Home Assistant-ruimte; staat het (net) over de lijn getekend, dan komt het op de dichtstbijzijnde plek in die ruimte, aan de muur van die ruimte.

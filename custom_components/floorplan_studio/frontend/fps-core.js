@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b44';
+export const VERSION = '1.4.0b45';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -670,6 +670,7 @@ export const DEFAULT_SETTINGS = {
   show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
   perspective: true,        // 2.5D: real perspective (nearer = a little bigger)
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons
+  walk_start: '',           // room the tour starts in (at its door); '' = at the front door
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
   turn_ghost_pct: 10,       // ... to this % visible
@@ -795,6 +796,8 @@ export function tvScreen(f, S = 70, plan = null) {
     return [b, b + hs];
   }
   const zs = (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : 1.15) / 1.15, base = tvBase(plan, f);
+  // on a cupboard or TV furniture: no stand, just the screen on little feet
+  if (base > 0) return [base + 0.05, base + 0.05 + 0.66 * zs];
   return [base + 0.47 * zs, base + 1.13 * zs];
 }
 /** A TV on its stand that stands on a cabinet or table: the top of that furniture (else 0, the floor). */
@@ -1527,6 +1530,7 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
         const [b0, b1] = tvScreen(f, S);
         return [R(w * 0.4, 0, w * 0.6, h / 2 - 1.5, (b0 + b1) / 2 - 0.08, (b0 + b1) / 2 + 0.08, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, b0, b1, 'dark')];
       }
+      if (onTop) return [R(w * 0.1, h / 2 - 2.5, w * 0.16, h / 2 + 2.5, 0, 0.05, 'dark'), R(w * 0.84, h / 2 - 2.5, w * 0.9, h / 2 + 2.5, 0, 0.05, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.05, 0.71, 'dark')];
       return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
     }
     case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot'), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant')];
@@ -1594,7 +1598,7 @@ export function raisedSVG(plan, walls, proj) {
       : zb ? (plan.furniture || []).find((g) => g !== f && g.type !== 'tv' && furnAt({ furniture: [g] }, fx, fy) && furnHeight(g) === zb) : null;
     const footKey = (g) => { const gr = (safeNumber(g.rot) * Math.PI) / 180, gw = safeNumber(g.w, 100) / 2, gh = safeNumber(g.h, 60) / 2; return Math.max(...[[-gw, -gh], [gw, -gh], [gw, gh], [-gw, gh]].map(([x, y]) => P(safeNumber(g.x) + x * Math.cos(gr) - y * Math.sin(gr), safeNumber(g.y) + x * Math.sin(gr) + y * Math.cos(gr))[1])); };
     const onKey = support ? footKey(support) + 0.05 : null;
-    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180), !!support, planScale(plan) || 70)) {
+    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180), !!support || (f.type === 'tv' && zb > 0), planScale(plan) || 70)) {
       const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
       const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
       const sides = [];

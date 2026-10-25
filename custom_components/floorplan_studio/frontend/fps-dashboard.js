@@ -1,7 +1,7 @@
 // Floorplan Studio – builds a complete dashboard around a floorplan:
 // Home · Floorplan · Kiosk · Energy · Outside · TV, plus a page per room (tabs are only added when there is something to show).
 // Uses only built-in cards, and nicer HACS cards (advanced-camera-card, clock-weather-card) when they are installed.
-import { entityArea, roomPath } from './fps-core.js?v=1.4.0b44';
+import { entityArea, roomPath } from './fps-core.js?v=1.4.0b45';
 
 const OUTSIDE = /buiten|tuin|outside|outdoor|garden|yard|oprit|driveway|terras|patio|balkon|balcony|garage|voortuin|achtertuin|poort|gate|dak|roof|straat|street/i;
 

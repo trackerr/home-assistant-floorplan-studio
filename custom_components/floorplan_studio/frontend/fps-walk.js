@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b44';
+} from './fps-core.js?v=1.4.0b45';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -152,7 +152,7 @@ function buildWorld(plan, hass, selFurn = null) {
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
     const zs = furnStretch(f), zb = tvBase(plan, f);   // a TV on a cabinet stands on top of it
     const support = ['hob', 'sink'].includes(f.type) ? (plan.furniture || []).find((g) => g !== f && ['counter', 'island', 'sink', 'stove'].includes(g.type) && furnAt({ furniture: [g] }, fx, fy)) : null;
-    for (const pr of furnModel(f, 0, !!support, S)) {
+    for (const pr of furnModel(f, 0, !!support || (f.type === 'tv' && zb > 0), S)) {
       const poly = pr.poly.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
       const y0 = pr.z0 * zs + zb, y1 = Math.max(pr.z1 * zs + zb, y0 + 0.004);
       if (pr.cls === 'glass') { glass.prism(poly, y0, y1, COL.glass); continue; }
@@ -173,7 +173,7 @@ function buildGraph(plan, S) {
     const x1 = safeNumber(o.x1), y1 = safeNumber(o.y1), x2 = safeNumber(o.x2), y2 = safeNumber(o.y2), hor = y1 === y2, mx = (x1 + x2) / 2, my = (y1 + y2) / 2, k = 0.6 * S;
     const A = hor ? roomAt(rooms, mx, my - 6) : roomAt(rooms, mx - 6, my), B = hor ? roomAt(rooms, mx, my + 6) : roomAt(rooms, mx + 6, my);
     const pa = hor ? [M(mx), M(my - k)] : [M(mx - k), M(my)], pb = hor ? [M(mx), M(my + k)] : [M(mx + k), M(my)];
-    if (A && B && A.id !== B.id) edges.push({ a: A.id, b: B.id, pa, pb });
+    if (A && B && A.id !== B.id) edges.push({ a: A.id, b: B.id, pa, pb, door: o.type === 'door' });
     else if ((A || B) && !(A && B) && !entrance) entrance = { room: (A || B).id, inside: A ? pa : pb, outside: A ? pb : pa };
   }
   // rooms that touch but have no door drawn between them: connect them through the middle of their longest shared wall
@@ -1248,7 +1248,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   function startTour() {
     const rooms = plan.rooms || [];
     if (!rooms.length) return;
-    const ent = graph.entrance, start = ent?.room || rooms.slice().sort((a, b) => area(b) - area(a))[0].id;
+    let ent = graph.entrance;
+    // a room chosen to start in (step 5): enter it through its door (a real door first, else an opening)
+    const want = plan.settings?.walk_start;
+    if (want && rooms.some((r) => r.id === want) && ent?.room !== want) {
+      const es = graph.edges.filter((e) => !e.ghost && (e.a === want || e.b === want)).sort((x, y) => (y.door ? 1 : 0) - (x.door ? 1 : 0));
+      if (es.length) { const e = es[0]; ent = e.a === want ? { room: want, inside: e.pa, outside: e.pb } : { room: want, inside: e.pb, outside: e.pa }; }
+    }
+    const start = ent?.room || rooms.slice().sort((a, b) => area(b) - area(a))[0].id;
     // visit every room: go deeper first, and walk back through the doors when needed
     const order = [], seen = new Set();
     const visit = (r) => { seen.add(r); order.push(r); for (const e of graph.edges) { const n = e.a === r ? e.b : e.b === r ? e.a : null; if (n && !seen.has(n)) visit(n); } };
