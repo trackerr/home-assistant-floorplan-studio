@@ -117,7 +117,7 @@ Klik **Volgende**.
 
 ![Ramen en een deur met sensor die open staan](img/raam-open.png)
 
-**Meubels en trap.** Onder de deuren staan knoppen voor een bank, bed, tafel, ronde tafel, bureau, aanrecht, kast, bad, douche, wc, trap, tv en plant. Tik erop om het neer te zetten en sleep het naar de goede plek. Daarna kun je de soort, de **breedte**, **diepte** en **hoogte** aanpassen (in cm zodra je de echte maat bij stap 2 hebt ingevuld) en het een kwartslag draaien. Op het dashboard is het een lichte omtrek; in 2.5D worden het blokken.
+**Meubels en trap.** Onder de deuren staan knoppen voor een bank, bed, tafel, ronde tafel, bureau, aanrecht, gootsteen, fornuis, koelkast, kookeiland, bovenkast, kast, bad, douche, wc, trap, tv en plant. Tik erop om het neer te zetten en sleep het naar de goede plek. Daarna kun je de soort, de **breedte**, **diepte** en **hoogte** aanpassen (in cm zodra je de echte maat bij stap 2 hebt ingevuld) en het een kwartslag draaien. Op het dashboard is het een lichte omtrek; in 2.5D worden het blokken.
 
 ![Stap 3: een bank geselecteerd, met zijn maat](img/stap3-meubels.png)
 
@@ -153,10 +153,10 @@ De instellingen zitten in onderdelen die je openklapt; alleen **Uiterlijk** staa
 
 | Onderdeel | Wat stel je in |
 |---|---|
-| **Uiterlijk** | Standaardthema, **één thema voor het hele huis** (keuzelijst, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina), grootte van iconen en kamertekst. |
+| **Uiterlijk** | Standaardthema, **één thema voor het hele huis** (keuzelijst, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina), grootte van alle iconen, van **lampen** en van **andere apparaten** apart, en van de kamertekst. |
 | **Licht** | Lichtvlek per lamp, hele ruimte laten gloeien of geen gloed, de sterkte van de gloed, en hoe de sterkte van een lamp getoond wordt. |
 | **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan, CO2, gordijnen, verwarming/airco, wat er speelt, labels onder apparaten, hoeveel regels, de begroeting en het kompas. |
-| **Telefoon, tablet en 2.5D** | **Kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), de **hoogte in de 2.5D-weergave** (echte maat of een eigen percentage) en of er hulplijntjes van de vloer naar de iconen komen. |
+| **Telefoon, tablet en 2.5D** | **Kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), de **hoogte in de 2.5D-weergave** (echte maat of een eigen percentage), **perspectief** aan/uit, en of er hulplijntjes van de vloer naar de iconen komen. |
 | **Tikken en vasthouden** | Tikken op een ruimte aan/uit en wat er dan gebeurt (**inzoomen** of de **eigen pagina** openen), wat vasthouden opent (het **snelmenu** of het venster van Home Assistant) en hoe lang. |
 | **Eenvoudig** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
 | **Thema Automatisch (zon)** | Alleen bij dat thema: hoeveel minuten vóór zonsopkomst het licht wordt, en hoe lang de overgang duurt. |
@@ -286,7 +286,7 @@ Bij stap 5 stel je onder *Kleine schermen* in vanaf welke breedte dit vanzelf ge
 
 ![2.5D: het voorbeeldhuis 45° gedraaid](img/25d.png)
 
-Met de knop **2.5D** in de werkbalk kantelt de plattegrond. De muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte (een plafondlamp hoog, een thermostaat op borsthoogte). Muren aan de voorkant en binnenmuren blijven laag, zodat je in elke ruimte kijkt. Lichtvlekken, de radar, open ramen en tikken op een ruimte werken gewoon mee.
+Met de knop **2.5D** in de werkbalk kantelt de plattegrond. De muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte (een plafondlamp hoog, een thermostaat op borsthoogte). Muren aan de voorkant en binnenmuren blijven laag, zodat je in elke ruimte kijkt. Er zit echt perspectief in: wat dichterbij is, is iets groter (uit te zetten bij stap 5). Lichtvlekken, de radar, open ramen en tikken op een ruimte werken gewoon mee.
 
 | 2.5D recht | 2.5D in het thema Rock | Ingezoomd op een ruimte |
 |---|---|---|

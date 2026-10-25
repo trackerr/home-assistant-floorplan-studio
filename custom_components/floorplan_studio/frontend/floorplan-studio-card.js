@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b27';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b27';
+} from './fps-core.js?v=1.3.0b28';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b28';
 
 
 const CSS = `
@@ -451,7 +451,7 @@ class FloorplanStudioCard extends HTMLElement {
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; moving icons happens in 2D (exact), the 2.5D view follows
     this._walls = null; this._view = null;
-    this._proj = this._view25 && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
+    this._proj = this._view25 && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -518,10 +518,11 @@ class FloorplanStudioCard extends HTMLElement {
     const fs = () => toggleFull();
     root.querySelector('#fs')?.addEventListener('click', fs);
     root.querySelector('.kioskstart')?.addEventListener('click', (ev) => { ev.stopPropagation(); ev.currentTarget.remove(); fs(); });
-    root.querySelector('svg.plan').addEventListener('click', (ev) => {
+    this._svgClick = this._svgClick || ((ev) => {
       if (Date.now() - (this._freeDragged || 0) < 350) return;   // that was a drag or pinch, not a tap
-      this._roomTap(ev.target.dataset?.room && plan.rooms.find((r) => r.id === ev.target.dataset.room));
+      this._roomTap(ev.target.dataset?.room && this._plan.rooms.find((r) => r.id === ev.target.dataset.room));
     });
+    root.querySelector('svg.plan').addEventListener('click', this._svgClick);
     root.addEventListener('pointerdown', (ev) => { if (!ev.composedPath().some((n) => n.classList?.contains('lmenu'))) this._closeLabelMenu(); });
     this._card.classList.toggle('moving', this._moving);
     this._card.classList.toggle('p25', !!this._proj);
@@ -609,16 +610,16 @@ class FloorplanStudioCard extends HTMLElement {
   _reproject(rot, tilt) {
     const plan = this._plan, svg = this.shadowRoot.querySelector('svg.plan');
     if (!svg || !this._proj) return;
-    this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) });
+    this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false });
     this._view = { rot, tilt };
-    svg.querySelector('.ground')?.setAttribute('transform', `matrix(${this._proj.m.map((v) => +v.toFixed(5)).join(' ')})`);
-    const raised = svg.querySelector('.raised');
-    if (raised) { raised.insertAdjacentHTML('afterend', raisedSVG(plan, this._walls || (this._walls = computeWalls(plan.rooms)), this._proj)); raised.remove(); }
-    const stalks = svg.querySelector('.stalks');
-    if (stalks) stalks.innerHTML = '';
+    // a fresh drawing for the new angle (with perspective the floor can't follow one matrix)
+    svg.insertAdjacentHTML('afterend', planSVG(plan, { proj: this._proj }));
+    svg.remove();
+    this.shadowRoot.querySelector('svg.plan').addEventListener('click', this._svgClick);
+    this._glows = new Map(); this._radar = new Map(); this._last = new Map();
     for (const rec of this._items.values()) { rec.stalk = null; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
     this.shadowRoot.querySelectorAll('.rinfo').forEach((d) => { if (d._fx != null) [d.style.left, d.style.top] = this._at(d._fx, d._fy); });
-    this.shadowRoot.querySelectorAll('.opening[data-entity]').forEach((g) => g.classList.toggle('isopen', ['on', 'open', 'opening'].includes(this._hass.states[g.dataset.entity]?.state)));
+    this._update(true);
   }
   _turnTo(rot, tilt) {
     this._turn = { rot: ((rot % 360) + 360) % 360, tilt: Math.max(20, Math.min(80, tilt)) };
@@ -729,20 +730,30 @@ class FloorplanStudioCard extends HTMLElement {
       let el = this._radar.get(it.entity_id);
       if (!el || !layer.contains(el.g)) {
         const g = document.createElementNS(ns, 'g');
-        const mk = (cls) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', cls); g.appendChild(c); return c; };
+        const mk = (cls) => { const c = document.createElementNS(ns, this._proj ? 'ellipse' : 'circle'); c.setAttribute('class', cls); g.appendChild(c); return c; };
         el = { g, range: mk('radar-range'), ring: mk('radar-ring'), dots: [] };
         el.label = document.createElementNS(ns, 'text'); el.label.setAttribute('class', 'radar-label'); el.label.setAttribute('text-anchor', 'middle'); g.appendChild(el.label);
         // the radar only "sees" inside its own room
         const room = roomAt(this._plan.rooms, it.x, it.y);
-        if (room) g.setAttribute('clip-path', `url(#c-${safeSvgId(room.id)})`);
+        if (room) g.setAttribute('clip-path', `url(#${this._proj ? 'cp' : 'c'}-${safeSvgId(room.id)})`);
         layer.appendChild(g); this._radar.set(it.entity_id, el);
       }
       const show = !!r && this._visible(it.entity_id, it);
       el.g.style.display = show ? '' : 'none';
       if (!show) continue;
-      for (const c of [el.range, el.ring]) { c.setAttribute('cx', r.x); c.setAttribute('cy', r.y); }
-      el.range.setAttribute('r', r.range); el.range.style.display = r.range ? '' : 'none';
-      el.ring.style.r = `${r.ring || 1}px`; el.ring.style.display = r.ring ? '' : 'none';
+      const p = this._proj;
+      if (p) {
+        // 2.5D: circles on the floor become (tilted) ellipses
+        const [sx, sy] = p.P(r.x, r.y), [a, b2, cc, d] = p.J(r.x, r.y), kx = Math.hypot(a, cc), ky = Math.hypot(b2, d);
+        for (const c of [el.range, el.ring]) { c.setAttribute('cx', sx); c.setAttribute('cy', sy); }
+        el.range.setAttribute('rx', r.range * kx); el.range.setAttribute('ry', r.range * ky);
+        el.ring.setAttribute('rx', (r.ring || 1) * kx); el.ring.setAttribute('ry', (r.ring || 1) * ky);
+      } else {
+        for (const c of [el.range, el.ring]) { c.setAttribute('cx', r.x); c.setAttribute('cy', r.y); }
+        el.range.setAttribute('r', r.range); el.ring.style.r = `${r.ring || 1}px`;
+      }
+      el.range.style.display = r.range ? '' : 'none';
+      el.ring.style.display = r.ring ? '' : 'none';
       // the measured distance as a small label just above the sensor
       el.label.setAttribute('x', r.x); el.label.setAttribute('y', r.y - 24);
       el.label.textContent = r.meters && !this._proj ? `${r.meters.toFixed(1).replace('.', ',')} m` : '';
@@ -750,7 +761,7 @@ class FloorplanStudioCard extends HTMLElement {
       el.dots.forEach((c, i) => {
         const d = r.dots[i];
         c.style.display = d ? '' : 'none';
-        if (d) { c.style.cx = `${d[0]}px`; c.style.cy = `${d[1]}px`; }
+        if (d) { const q = p ? p.P(d[0], d[1]) : d; c.style.cx = `${q[0]}px`; c.style.cy = `${q[1]}px`; }
       });
     }
   }
@@ -964,11 +975,15 @@ class FloorplanStudioCard extends HTMLElement {
       if (d !== 'light' && !rec.it.color && rec.it.kind !== 'lamp') continue;
       let c = this._glows.get(id);
       if (!c) {
-        c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y); c.setAttribute('r', this._plan.width * 0.06);
+        c = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
         g.appendChild(c); this._glows.set(id, c);
       }
-      c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y);   // follows the lamp when it is moved
+      // the pool of light on the floor under the lamp (in 2.5D: tilted with the floor), follows it when moved
+      const p = this._proj, r0 = this._plan.width * 0.06;
+      if (p) {
+        const [gx, gy] = p.P(rec.it.x, rec.it.y), [a, b2, cc, d] = p.J(rec.it.x, rec.it.y);
+        c.setAttribute('cx', gx); c.setAttribute('cy', gy); c.setAttribute('rx', r0 * Math.hypot(a, cc)); c.setAttribute('ry', r0 * Math.hypot(b2, d));
+      } else { c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y); c.setAttribute('rx', r0); c.setAttribute('ry', r0); }
       const lit = on && rec.el.classList.contains('on') && !rec.el.classList.contains('hidden');
       const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
       const b = levelMode(this._s) !== 'off' ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
@@ -1366,10 +1381,11 @@ class FloorplanStudioCard extends HTMLElement {
     const W = safeNumber(this._plan.width, 1000), H = safeNumber(this._plan.height, 700), e = 5;   // keep the room's own walls clear
     const holes = room.rects.map((q) => {
       const x0 = Math.min(q[0], q[2]) - e, y0 = Math.min(q[1], q[3]) - e, x1 = Math.max(q[0], q[2]) + e, y1 = Math.max(q[1], q[3]) + e;
+      if (this._proj) return `<polygon points="${[[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => this._proj.P(x, y).map((v) => v.toFixed(1)).join(',')).join(' ')}" fill="#000"/>`;
       return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="#000"/>`;
     }).join('');
     const m = `fpsghost-${room.id}`.replace(/[^\w-]/g, '');
-    const mx = this._proj ? ` transform="matrix(${this._proj.m.join(' ')})"` : '';
+    const mx = '';
     // 2.5D: keep the room's own raised walls clear too (the outline around its floor and its wall tops)
     let tall = '';
     if (this._proj) {

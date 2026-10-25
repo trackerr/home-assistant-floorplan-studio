@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b27';
+export const VERSION = '1.3.0b28';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -610,7 +610,8 @@ export const DEFAULT_SETTINGS = {
   temp_min: 17, temp_max: 24,
   presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
   motion_fade: 5,
-  show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
+  show_stalks: false,
+  perspective: true,        // 2.5D: real perspective (nearer = a little bigger)       // 2.5D: thin lines from the floor up to raised icons
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons           // minutes the motion icon slowly fades out after the last movement (0 = off)
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
   alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
@@ -677,6 +678,45 @@ export function labelSpot(plan, room, fs, rows = 2) {
  * card fades in when lights in that room are on.
  */
 /* ------------------------------------------------------------------ 2.5D */
+/** The floor in 2.5D: rooms as exact polygons; textures and the vacuum map follow a close flat fit. */
+function groundSVG(plan, proj, editor) {
+  const { P, J } = proj, out = [];
+  const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700);
+  const poly = (q) => [[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]].map(([x, y]) => P(x, y).map((v) => v.toFixed(1)).join(',')).join(' ');
+  const mat = (mm) => `matrix(${mm.map((v) => +v.toFixed(5)).join(' ')})`;
+  for (const room of plan.rooms) {
+    const ref = safeSvgId(room.id), rects = room.rects.map(norm);
+    out.push(`<clipPath id="cp-${ref}">${rects.map((q) => `<polygon points="${poly(q)}"/>`).join('')}</clipPath>`);
+    for (const q of rects) out.push(`<polygon class="floor" data-room="${esc(room.id)}" points="${poly(q)}"/>`);
+  }
+  for (const room of plan.rooms) {
+    if (!['tiles', 'wood'].includes(room.floor)) continue;
+    const [x0, y0, x1, y1] = roomBBox(room), ref = safeSvgId(room.id);
+    out.push(`<g clip-path="url(#cp-${ref})"><rect class="floortex" transform="${mat(J((x0 + x1) / 2, (y0 + y1) / 2))}" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#fps-${room.floor})"/></g>`);
+  }
+  for (const room of plan.rooms) {
+    const ref = safeSvgId(room.id);
+    out.push(`<polygon class="glow" data-room="${esc(room.id)}" id="glow-${ref}" clip-path="url(#cp-${ref})" points="${poly(roomBBox(room))}" fill="url(#g-${ref})"/>`);
+  }
+  if (!editor) {
+    out.push(`<clipPath id="cp-all">${plan.rooms.flatMap((r) => r.rects.map(norm)).map((q) => `<polygon points="${poly(q)}"/>`).join('')}</clipPath>`);
+    out.push('<g class="lampglows" clip-path="url(#cp-all)"><g filter="url(#fps-lampblur)"></g></g>');
+    // vacuum map and trail: a close flat fit is plenty for these
+    out.push(`<g class="ground" transform="${mat(proj.m)}">`);
+    out.push(`<clipPath id="c-all">${plan.rooms.flatMap((r) => r.rects.map(norm)).map((q) => `<rect x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`).join('')}</clipPath>`);
+    if (plan.background) {
+      const b = plan.background;
+      out.push(`<image class="livemap" clip-path="url(#c-all)" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" preserveAspectRatio="none"/>`);
+    }
+    out.push('<polyline class="vactrail" points=""/>');
+    const flat = (plan.furniture || []).filter((f) => !(furnHeight(f) > 0));
+    if (flat.length) out.push(`<g class="furniture">${flat.map((f) => furnSVG(f)).join('')}</g>`);
+    out.push('</g>');
+    out.push('<g class="radars"></g>');
+  }
+  return out.join('');
+}
+
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
 export const FURN_HEIGHT = { sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
@@ -707,14 +747,21 @@ export function itemHeight(it, st) {
  * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted
  * back into the plan's own box. P(x, y) gives where a floor point lands, dz(h) how far up a height goes.
  */
-export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
+export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true } = {}) {
   const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), cx = W / 2, cy = H / 2;
   const th = (rot * Math.PI) / 180, t = (tilt * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), ct = Math.cos(t), st = Math.sin(t);
   const lift = height === 'real' ? LIFT : LIFT * Math.max(0.3, Math.min(2, safeNumber(height, 80) / 100));
   const sc = planScale(plan) || 70, wallH = 2.6 * sc * lift;
-  const rawAt = (c, n) => (x, y, z = 0) => { const xr = c * (x - cx) - n * (y - cy), yr = n * (x - cx) + c * (y - cy); return [xr, yr * ct - z * st]; };
-  const raw = rawAt(co, si);
   const corners = plan.rooms.flatMap((r) => r.rects.map(norm)).flatMap((q) => [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]]);
+  // real perspective: what is nearer looks a little bigger (the camera stands about 3 house-widths away)
+  const R0 = Math.max(1, ...corners.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+  const D = persp ? R0 * 3.2 : Infinity;
+  const rawAt = (c, n) => (x, y, z = 0) => {
+    const xr = c * (x - cx) - n * (y - cy), yr = n * (x - cx) + c * (y - cy);
+    const k = Number.isFinite(D) ? D / Math.max(D * 0.2, D - (yr * st + z * ct)) : 1;
+    return [xr * k, (yr * ct - z * st) * k];
+  };
+  const raw = rawAt(co, si);
   const box = (f) => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const [x, y] of corners) for (const z of [0, wallH]) { const [a, b] = f(x, y, z); x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
@@ -727,11 +774,16 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
   for (let d = 0; d < 180; d += 15) { const r = (d * Math.PI) / 180; s = Math.min(s, fit(box(rawAt(Math.cos(r), Math.sin(r))))); }
   const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
   const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
-  const [e, f] = P(0, 0), [a1, b1] = P(1, 0), [c1, d1] = P(0, 1);
-  const a = a1 - e, b = b1 - f, c = c1 - e, d = d1 - f, det = a * d - b * c || 1;
-  // inv: from a point on screen (plan box units) back to the floor
+  // J: the plan around one point as a flat (affine) matrix — exact without perspective, a close fit with it
+  const J = (x, y) => {
+    const [ex, ey] = P(x, y), [ax, ay] = P(x + 1, y), [bx, by] = P(x, y + 1);
+    const a = ax - ex, b = ay - ey, c = bx - ex, d = by - ey;
+    return [a, b, c, d, ex - a * x - c * y, ey - b * x - d * y];
+  };
+  const m = J(cx, cy), [a, b, c, d, e, f] = m, det = a * d - b * c || 1;
+  // inv: from a point on screen (plan box units) back to the floor (exact without perspective)
   const inv = (X, Y) => [(d * (X - e) - c * (Y - f)) / det, (-b * (X - e) + a * (Y - f)) / det];
-  return { P, inv, m: [a, b, c, d, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift };
+  return { P, J, inv, m, dz: (h) => P(cx, cy, h)[1] - P(cx, cy)[1], s, sc, wallH, rot, tilt, si, co, lift, persp: Number.isFinite(D) };
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
@@ -789,7 +841,6 @@ function furnModel(f, spin = 0) {
 export function raisedSVG(plan, walls, proj) {
   const { P, dz, s, sc, wallH } = proj, parts = [];
   const pts = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const up = ([x, y], h) => [x, y + dz(h)];
   // which side of an outer wall the house is on: a wall with the rooms on the viewer's side is a back wall
   const inner = (x, y) => !!roomAt(plan.rooms, x, y);
   const openings = (plan.openings || []).map((o) => ({ ...o, x1: safeNumber(o.x1), y1: safeNumber(o.y1), x2: safeNumber(o.x2), y2: safeNumber(o.y2) }));
@@ -826,12 +877,13 @@ export function raisedSVG(plan, walls, proj) {
       for (let i = 0; i < n; i++) bits.push({ ...pc, lo: pc.lo + ((pc.hi - pc.lo) * i) / n, hi: Math.min(pc.hi, pc.lo + ((pc.hi - pc.lo) * (i + 1)) / n + (pc.win ? 0 : 1.2)) });
     }
     for (const pc of bits) {
+      const ph = pc.door ? wallH * 0.06 : h;
       const A = hor ? P(pc.lo, w.y1) : P(w.x1, pc.lo), B = hor ? P(pc.hi, w.y1) : P(w.x1, pc.hi);
-      const ph = pc.door ? wallH * 0.06 : h, key = Math.max(A[1], B[1]);
+      const A2 = hor ? P(pc.lo, w.y1, ph) : P(w.x1, pc.lo, ph), B2 = hor ? P(pc.hi, w.y1, ph) : P(w.x1, pc.hi, ph), key = Math.max(A[1], B[1]);
       const cls = pc.win ? 'w3 win3' : pc.door ? 'w3 door3' : `w3 ${w.kind}`;
       const ent = pc.ent ? ` data-entity="${esc(pc.ent)}"` : '';
-      const top = Math.min(A[1], B[1]) + dz(ph);
-      parts.push({ key, wall: { hor, at: hor ? w.y1 : w.x1, lo: pc.lo, hi: pc.hi }, sb: [Math.min(A[0], B[0]) - 4, top - 4, Math.max(A[0], B[0]) + 4, key + 4], svg: `<g class="${pc.ent ? 'opening ' : ''}${cls}"${ent}><polygon class="w3face" points="${pts([A, B, up(B, ph), up(A, ph)])}"/><line class="w3cap" x1="${A[0].toFixed(1)}" y1="${(A[1] + dz(ph)).toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${(B[1] + dz(ph)).toFixed(1)}" style="stroke-width:${((w.kind === 'outer' ? 8 : 4) * s).toFixed(1)}"/></g>` });
+      const top = Math.min(A2[1], B2[1]);
+      parts.push({ key, wall: { hor, at: hor ? w.y1 : w.x1, lo: pc.lo, hi: pc.hi }, sb: [Math.min(A[0], B[0]) - 4, top - 4, Math.max(A[0], B[0]) + 4, key + 4], svg: `<g class="${pc.ent ? 'opening ' : ''}${cls}"${ent}><polygon class="w3face" points="${pts([A, B, B2, A2])}"/><line class="w3cap" x1="${A2[0].toFixed(1)}" y1="${A2[1].toFixed(1)}" x2="${B2[0].toFixed(1)}" y2="${B2[1].toFixed(1)}" style="stroke-width:${((w.kind === 'outer' ? 8 : 4) * s).toFixed(1)}"/></g>` });
     }
   }
   for (const f of plan.furniture || []) {
@@ -839,7 +891,7 @@ export function raisedSVG(plan, walls, proj) {
     if (!(fh > 0)) continue;
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
     const zs = fh / (FURN_HEIGHT[f.type] || fh);   // an own height stretches the whole piece
-    const toP = ([x, y], z) => { const p = P(fx + x * cr - y * sr, fy + x * sr + y * cr); return [p[0], p[1] + dz(z * zs * sc * proj.lift)]; };
+    const toP = ([x, y], z) => P(fx + x * cr - y * sr, fy + x * sr + y * cr, z * zs * sc * proj.lift);
     for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180))) {
       const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
       const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
@@ -908,8 +960,14 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
     const b = plan.background;
     out.push(`<image href="${safeImageData(b.url)}" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" opacity="${safeNumber(b.opacity, 0.5)}" preserveAspectRatio="none"/>`);
   }
-  // 2.5D: everything on the floor goes through one tilt/turn matrix; walls and furniture are raised after it
-  if (proj) out.push(`<g class="ground" transform="matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">`);
+  // 2.5D: floors, textures and room glow drawn as their exact (turned, tilted, perspective) shapes
+  if (proj) {
+    out.push(groundSVG(plan, proj, editor));
+    out.push(raisedSVG(plan, walls, proj));
+    if (!editor) out.push('<g class="stalks"></g>');   // thin lines from the floor up to raised icons (card fills it)
+    out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/></svg>`);
+    return out.join('');
+  }
   for (const room of plan.rooms) {
     for (const q of room.rects.map(norm)) {
       out.push(`<rect class="floor" data-room="${esc(room.id)}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`);
@@ -942,13 +1000,6 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
   if (flatFurn.length) out.push(`<g class="furniture">${flatFurn.map((f) => furnSVG(f)).join('')}</g>`);
   // mmWave radars: range circle, distance ring or dots per person (filled in by the card)
   if (!editor) out.push('<g class="radars"></g>');
-  if (proj) {
-    out.push('</g>');
-    out.push(raisedSVG(plan, walls, proj));
-    if (!editor) out.push('<g class="stalks"></g>');   // thin lines from the floor up to raised icons (card fills it)
-    out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/></svg>`);
-    return out.join('');
-  }
   out.push('<g class="walls">');
   for (const w of walls) out.push(`<line class="wall ${w.kind}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
   out.push('</g>');
