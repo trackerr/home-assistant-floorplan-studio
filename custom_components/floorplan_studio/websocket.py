@@ -26,6 +26,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_usage)
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_wled)
+    websocket_api.async_register_command(hass, ws_wled_live)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/plans"})
@@ -155,3 +156,94 @@ async def ws_wled(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 
     results = await asyncio.gather(*(one(e) for e in hass.config_entries.async_entries("wled")))
     connection.send_result(msg["id"], {"devices": [r for r in results if r]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/wled_live", vol.Required("entity_ids"): [str]})
+@websocket_api.async_response
+async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Live LED colours of WLED lights (WLED's /json/live), per segment, a few times a second while a card or walk shows them.
+
+    Sends {"leds": {entity_id: ["rrggbb", ...]}, "matrix": {entity_id: [w, h]}} whenever they change.
+    The integration fetches them itself, so this also works when Home Assistant is opened over https.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from homeassistant.helpers import entity_registry as er  # noqa: PLC0415
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: PLC0415
+
+    session = async_get_clientsession(hass)
+    reg = er.async_get(hass)
+    wanted = set(msg["entity_ids"])
+    # which device (host) and segment every wanted light is
+    hosts: dict[str, dict[str, Any]] = {}
+    for entry in hass.config_entries.async_entries("wled"):
+        host = entry.data.get("host")
+        if not host:
+            continue
+        for ent in er.async_entries_for_config_entry(reg, entry.entry_id):
+            if ent.domain != "light" or ent.entity_id not in wanted or not ent.unique_id:
+                continue
+            uid = ent.unique_id.lower()
+            seg = None
+            if "_" in uid:
+                tail = uid.rsplit("_", 1)[1]
+                seg = int(tail) if tail.isdigit() else None
+            hosts.setdefault(host, {})[ent.entity_id] = seg
+    if not hosts:
+        connection.send_error(msg["id"], "not_found", "no WLED lights")
+        return
+
+    async def get(host: str, path: str) -> Any:
+        async with asyncio.timeout(3):
+            resp = await session.get(f"http://{host}{path}")
+            return await resp.json(content_type=None)
+
+    async def run() -> None:
+        segs: dict[str, dict[int, dict[str, Any]]] = {}
+        dims: dict[str, tuple[int, int] | None] = {}
+        last: dict[str, Any] = {}
+        tick = 0
+        while True:
+            for host, ents in hosts.items():
+                try:
+                    if tick % 60 == 0 or host not in segs:
+                        data = await get(host, "/json")
+                        segs[host] = {s.get("id", i): s for i, s in enumerate(data.get("state", {}).get("seg", [])) if isinstance(s, dict)}
+                        m = (data.get("info", {}).get("leds", {}) or {}).get("matrix")
+                        dims[host] = (int(m["w"]), int(m["h"])) if isinstance(m, dict) and m.get("w") and m.get("h") else None
+                    live = await get(host, "/json/live")
+                except Exception:  # noqa: BLE001 - device offline: try again later
+                    continue
+                leds = live.get("leds") or []
+                step = max(1, int(live.get("n") or 1))
+                out: dict[str, list[str]] = {}
+                mat: dict[str, list[int]] = {}
+                for eid, sid in ents.items():
+                    seg = segs[host].get(sid) if sid is not None else None
+                    if seg is None and sid is None and len(segs[host]) == 1:
+                        seg = next(iter(segs[host].values()))
+                    if dims.get(host) and (live.get("w") or seg is None or "startY" in (seg or {})):
+                        # a matrix: the whole picture, row by row
+                        w = int(live.get("w") or dims[host][0])
+                        h = int(live.get("h") or max(1, len(leds) // max(1, w)))
+                        out[eid] = leds[: w * h]
+                        mat[eid] = [w, h]
+                        continue
+                    a, b = (int(seg.get("start", 0)), int(seg.get("stop", 0))) if seg else (0, len(leds) * step)
+                    part = leds[a // step: max(a // step + 1, b // step)]
+                    if seg and seg.get("rev"):
+                        part = part[::-1]
+                    if len(part) > 96:
+                        k = len(part) / 96
+                        part = [part[int(i * k)] for i in range(96)]
+                    out[eid] = part
+                key = repr((out, mat))
+                if out and last.get(host) != key:
+                    last[host] = key
+                    connection.send_message(websocket_api.event_message(msg["id"], {"leds": out, "matrix": mat}))
+            tick += 1
+            await asyncio.sleep(0.35)
+
+    task = hass.async_create_background_task(run(), "floorplan_studio_wled_live")
+    connection.subscriptions[msg["id"]] = task.cancel
+    connection.send_result(msg["id"])

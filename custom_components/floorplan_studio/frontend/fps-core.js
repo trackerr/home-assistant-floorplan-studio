@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b30';
+export const VERSION = '1.4.0b31';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -425,6 +425,8 @@ export const FURN_TYPES = {
   table: { icon: 'mdi:table-chair', w: 160, h: 90 },
   round: { icon: 'mdi:table-furniture', w: 110, h: 110 },
   coffee: { icon: 'mdi:table-furniture', w: 110, h: 60 },
+  radiator: { icon: 'mdi:radiator', w: 80, h: 10 },
+  speakerbox: { icon: 'mdi:speaker', w: 22, h: 26 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
   sink: { icon: 'mdi:faucet', w: 80, h: 50 },
@@ -455,6 +457,18 @@ export function tableChairs(f) {
   if (ends >= 2) out.push({ cx: -w / 2, cy: 0, side: 'w' });
   return out;
 }
+/**
+ * A corner sofa (f.shape 'left' or 'right': which side the long leg is on, seen from the front): the parts
+ * in the sofa's own frame (0..w, 0..h, back at the top) as [x0, y0, x1, y1, kind] with kind back/seat/arm.
+ * A straight sofa gives null.
+ */
+export function sofaParts(f) {
+  if (f?.type !== 'sofa' || !['left', 'right'].includes(f.shape)) return null;
+  const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60));
+  const back = Math.min(24, w * 0.12, h * 0.18), arm = Math.min(22, w * 0.1), dm = Math.min(Math.max(h * 0.42, 40), h - 10, w * 0.6);
+  const parts = [[0, 0, w, back, 'back'], [0, back, back, h, 'back'], [back, back, w - arm, dm, 'seat'], [back, dm, dm, h - arm, 'seat'], [w - arm, back, w, dm, 'arm'], [back, h - arm, dm, h, 'arm']];
+  return f.shape === 'right' ? parts.map(([a, b2, c, d, k]) => [w - c, b2, w - a, d, k]) : parts;
+}
 /** Chairs around a round table: f.chairs (default 4), evenly round (angles). */
 export const roundChairs = (f) => { const n = f.chairs != null && f.chairs !== '' && Number.isFinite(+f.chairs) ? Math.max(0, Math.min(16, Math.round(+f.chairs))) : 4; return Array.from({ length: n }, (_, i) => (i * 2 * Math.PI) / Math.max(1, n) + Math.PI / 4); };
 
@@ -466,6 +480,14 @@ export function furnSVG(f, extra = '') {
   let body = '';
   switch (f.type) {
     case 'sofa': {
+      const sp = sofaParts(f);
+      if (sp) {
+        // a corner sofa: its L outline, the backs and the seat cushions
+        const dmx = f.shape === 'right' ? sp[3][0] : sp[3][2], dm = sp[2][3];
+        const pts = f.shape === 'right' ? [[0, 0], [w, 0], [w, h], [dmx, h], [dmx, dm], [0, dm]] : [[0, 0], [w, 0], [w, dm], [dmx, dm], [dmx, h], [0, h]];
+        body = `<polygon points="${pts.map(([a, b2]) => `${(x + a).toFixed(1)},${(y + b2).toFixed(1)}`).join(' ')}"/>` + sp.filter((q) => q[4] !== 'seat').map(([a, b2, c, d]) => R(x + a, y + b2, c - a, d - b2, 4)).join('');
+        break;
+      }
       const arm = Math.min(w * 0.12, 22), back = Math.min(h * 0.28, 24);
       body = R(x, y, w, h, 8) + R(x + arm, y, w - 2 * arm, back, 5) + L(x + arm, y + back, x + arm, y + h) + L(x + w - arm, y + back, x + w - arm, y + h) + L(0, y + back, 0, y + h);
       break;
@@ -480,6 +502,14 @@ export function furnSVG(f, extra = '') {
       const chairs = list.map((c) => (c.side === 'n' ? R(c.cx - cw / 2, y - cs - 4, cw, cs, 4, 'soft') : c.side === 's' ? R(c.cx - cw / 2, y + h + 4, cw, cs, 4, 'soft')
         : c.side === 'e' ? R(x + w + 4, -ew / 2, cs, ew, 4, 'soft') : R(x - cs - 4, -ew / 2, cs, ew, 4, 'soft')));
       body = chairs.join('') + R(x, y, w, h, 6);
+      break;
+    }
+    case 'speakerbox':   // a speaker box: the cabinet, with its woofer seen from above as a ring at the front
+      body = R(x, y, w, h, 3) + `<circle class="soft" cx="0" cy="${(y + h * 0.62).toFixed(1)}" r="${(Math.min(w, h) * 0.28).toFixed(1)}"/>`;
+      break;
+    case 'radiator': {   // a radiator against the wall: a long narrow panel with fins
+      const k = Math.max(2, Math.round(w / 9));
+      body = R(x, y, w, h, 2) + Array.from({ length: k - 1 }, (_, i) => L(x + ((i + 1) * w) / k, y + 1, x + ((i + 1) * w) / k, y + h - 1)).join('');
       break;
     }
     case 'coffee':   // a low coffee table: a rounded top with a shelf line, no chairs
@@ -742,7 +772,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -960,10 +990,116 @@ const TRV_RE = /\btrv\b|radiator|radiateur|thermostatic|thermostaatknop|thermost
 const PURIFIER_RE = /purifier|luchtreiniger|luchtzuiveraar|air ?purif|starkvind|levoit|dyson pure|philips air|humidifier|luchtbevochtiger|ontvochtiger|dehumidifier/i;
 const CEILFAN_RE = /plafond ?ventilator|ceiling ?fan|plafondfan/i;
 const PLUG_RE = /plug|stekker|stopcontact|outlet|socket|\bwcd\b|tasmota|shelly ?plug|blitzwolf|nous a1/i;
+/**
+ * Things in the house recognised from their name and make, whatever kind of entity is on the plan (a switch,
+ * a plug, a light, a sensor): '3dprinter', 'holofan' (hologram fan), 'tree' (Christmas tree), 'hood'
+ * (cooker hood), 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas',
+ * 'router', 'printer', 'screen' (projection screen), 'thermo' (thermometer display), 'doorbell', 'syncbox'.
+ */
+const APPLIANCES = [
+  ['3dprinter', /bambu|prusa|creality|elegoo|anycubic|voron|(x1c|x1e|p1s|p1p|a1 ?mini|h2d)|3d.?print/i],
+  ['holofan', /holoscope|hologram|pov.?fan|p56/i],
+  ['tree', /kerstboom|christmas ?tree|xmas ?tree|weihnachtsbaum/i],
+  ['syncbox', /sync ?box|hdmi ?sync|ambilight ?box|hue ?sync/i],
+  ['hood', /afzuigkap|dampkap|cooker ?hood|range ?hood|extractor ?hood|dunstabzug/i],
+  ['kettle', /waterkoker|kettle|wasserkocher/i],
+  ['coffee', /koffie|coffee|espresso|senseo|nespresso|dolce ?gusto|kaffee/i],
+  ['dishwasher', /vaatwasser|afwasmachine|dishwasher|sp[üu]lmaschine/i],
+  ['washer', /wasmachine|washing ?machine|washer|waschmaschine/i],
+  ['dryer', /(?<!filament )droger|dryer|wasdroger|trockner/i],
+  ['powerstrip', /stekkerdoos|stekkerblok|power ?strip|socket ?strip|steckdosenleiste/i],
+  ['inverter', /omvormer|inverter|goodwe|growatt|solaredge|enphase|solis|wechselrichter/i],
+  ['nas', /synology|diskstation|nas|qnap|truenas|unraid/i],
+  ['router', /router|archer|fritz ?box|unifi|access ?point|mesh ?wifi/i],
+  ['printer', /brother|epson|canon|laserjet|officejet|mfc|printer|drucker/i],
+  ['doorbell', /deurbel|doorbell|t8210|klingel/i],
+];
+/**
+ * Radiators you drew, linked to what controls them: a radiator thermostat (TRV) on the plan close by in the
+ * same room, or else the radiator thermostat / heating zone (Tado, Netatmo, Eurotronic, Danfoss, Aqara, Fritz!DECT,
+ * Homematic, Wiser...) in that room's area in Home Assistant. Returns {byFurn: Map(id → entity_id), byEntity: Map(entity_id → [furniture])}.
+ * f.climate on the radiator picks one yourself ('' / false = none).
+ */
+const TRV_PLATFORMS = ['tado', 'tado_x', 'netatmo', 'evohome', 'eq3btsmart', 'fritzbox', 'homematicip_cloud', 'homematic', 'wiser', 'hive', 'drayton_wiser', 'bosch_shc', 'plugwise', 'nest'];
+const TRV_MAKE_RE = /tado|eurotronic|spirit|danfoss|\bally\b|popp|eq-?3|fritz.?dect ?30|hm-cc-rt|etrv|netatmo.*valve|aqara.*(e1|trv)|sonoff.*trv|bosch.*radiator|shelly.*trv|wiser.*radiator|hive.*trv|moes|\btrv\b|radiator|thermostatic/i;
+export function isRadiatorValve(hass, id) {
+  const st = hass?.states[id], e = hass?.entities?.[id], dev = e?.device_id ? hass?.devices?.[e.device_id] : null;
+  if (!st || id.split('.')[0] !== 'climate' || isAircon({ entity_id: id }, st)) return false;
+  return TRV_PLATFORMS.includes(e?.platform) || TRV_MAKE_RE.test(`${id} ${st.attributes?.friendly_name || ''} ${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name || ''}`);
+}
+export function radiatorLinks(plan, hass) {
+  const byFurn = new Map(), byEntity = new Map(), S = planScale(plan) || 70;
+  for (const f of plan.furniture || []) {
+    if (f.type !== 'radiator') continue;
+    let id = null;
+    if (f.climate === '' || f.climate === false) continue;
+    if (typeof f.climate === 'string' && hass?.states[f.climate]) id = f.climate;
+    const room = roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y));
+    if (!id) {
+      let bd = 2.0 * S;
+      for (const it of plan.items || []) {
+        if (!isRadiatorValve(hass, it.entity_id) || roomAt(plan.rooms, safeNumber(it.x), safeNumber(it.y)) !== room) continue;
+        const dd = Math.hypot(safeNumber(it.x) - safeNumber(f.x), safeNumber(it.y) - safeNumber(f.y));
+        if (dd < bd) { bd = dd; id = it.entity_id; }
+      }
+    }
+    if (!id && room?.area_id) id = areaEntities(hass, room.area_id, ['climate']).find((x) => isRadiatorValve(hass, x)) || null;
+    if (!id) continue;
+    byFurn.set(f.id, id);
+    if (!byEntity.has(id)) byEntity.set(id, []);
+    byEntity.get(id).push(f);
+  }
+  return { byFurn, byEntity };
+}
+/**
+ * A light inside or on speaker boxes ("TV Boxen", "LED box rechts"): the speaker boxes you drew within 2 m that it
+ * lights (one when the name says left/right, else all of them close by), or [].
+ */
+const BOXLIGHT_RE = /\bbox(en|es)?\b|speaker|luidspreker|lautsprecher/i;
+export function speakerBoxes(plan, it, st) {
+  if (it.entity_id.split('.')[0] !== 'light' || stripPath(it) || it.boxlight === false) return [];
+  const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+  if (!(it.boxlight || BOXLIGHT_RE.test(label) || /speaker/.test(it.icon || st?.attributes?.icon || ''))) return [];
+  const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.0 * (planScale(plan) || 70);
+  const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox').map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
+  if (!near.length) return [];
+  return /links|rechts|left|right|\b[lr]\b/i.test(label) ? [near[0][0]] : near.map(([f]) => f);
+}
+/** Is a radiator thermostat / heating zone heating right now? */
+export const isHeating = (st) => !!st && (st.attributes?.hvac_action === 'heating' || (st.attributes?.hvac_action == null && st.state === 'heat' && +st.attributes?.current_temperature < +st.attributes?.temperature));
+/**
+ * A light behind a TV (ambilight, a WLED strip called "TV"): the TV furniture it lights, or null.
+ * Only when it is not drawn as its own line and stands within 2 m of a TV you drew (it.ambilight: false = never).
+ */
+const AMBI_RE = /\btv\b|ambilight|ambi|achter ?(de )?tv|tv ?back|bias ?light|hyperion|hyperhdr/i;
+export function ambilightTv(plan, it, st) {
+  if (it.ambilight === false || it.entity_id.split('.')[0] !== 'light' || stripPath(it)) return null;
+  const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+  if (!(it.ambilight === true || it.ambilight || (AMBI_RE.test(label) && !BOXLIGHT_RE.test(label)))) return null;
+  if (typeof it.ambilight === 'string') return (plan.furniture || []).find((f) => f.id === it.ambilight) || null;
+  const x = safeNumber(it.x), y = safeNumber(it.y);
+  let best = null, bd = 2.0 * (planScale(plan) || 70);
+  for (const f of plan.furniture || []) { if (f.type !== 'tv') continue; const dd = Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y); if (dd < bd) { bd = dd; best = f; } }
+  return best;
+}
+export function applianceKind(it, st, hass) {
+  if (it.device_kind) return it.device_kind === 'none' ? null : APPLIANCES.some(([k]) => k === it.device_kind) || ['screen', 'thermo'].includes(it.device_kind) ? it.device_kind : null;
+  const d = it.entity_id.split('.')[0], a = st?.attributes || {};
+  const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null;
+  const t = `${it.entity_id} ${it.name || ''} ${a.friendly_name || ''} ${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name_by_user || dev?.name || ''}`;
+  if (d === 'cover' && SCREEN_RE.test(t)) return 'screen';
+  // a temperature/humidity device: the sensor itself, or a setting switch of it (e.g. "show smiley") that ended up on the plan
+  if (d === 'sensor' && ['temperature', 'humidity'].includes(a.device_class) && !/koker|kettle|boiler|cpu|nvme|printer|bed|nozzle/i.test(t)) return 'thermo';
+  if (d === 'switch' && /smiley|display|indicator|backlight|lcd|comfort/i.test(t) && ent?.device_id && Object.values(hass?.entities || {}).some((e) => e.device_id === ent.device_id && hass.states[e.entity_id]?.attributes?.device_class === 'temperature')) return 'thermo';
+  if (['camera', 'binary_sensor', 'sensor', 'update', 'button'].includes(d) && !/doorbell|deurbel/i.test(t)) { const k = APPLIANCES.find(([k2, re]) => re.test(t) && ['3dprinter', 'printer', 'nas', 'router'].includes(k2)); return d === 'camera' ? null : k ? k[0] : null; }
+  return APPLIANCES.find(([, re]) => re.test(t))?.[0] || null;
+}
 export function deviceKind(it, st, hass) {
   if (it.device_kind) return it.device_kind === 'none' ? null : it.device_kind;
   const d = it.entity_id.split('.')[0], a = st?.attributes || {};
   if (it.kind === 'lamp' || d === 'light') return null;
+  const ak = applianceKind(it, st, hass);
+  if (ak) return ak;
   const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null;
   const t = `${it.entity_id} ${it.name || ''} ${a.friendly_name || ''} ${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name || ''}`;
   if (d === 'vacuum' || d === 'lawn_mower') return d === 'vacuum' ? 'vacuum' : null;
@@ -980,11 +1116,29 @@ export function deviceKind(it, st, hass) {
   return null;
 }
 /** Where such a device usually is, in metres above the floor (when you did not give it a height). */
-const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3 };
-export const KIND_ICON = { vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
+const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3,
+  '3dprinter': 0.25, holofan: 1.7, tree: 0.9, syncbox: 0.03, hood: 1.75, kettle: 0.12, coffee: 0.18, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03,
+  inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35 };
+/** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
+const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer'];
+export const KIND_ICON = { '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
+  coffee: 'mdi:coffee-maker', dishwasher: 'mdi:dishwasher', washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', powerstrip: 'mdi:power-socket-eu', inverter: 'mdi:solar-power',
+  nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video',
+  vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
 
 export const MEDIA_ICON = { mini: 'mdi:speaker', speaker: 'mdi:speaker', hub: 'mdi:tablet', soundbar: 'mdi:soundbar', player: 'mdi:cast', voice: 'mdi:microphone', group: 'mdi:speaker-multiple' };
 
+/**
+ * Live LED colours of WLED lights (see websocket floorplan_studio/wled_live): cb({leds: {entity_id: ['rrggbb', ...]},
+ * matrix: {entity_id: [w, h]}}). Returns a function that stops it. Only WLED lights are asked for.
+ */
+export function wledLive(hass, ids, cb) {
+  const list = [...new Set(ids)].filter((id) => hass?.entities?.[id]?.platform === 'wled').sort();
+  if (!list.length || !hass?.connection) return null;
+  let unsub = null, stopped = false;
+  hass.connection.subscribeMessage(cb, { type: 'floorplan_studio/wled_live', entity_ids: list }).then((u) => { if (stopped) u(); else unsub = u; }).catch(() => {});
+  return { key: list.join(','), stop: () => { stopped = true; try { unsub?.(); } catch (e) { /* gone already */ } } };
+}
 /** A WLED ring clock (a WLED light called klok/clock): drawn as its ring of LEDs showing the time. */
 export function ringClock(it, hass) {
   if (it.entity_id.split('.')[0] !== 'light' || it.ringclock === false) return 0;
@@ -1070,6 +1224,11 @@ export function lampShape(plan, it, st, hass = null) {
   const style = lampStyle(plan, it, st), ic = lampIcon(it, st), label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null, make = `${dev?.manufacturer || ''} ${dev?.model || ''}`;
   if (style === 'strip' || style === 'spot') return style;
+  if (speakerBoxes(plan, it, st).length) return 'boxglow';
+  if (ambilightTv(plan, it, st)) return 'ambilight';
+  const ak = applianceKind(it, st, hass);
+  if (ak) return ak;   // a light that is part of something else: the chamber light of a 3D printer, a Christmas tree, a hologram fan...
+  if (/keukenblad|aanrecht|onderbouw|kastverlichting|plint|onder ?kast|cabinet ?light/i.test(label) || (/led ?controller|light controller|strip controller/i.test(make) && style !== 'ceiling')) return 'bar';
   if (style === 'pendant') return /chandelier/.test(ic) || /kroonluchter|chandelier/i.test(label) ? 'chandelier' : 'pendant';
   if (style === 'ceiling') return /light-recessed/.test(ic) || /inbouw|downlight|recessed/i.test(label) ? 'downlight' : 'ceiling';
   if (style === 'floor') return /torchiere/.test(ic) || /uplight|torchiere|deckenfluter/i.test(label) ? 'torchiere' : 'floor';
@@ -1120,6 +1279,10 @@ export function deviceHeight(plan, it, st, hass = null) {
       const top = { mini: 0.03, speaker: 0.1, hub: 0.09, soundbar: 0.05, player: 0.03, voice: 0.03 }[mk];
       h = under ? furnHeight(under) + top : mk === 'soundbar' ? 0.55 : itemHeight(it, st);
     } else if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
+    else if (KIND_H[applianceKind(it, st, hass)] != null) {
+      const k = applianceKind(it, st, hass);
+      h = ON_TOP.includes(k) ? (under ? furnHeight(under) : k === 'kettle' || k === 'coffee' ? 0.9 : k === '3dprinter' || k === 'printer' ? 0.75 : 0) + KIND_H[k] : KIND_H[k];
+    }
     else if (!style && KIND_H[deviceKind(it, st, hass)] != null) {
       // a recognised device: where it usually is (a plug or vacuum stays low even on a cupboard line)
       const k = deviceKind(it, st, hass);
@@ -1191,6 +1354,8 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
     flip ? R(cx - x0 - cw / 2, cy - y0 + cs / 2 - 3, cx - x0 + cw / 2, cy - y0 + cs / 2, 0.46, 0.9, 'soft') : R(cx - x0 - cw / 2, cy - y0 - cs / 2, cx - x0 + cw / 2, cy - y0 - cs / 2 + 3, 0.46, 0.9, 'soft')];
   switch (f.type) {
     case 'sofa': {
+      const sp = sofaParts(f);
+      if (sp) return sp.map(([a, b2, c, d, k]) => R(a, b2, c, d, 0, k === 'back' ? 0.85 : k === 'arm' ? 0.62 : 0.42, 'soft'));
       const arm = Math.min(w * 0.12, 22), back = Math.min(h * 0.28, 24);
       return [R(arm, back, w - arm, h, 0, 0.42, 'soft'), R(0, 0, w, back, 0, 0.85, 'soft'), R(0, back, arm, h, 0, 0.62, 'soft'), R(w - arm, back, w, h, 0, 0.62, 'soft')];
     }
@@ -1215,6 +1380,13 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
     case 'round': {
       const out = [C(0, 0, 5, 5, 0, 0.7), C(0, 0, w / 2, h / 2, 0.7, 0.76)];
       for (const ang of roundChairs(f)) { out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
+      return out;
+    }
+    case 'speakerbox': return [R(0, 0, w, h, 0, 1, 'dark'), R(1.5, h - 1, w - 1.5, h, 0.08, 0.95, 'soft')];
+    case 'radiator': {
+      // panel radiator: fins from 15 cm up, little feet
+      const k = Math.max(3, Math.round(w / 8)), out = [R(w * 0.06, h * 0.3, w * 0.1, h * 0.7, 0, 0.15, 'dark'), R(w * 0.9, h * 0.3, w * 0.94, h * 0.7, 0, 0.15, 'dark')];
+      for (let i = 0; i < k; i++) out.push(R((i * w) / k + 0.6, 0, ((i + 1) * w) / k - 0.6, h, 0.15, 0.65, 'white'));
       return out;
     }
     case 'coffee': return [...legs(0.36, Math.min(5, Math.min(w, h) * 0.08)), R(0, 0, w, h, 0.36, 0.42), R(5, 5, w - 5, h - 5, 0.08, 0.11)];
@@ -1525,6 +1697,8 @@ export const PLAN_CSS = `
   .strip.on .sglow { opacity: calc(.75 * var(--b, 1) * var(--fps-glow, 1)); }
   .strip .score { stroke: var(--fps-off, #6b7280); opacity: .85; transition: stroke .3s; }
   .strip.on .score { stroke: rgb(var(--c, var(--fps-accent-rgb))); opacity: 1; }
+  .strip .slive { display: none; } .strip.live.on .slive { display: inline; } .strip.live.on .score { opacity: 0; }
+  .strip .slive line { stroke-linecap: butt; pointer-events: none; }
   .stalks .cone { display: none; pointer-events: none; } .stalks .on .cone { display: inline; }
   .stalks .c0 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: calc(.32 * var(--b, 1) * var(--fps-glow, 1)); } .stalks .c1 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: 0; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }

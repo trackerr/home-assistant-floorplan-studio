@@ -1,6 +1,13 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **WLED live**: getekende WLED-ledstrips en een WLED-matrix tonen hun echte leds live (kleuren en effecten, per segment), op de kaart, in 2.5D en in de wandeling. De integratie haalt ze zelf op bij WLED (`/json/live`), dus het werkt ook via https/Nabu Casa.
+- **Radiatoren** als meubel; gekoppeld aan de radiatorknop of verwarmingszone van die ruimte (Tado, Netatmo, Eurotronic, Danfoss, Aqara, Fritz!DECT, Homematic, Wiser…), ook als die niet op de kaart staat. Gloeit warm als hij verwarmt; tik voor temperatuur en knoppen.
+- **Speakers/boxen** als meubel; een lamp die "boxen" of "speaker" heet (bijv. "TV Boxen") wordt de gloed van die boxen.
+- **Hoekbank**: een bank kan recht zijn of een hoekbank met de lange kant links of rechts.
+- **Ambilight**: een lamp die "TV" heet bij een getekende tv (bijv. een WLED achter de tv) wordt een gloed achter die tv, ook op de kaart.
+- **Nog meer vanzelf herkend** (naam en merk), met een eigen model in de wandeling: 3D-printer (Bambu, Prusa, Creality…, met kamerlicht), hologramfan, kerstboom (met lichtjes), HDMI-syncbox, afzuigkap (boven de kookplaat), waterkoker, koffiezetapparaat, vaatwasser, wasmachine, droger, stekkerdoos, omvormer, NAS, router, printer, projectiescherm (rolt op en neer), thermometer en deurbel. Ledcontrollers onder de keukenkastjes worden een ledbalk.
+- Een temperatuur/vocht-sensor die als zijn instel-schakelaar (bijv. "show smiley") op de kaart staat, wordt een thermometer: tik = temperatuur en vocht, zonder iets om te schakelen.
 - **Lampen zoals hun icoon**: soort, hoogte en model in de wandeling volgen het icoon (en de naam): bureaulamp, tafellamp, lavalamp, staande lamp, uplighter, kroonluchter, inbouwspot, wandlamp, platte wandlamp, spiegellamp, buitenlantaarn, openhaard, ledmatrix/pixelscherm (op ware grootte), lichtpaneel (glas-in-lood), ledbalk en peertje. Een lamp die nergens op staat krijgt een bijzettafeltje. Een spot-icoon maakt er een richtbare spot van.
 - **Stoelen per tafel** instelbaar (editor en wandeling); bij een oneven aantal of veel stoelen ook aan de kopse kanten. Ronde tafel ook.
 - Gordijnen: een cover hoort alleen bij een raam in zijn eigen ruimte, en een projectiescherm (beamer) is nooit een gordijn.

@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b30';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b30';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b31';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b31';
 
 
 const CSS = `
@@ -60,6 +60,7 @@ const CSS = `
   .p25 .rinfo { transform: translate(-50%, -50%); text-align: center; }
   .item.onfurn .bub { opacity: 0; } .item.onfurn .tag { display: none; } .item.onfurn:hover .bub { opacity: .35; }
   svg.plan .tvglows polygon { fill: rgba(80, 160, 255, .7); filter: url(#fps-stripblur); pointer-events: none; }
+  svg.plan .tvglows polygon.ambi { opacity: .5; stroke-width: 6; }
   .item.ringclock .bub { padding: 0; } .item.ringclock .ring { width: 100%; height: 100%; display: block; }
   .item.ringclock .ring circle { fill: currentColor; opacity: .25; } .item.ringclock.on .bub { background: rgba(10, 12, 16, .85); color: #ddd; }
   .item.ringclock .ring circle.h { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.6px; } .item.ringclock .ring circle.m { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.25px; } .item.ringclock .ring circle.s { fill: #fff; opacity: .9; }
@@ -371,6 +372,44 @@ class FloorplanStudioCard extends HTMLElement {
     clearInterval(this._clockTimer); this._clockTimer = 0;
     this._ro?.disconnect();
     clearTimeout(this._roT);
+    this._live?.stop(); this._live = null;
+  }
+  /** Drawn WLED strips show their real LEDs, live (WLED's own colours and effects), while the card is on screen. */
+  _wledLiveSync() {
+    const h = this._hass, ids = (this._plan?.items || []).filter((it) => stripPath(it) && h?.entities?.[it.entity_id]?.platform === 'wled').map((it) => it.entity_id);
+    const key = [...new Set(ids)].sort().join(',');
+    if (this._live?.key === key) return;
+    this._live?.stop(); this._live = null;
+    if (key) this._live = wledLive(h, ids, (m) => this._wledLiveShow(m));
+  }
+  _wledLiveShow(m) {
+    for (const [id, leds] of Object.entries(m.leds || {})) {
+      const g = [...this.shadowRoot.querySelectorAll('svg.plan [data-strip]')].find((n) => n.dataset.strip === id);
+      const core = g?.querySelector('.score');
+      if (!core || !leds.length) continue;
+      const pts = core.getAttribute('points').trim().split(/\s+/).map((q) => q.split(',').map(Number));
+      const K = Math.min(leds.length, 72);
+      let live = g.querySelector('.slive');
+      if (!live || live.childNodes.length !== K || live.dataset.pts !== core.getAttribute('points')) {
+        // the line in K equal pieces, one per (group of) LED(s)
+        live?.remove();
+        live = document.createElementNS('http://www.w3.org/2000/svg', 'g'); live.setAttribute('class', 'slive'); live.dataset.pts = core.getAttribute('points');
+        const lens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])), tot = lens.reduce((a, b) => a + b, 0) || 1;
+        const at = (d) => { for (let i = 0; i < lens.length; i++) { if (d <= lens[i] || i === lens.length - 1) { const f = lens[i] ? Math.min(1, d / lens[i]) : 0; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; } d -= lens[i]; } return pts[0]; };
+        for (let k = 0; k < K; k++) {
+          const a = at((tot * k) / K), b = at((tot * (k + 1)) / K), ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          ln.setAttribute('x1', a[0].toFixed(1)); ln.setAttribute('y1', a[1].toFixed(1)); ln.setAttribute('x2', b[0].toFixed(1)); ln.setAttribute('y2', b[1].toFixed(1));
+          ln.setAttribute('style', `stroke-width:${core.style.strokeWidth || '4px'}`);
+          live.appendChild(ln);
+        }
+        g.appendChild(live);
+      }
+      let r = 0, gg = 0, bb = 0;
+      [...live.childNodes].forEach((ln, k) => { const hx = leds[Math.floor((k * leds.length) / K)] || '000000'; ln.style.stroke = `#${hx}`; const v = parseInt(hx, 16); r += (v >> 16) & 255; gg += (v >> 8) & 255; bb += v & 255; });
+      g.classList.add('live');
+      // the glow around it: the average colour of its LEDs right now
+      if (K) g.style.setProperty('--c', `${Math.round(r / K)},${Math.round(gg / K)},${Math.round(bb / K)}`);
+    }
   }
 
   /* ---------------------------------------------------------- state */
@@ -594,7 +633,7 @@ class FloorplanStudioCard extends HTMLElement {
     const bub = el.querySelector('.bub');
     const ring = ringClock(it, this._hass), ac = isAircon(it, st);
     if (ac) el.classList.add('aircon');
-    if (this._tvl?.has(it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV: no separate icon
+    if (this._tvl?.has(it.entity_id) || ambilightTv(this._plan, it, st) || speakerBoxes(this._plan, it, st).length || radiatorLinks(this._plan, this._hass).byEntity.has(it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV (and its ambilight): no separate icon
     if (ring) {
       // a WLED ring clock: its ring of LEDs, showing the time
       el.classList.add('ringclock');
@@ -659,7 +698,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b30');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b31');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -760,7 +799,9 @@ class FloorplanStudioCard extends HTMLElement {
     }
     if (!svg) return;
     let g = svg.querySelector('g.tvglows');
-    if (!this._tvl?.size) { g?.remove(); return; }
+    const ambi = (plan.items || []).map((it) => [it, ambilightTv(plan, it, h.states[it.entity_id])]).filter(([, f]) => f);
+    const rads = radiatorLinks(plan, h);
+    if (!this._tvl?.size && !ambi.length && !rads.byFurn.size && !(plan.furniture || []).some((f) => f.type === 'speakerbox')) { g?.remove(); return; }
     if (!g) { g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', 'tvglows'); svg.insertBefore(g, svg.querySelector('.stalks') || svg.querySelector('.d-scan')); }
     const out = [], p = this._proj;
     for (const [id, f] of this._tvl) {
@@ -770,6 +811,24 @@ class FloorplanStudioCard extends HTMLElement {
       const sc2 = tvScreen(f, planScale(plan) || 70, plan), z = p ? ((sc2[0] + sc2[1]) / 2) * p.sc * p.lift : 0;
       const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
       out.push(`<polygon points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
+    }
+    // radiators that are heating: a warm glow
+    for (const f of plan.furniture || []) {
+      const id = rads.byFurn.get(f.id);
+      if (!id || !isHeating(h.states[id])) continue;
+      const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 80) / 2 + 8, d = Math.max(safeNumber(f.h, 10), 8) / 2 + 10, fx = safeNumber(f.x), fy = safeNumber(f.y), z = p ? 0.4 * p.sc * p.lift : 0;
+      const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
+      out.unshift(`<polygon class="ambi" style="fill:rgb(255,120,50);stroke:rgb(255,120,50)" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
+    }
+    // ambilight: a glow around the TV in the colour of its light (and lights in speaker boxes around those boxes)
+    for (const it of plan.items || []) for (const f of speakerBoxes(plan, it, h.states[it.entity_id])) ambi.push([it, f]);
+    for (const [it, f] of ambi) {
+      const st = h.states[it.entity_id];
+      if (!isOn(st)) continue;
+      const c = lightColor(st) || '255,190,110', r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 14, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 14, fx = safeNumber(f.x), fy = safeNumber(f.y);
+      const z = p ? ((tvScreen(f, planScale(plan) || 70, plan)[0] + tvScreen(f, planScale(plan) || 70, plan)[1]) / 2) * p.sc * p.lift : 0;
+      const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
+      out.unshift(`<polygon class="ambi" style="fill:rgb(${c});stroke:rgb(${c})" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
     }
     g.innerHTML = out.join('');
   }
@@ -839,6 +898,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._themeTick();
     if (this._config.home) { this._updateHome(force); return; }
     this._fading = false;
+    this._wledLiveSync();
     this._curtainsUpdate();
     this._tvGlow();
     this._ringClocks();
