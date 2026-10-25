@@ -142,6 +142,25 @@ def _find_furniture(plan: dict[str, Any], room: dict[str, Any] | None, text: str
     return None
 
 
+WINDOW_WORDS = (" vensterbank", " raam", " ramen", " window", " sill", " kozijn", " vensters", " venster ")
+
+
+def _room_windows(plan: dict[str, Any], room: dict[str, Any]) -> list[dict[str, Any]]:
+    """Windows on the walls of a room: centre, direction along the wall, and the way into the room."""
+    out = []
+    for o in plan.get("openings", []):
+        if o.get("type") != "window":
+            continue
+        x1, y1, x2, y2 = (float(o.get(k, 0)) for k in ("x1", "y1", "x2", "y2"))
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        hor = abs(y1 - y2) < 1
+        nx, ny = (0.0, 1.0) if hor else (1.0, 0.0)
+        side = 1 if _in_room(room, mx + nx * 6, my + ny * 6) else -1 if _in_room(room, mx - nx * 6, my - ny * 6) else 0
+        if side:
+            out.append({"x": mx, "y": my, "len": math.hypot(x2 - x1, y2 - y1), "dir": (1.0, 0.0) if hor else (0.0, 1.0), "in": (nx * side, ny * side)})
+    return out
+
+
 def _largest_rect(room: dict[str, Any]) -> tuple[float, float, float, float]:
     return max(_rects(room), key=lambda q: (q[2] - q[0]) * (q[3] - q[1]))
 
@@ -184,6 +203,18 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
     x, y = (x0 + x1) / 2, (y0 + y1) / 2
     where = "in het midden" if nl else "in the middle"
     furn = _find_furniture(plan, room, spot) if spot else None
+    wins = _room_windows(plan, room) if spot and any(w in s for w in WINDOW_WORDS) else []
+    if wins and not furn:
+        # on the windowsill / at the window: the window of this room nearest to where the device is now
+        cx0, cy0 = (float(item.get("x", 0)), float(item.get("y", 0))) if item else ((x0 + x1) / 2, (y0 + y1) / 2)
+        win = min(wins, key=lambda w: math.hypot(w["x"] - cx0, w["y"] - cy0))
+        x, y = win["x"] + win["in"][0] * 0.15 * S, win["y"] + win["in"][1] * 0.15 * S
+        where = "op de vensterbank" if nl else "on the windowsill"
+        if height is None and any(w in s for w in (" vensterbank", " sill", " kozijn")):
+            height = 0.92
+        win_dir = win["dir"]
+    else:
+        win_dir = None
     if furn:
         fx, fy = float(furn.get("x", 0)), float(furn.get("y", 0))
         beside = any(w in s for w in (" naast ", " next to ", " beside ", " bij ", " near ", " by "))
@@ -201,7 +232,7 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
             where = ("op " if on and nl else "on " if on else "boven " if nl else "above ") + FURN_SAY["nl" if nl else "en"].get(furn["type"], furn["type"])
             if on and height is None:
                 height = FURN_HEIGHT.get(furn.get("type"), 0.8) + 0.1
-    else:
+    elif not win_dir:
         left = any(w in s for w in (" links ", " linker", " left ", " west "))
         right = any(w in s for w in (" rechts ", " rechter", " right ", " east ", " oost "))
         top = any(w in s for w in (" boven", " top ", " north ", " noord", " achter"))
@@ -222,7 +253,8 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
             where = ("tegen de muur" if nl else "against the wall") if (left or right) != (top or bottom) else ("in de hoek" if nl else "in the corner")
     # don't land exactly on top of another device
     others = [(float(i.get("x", 0)), float(i.get("y", 0))) for i in plan.get("items", []) if i["entity_id"] != entity_id]
-    for k in range(8):
+    is_strip = bool(item and item.get("shape") == "strip" and item.get("path"))
+    for k in range(0 if is_strip else 8):   # a strip sits where its line goes
         if all(math.hypot(x - ox, y - oy) > 0.25 * S for ox, oy in others):
             break
         x += 0.35 * S * (1 if k % 2 == 0 else -1) * (k // 2 + 1)
@@ -249,6 +281,11 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
         # only a new height or mounting: the device (or strip) stays exactly where it is
         x, y = float(item.get("x", 0)), float(item.get("y", 0))
         where = ""
+    elif path and win_dir:
+        # an LED strip on the windowsill: as long as it was, along the window
+        ln = sum(math.hypot(float(path[i][0]) - float(path[i - 1][0]), float(path[i][1]) - float(path[i - 1][1])) for i in range(1, len(path)))
+        hx, hy = win_dir[0] * ln / 2, win_dir[1] * ln / 2
+        item["path"] = [[round(x - hx), round(y - hy)], [round(x + hx), round(y + hy)]]
     elif path:
         # an LED strip moves as a whole: the drawn line shifts along with its icon
         dx, dy = x - float(item.get("x", 0)), y - float(item.get("y", 0))
@@ -326,6 +363,7 @@ def describe(hass: HomeAssistant, plans: list[dict[str, Any]]) -> dict[str, Any]
             rooms.append({
                 "name": room.get("name"), "area_id": room.get("area_id"),
                 "box_m": [m(min(q[0] for q in rs)), m(min(q[1] for q in rs)), m(max(q[2] for q in rs)), m(max(q[3] for q in rs))],
+                "windows": [{"x_m": m(w["x"]), "y_m": m(w["y"]), "w_m": m(w["len"])} for w in _room_windows(plan, room)],
                 "furniture": [{"type": f.get("type"), "x_m": m(f.get("x", 0)), "y_m": m(f.get("y", 0)), "w_m": m(f.get("w", 100)), "d_m": m(f.get("h", 60))}
                               for f in plan.get("furniture", []) if _in_room(room, float(f.get("x", 0)), float(f.get("y", 0)))],
                 "devices": [{"entity_id": i["entity_id"], "name": i.get("name") or _friendly(hass, i["entity_id"]), "x_m": m(i.get("x", 0)), "y_m": m(i.get("y", 0)),
