@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b8';
+export const VERSION = '1.3.0b9';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -700,7 +700,10 @@ export function makeProj(plan, { rot = 0, tilt = 50 } = {}) {
   const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
   const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
   const [e, f] = P(0, 0), [a1, b1] = P(1, 0), [c1, d1] = P(0, 1);
-  return { P, m: [a1 - e, b1 - f, c1 - e, d1 - f, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift: LIFT };
+  const a = a1 - e, b = b1 - f, c = c1 - e, d = d1 - f, det = a * d - b * c || 1;
+  // inv: from a point on screen (plan box units) back to the floor
+  const inv = (X, Y) => [(d * (X - e) - c * (Y - f)) / det, (-b * (X - e) + a * (Y - f)) / det];
+  return { P, inv, m: [a, b, c, d, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift: LIFT };
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */

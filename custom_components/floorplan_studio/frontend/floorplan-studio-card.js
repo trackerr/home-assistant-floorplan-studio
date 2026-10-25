@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b8';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b8';
+} from './fps-core.js?v=1.3.0b9';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b9';
 
 
 const CSS = `
@@ -54,6 +54,7 @@ const CSS = `
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
   .item:hover { z-index: 999 !important; }
+  .stage { isolation: isolate; }   /* icons stack among themselves; the quick window and menus always stay on top */
   .p25 .rinfo .rrows { display: none; }   /* 2.5D: only name and temperature, so it stays calm */
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
   /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
@@ -86,6 +87,7 @@ const CSS = `
   .pline { font-size: 13px; color: var(--fps-muted); margin-top: 2px; }
   .prow2 { display: flex; align-items: center; gap: 8px; margin-top: 5px; --mdc-icon-size: 16px; }
   .prow2.on { color: var(--fps-fg); } .prow2.on ha-icon, .prow2.on ha-state-icon { color: var(--fps-accent); } .prow2.warn, .prow2.warn ha-icon { color: #ff9f1c; }
+  .phead.fold { cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; } .phead.fold ha-icon { --mdc-icon-size: 18px; transition: transform .2s; margin-left: auto; } .phead.fold.open ha-icon { transform: rotate(180deg); } .phead .cnt { opacity: .7; }
   .phead { margin: 16px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-muted); }
   .prow { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--fps-fg); }
   .prow:hover { background: var(--fps-chip); }
@@ -187,7 +189,7 @@ const CSS = `
   .home .etiles label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @container (max-width: 520px) { .side.home { padding: 14px; } .home .etiles { gap: 8px; } .home .etiles .box { padding: 10px 11px; } .home .etiles label { font-size: 9.5px; letter-spacing: .08em; } .home .etiles b { font-size: 17px; margin-top: 8px; } .home .hello b { font-size: 24px; } }
   /* quick controls (hold an icon) */
-  .quick { position: absolute; z-index: 16; width: 240px; padding: 12px; border-radius: 16px; background: var(--fps-bg); color: var(--fps-fg); font-family: var(--fps-font);
+  .quick { position: absolute; z-index: 5000; width: 240px; padding: 12px; border-radius: 16px; background: var(--fps-bg); color: var(--fps-fg); font-family: var(--fps-font);
            border: 1px solid var(--fps-line); box-shadow: 0 14px 40px rgba(0,0,0,.55); animation: fpsfade .15s ease; }
   .quick .qh { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
   .quick .qh ha-state-icon { color: var(--fps-accent); --mdc-icon-size: 26px; }
@@ -412,7 +414,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; not while moving icons or in room-by-room mode
-    this._proj = this._view25 && !this._compact && !this._moving ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50) }) : null;
+    this._proj = this._view25 && !this._compact ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50) }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -534,6 +536,7 @@ class FloorplanStudioCard extends HTMLElement {
     const under = this._proj ? furnAt(this._plan, it.x, it.y) : null, own = it.height != null && it.height !== '';
     const hm = !this._proj ? 0 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
     [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
+    el._hm = hm;
     if (this._proj) {
       // icons further back go behind the ones in front, and a thin line shows where it stands
       const p = this._proj, base = under ? Math.min(hm, furnHeight(under)) * p.sc * p.lift : 0, z = hm * p.sc * p.lift;
@@ -805,6 +808,7 @@ class FloorplanStudioCard extends HTMLElement {
     const up = async () => {
       d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up);
       d.classList.remove('dragging');
+      if (pos && this._proj) { const [fx, fy] = this._proj.inv(pos.x, pos.y); pos = { x: Math.round(fx), y: Math.round(fy) }; }
       if (pos) await this._saveRoom(room, (r) => { r.label = pos; }, false); else this._dragging = false;
     };
     d.addEventListener('pointermove', move); d.addEventListener('pointerup', up);
@@ -1398,10 +1402,15 @@ class FloorplanStudioCard extends HTMLElement {
       ${rs.pres.occupied ? `<div class="ppres"><ha-icon icon="mdi:account"></ha-icon>${esc(rs.pres.people.length ? rs.pres.people.map((p) => friendly(h, p)).join(', ') : t(h, 'present'))}</div>` : ''}
       ${rs.al.items.map((a) => `<div class="palert ${a.level}">${esc(t(h, 'a_' + a.dc))} · ${esc(friendly(h, a.id))}</div>`).join('')}
       ${this._canClean(room) ? `<div class="pbtn"><button class="btn" id="clean"><ha-icon icon="mdi:robot-vacuum"></ha-icon>${t(h, 'clean_room')}</button></div>` : ''}
-      <div class="phead">${t(h, 'in_room')}</div><div class="plist"></div>`;
+      <div class="phead fold ${this._plistOpen ? 'open' : ''}" id="pfold">${t(h, 'in_room')} <span class="cnt">(${ids.length})</span><ha-icon icon="mdi:chevron-down"></ha-icon></div><div class="plist" ${this._plistOpen ? '' : 'hidden'}></div>`;
     panel.querySelectorAll('.prows ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
     panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
     panel.querySelector('#clean')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._cleanRoom(room); });
+    // "In this room" starts folded; tap the heading to open it (kept while you go from room to room)
+    panel.querySelector('#pfold')?.addEventListener('click', (ev) => {
+      ev.stopPropagation(); this._plistOpen = !this._plistOpen;
+      ev.currentTarget.classList.toggle('open', this._plistOpen); panel.querySelector('.plist').hidden = !this._plistOpen;
+    });
     const list = panel.querySelector('.plist');
     for (const id of ids) {
       const st = h.states[id];
@@ -1665,20 +1674,21 @@ class FloorplanStudioCard extends HTMLElement {
 
   _startDrag(ev, el, it) {
     const rect = this._stage.getBoundingClientRect();
-    const plan = this._plan, grid = 5;
+    const plan = this._plan, grid = 5, p = this._proj, hz = p ? (el._hm || 0) * p.sc * p.lift : 0;
     this._dragging = true;
     el.setPointerCapture(ev.pointerId);
     const move = (e) => {
-      const x = Math.max(0, Math.min(plan.width, ((e.clientX - rect.left) / rect.width) * plan.width));
-      const y = Math.max(0, Math.min(plan.height, ((e.clientY - rect.top) / rect.height) * plan.height));
+      let x = ((e.clientX - rect.left) / rect.width) * plan.width, y = ((e.clientY - rect.top) / rect.height) * plan.height;
+      if (p) [x, y] = p.inv(x, y - p.dz(hz));   // 2.5D: back from the screen to the spot on the floor
+      x = Math.max(0, Math.min(plan.width, x)); y = Math.max(0, Math.min(plan.height, y));
       it.x = Math.round(x / grid) * grid; it.y = Math.round(y / grid) * grid;
-      el.style.left = `${(it.x / plan.width) * 100}%`;
-      el.style.top = `${(it.y / plan.height) * 100}%`;
+      [el.style.left, el.style.top] = this._at(it.x, it.y, p ? el._hm || 0 : 0);
     };
     const up = async () => {
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
       try { await savePlan(this._hass, this._plan); } finally { this._dragging = false; }
+      if (p) this._build();   // the line to the floor and the height above furniture follow
     };
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);

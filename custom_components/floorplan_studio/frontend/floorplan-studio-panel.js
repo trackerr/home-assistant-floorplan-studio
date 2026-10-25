@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b8';
+import './floorplan-studio-card.js?v=1.3.0b9';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b8';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b8';
+} from './fps-core.js?v=1.3.0b9';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b9';
 
 const L = {
   en: {
@@ -55,7 +55,7 @@ const L = {
     vacuum_opacity: 'Live map opacity', first_on_plan: 'first one on the plan', from_bg: 'the background one',
     segments: 'This room’s number in your vacuum (only if “Clean this room” doesn’t work by itself)', segments_hint: 'e.g. 16 or 16,17',
     yaml: 'Or put the card on a dashboard you already have:', preview: 'Preview', need_save: 'Save first.', loading: 'Loading…', default_name: 'Home',
-    measure_pick: 'Real sizes: pick a room and fill in how wide or long it really is.', measure_done: 'Sizes are in metres. To correct them: pick a room and change its real width.',
+    zoom_all: 'Whole floorplan', zoom_hint: 'or double-click a room', measure_pick: 'Real sizes: pick a room and fill in how wide or long it really is.', measure_done: 'Sizes are in metres. To correct them: pick a room and change its real width.',
     measure_w: 'Real width (m)', measure_l: 'Real length (m)', measure: 'Real width of this room (metres)', measure_hint: 'Fill in the real width or length of one room; the other side follows from your drawing. Then the plan knows how big everything is: you see sizes in metres, and the radar knows how far 2 metres is.', dims: 'Size',
     furn_title: 'Furniture and stairs', furn_tip: 'Tap a piece to put it on the plan, then drag it to the right spot. It is only a light outline on your dashboard.',
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
@@ -113,7 +113,7 @@ const L = {
     vacuum_opacity: 'Doorzichtigheid', first_on_plan: 'de eerste op de kaart', from_bg: 'die van stap 1',
     segments: 'Nummer van deze ruimte in je stofzuiger (alleen als “Deze ruimte zuigen” niet vanzelf werkt)', segments_hint: 'bijv. 16 of 16,17',
     yaml: 'Of zet de kaart op een dashboard dat je al hebt:', preview: 'Voorbeeld', need_save: 'Sla eerst op.', loading: 'Laden…', default_name: 'Thuis',
-    measure_pick: 'Echte maten: kies een ruimte en vul in hoe breed of lang die echt is.', measure_done: 'De maten staan in meters. Klopt het niet? Kies een ruimte en pas de echte breedte of lengte aan. Klopt de ene kant wel en de andere niet, dan is de ruimte scheef getekend: maak hem groter of kleiner met de hoekjes.',
+    zoom_all: 'Hele plattegrond', zoom_hint: 'of dubbelklik op een ruimte', measure_pick: 'Echte maten: kies een ruimte en vul in hoe breed of lang die echt is.', measure_done: 'De maten staan in meters. Klopt het niet? Kies een ruimte en pas de echte breedte of lengte aan. Klopt de ene kant wel en de andere niet, dan is de ruimte scheef getekend: maak hem groter of kleiner met de hoekjes.',
     measure_w: 'Echte breedte (m)', measure_l: 'Echte lengte (m)', measure: 'Echte breedte van deze ruimte (meter)', measure_hint: 'Vul bij één ruimte de echte breedte of lengte in; de andere kant volgt uit je tekening. Dan weet de plattegrond hoe groot alles is: je ziet maten in meters, en de radar weet hoe ver 2 meter is.', dims: 'Maat',
     furn_title: 'Meubels en trap', furn_tip: 'Tik op een meubel om het neer te zetten en sleep het daarna naar de goede plek. Op je dashboard is het alleen een lichte omtrek.',
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
@@ -201,6 +201,8 @@ const CSS = `
   .it:hover .tip, .it.sel .tip { opacity: 1; }
   .items.off .it { pointer-events: none; opacity: .55; }
   .preview { width: 100%; }
+  .cwcol { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+  .zoombar { display: flex; align-items: center; gap: 8px; align-self: stretch; font-size: 13px; } .zoombar select { width: auto; min-width: 180px; } .zoombar small { color: var(--secondary-text-color); } .zoombar ha-icon { --mdc-icon-size: 20px; color: var(--secondary-text-color); }
   .furn { fill: #ffffff; fill-opacity: .05; stroke: #d7dee8; stroke-opacity: .7; stroke-width: 1.5; pointer-events: none; }
   .furn .arrow { fill: none; }
   .doors-mode .furn { pointer-events: visiblePainted; cursor: move; }
@@ -307,18 +309,35 @@ class FloorplanStudioPanel extends HTMLElement {
       </div>
       <div class="steps">${l.steps.map((s, i) => `<button data-step="${i}" class="${i === this.step ? 'cur' : ''}"><span class="n">${i + 1}</span>${s}</button>`).join('')}</div>
       <div class="main">
-        <div class="canvaswrap">${this.step >= 4 ? '<div class="preview" id="preview"></div>' : this.canvasHTML()}</div>
+        <div class="canvaswrap">${this.step >= 4 ? '<div class="preview" id="preview"></div>' : `<div class="cwcol">${this.step >= 1 ? this.zoomBar() : ''}${this.canvasHTML()}</div>`}</div>
         <div class="side">${[this.sideBg, this.sideRooms, this.sideDoors, this.sideItems, this.sideSettings, this.sideFinish][this.step].call(this)}</div>
       </div>`;
     this.wire();
   }
 
+  /** The part of the plan the canvas shows: everything, or one room (zoomed in) with a little space around it. */
+  viewBox() {
+    const p = this.plan, W = safeNumber(p.width, 1000), H = safeNumber(p.height, 700);
+    const r = this.zoom && this.step >= 1 && this.step <= 3 ? this.room(this.zoom) : null;
+    if (!r) return [0, 0, W, H];
+    const [x0, y0, x1, y1] = roomBBox(r), pad = Math.max(30, (x1 - x0) * 0.12, (y1 - y0) * 0.12);
+    return [x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad];
+  }
+
+  /** "Zoom in on" picker above the steps that work on the drawing. */
+  zoomBar() {
+    const l = this.L, p = this.plan;
+    if (!p.rooms.length) return '';
+    return `<div class="zoombar"><ha-icon icon="mdi:magnify-plus-outline"></ha-icon><select id="zoomsel"><option value="">${l.zoom_all}</option>${p.rooms.map((r) => `<option value="${esc(r.id)}" ${this.zoom === r.id ? 'selected' : ''}>${esc(r.name || '?')}</option>`).join('')}</select><small>${l.zoom_hint}</small></div>`;
+  }
+
   canvasHTML() {
     const p = this.plan, W = safeNumber(p.width, 1000), H = safeNumber(p.height, 700), g = safeNumber(p.grid, 10) || 10;
     const out = [];
-    const ratio = W / H;
-    out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${W} / ${H};">`);
-    out.push(`<svg viewBox="0 0 ${W} ${H}" id="svg">`);
+    const [vx, vy, vw, vh] = this.viewBox();
+    const ratio = vw / vh;
+    out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${vw} / ${vh};">`);
+    out.push(`<svg viewBox="${vx} ${vy} ${vw} ${vh}" id="svg">`);
     out.push(`<defs><pattern id="gm" width="${g}" height="${g}" patternUnits="userSpaceOnUse"><path class="gridline" d="M${g} 0H0V${g}" fill="none"/></pattern><pattern id="gM" width="${g * 5}" height="${g * 5}" patternUnits="userSpaceOnUse"><path class="gridline major" d="M${g * 5} 0H0V${g * 5}" fill="none"/></pattern></defs>`);
     out.push(`<rect width="${W}" height="${H}" fill="#0d1116" data-bg="1"/>`);
     if (safeImageData(p.background?.url)) {
@@ -377,7 +396,7 @@ class FloorplanStudioPanel extends HTMLElement {
     for (const it of p.items) {
       const d = it.entity_id.split('.')[0];
       const dev = it.kind === 'device' || (it.kind !== 'lamp' && !['light', 'switch', 'input_boolean', 'fan'].includes(d));
-      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${esc(it.entity_id)}" style="left:${(safeNumber(it.x) / W) * 100}%;top:${(safeNumber(it.y) / H) * 100}%">${it.icon ? `<ha-icon icon="${esc(it.icon)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
+      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${esc(it.entity_id)}" style="left:${((safeNumber(it.x) - vx) / vw) * 100}%;top:${((safeNumber(it.y) - vy) / vh) * 100}%">${it.icon ? `<ha-icon icon="${esc(it.icon)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
     }
     out.push('</div></div>');
     return out.join('');
@@ -591,6 +610,13 @@ class FloorplanStudioPanel extends HTMLElement {
       if (id && h.states[id]) { ic.hass = h; ic.stateObj = h.states[id]; }
     });
 
+    $('#zoomsel')?.addEventListener('change', (ev) => { this.zoom = ev.target.value || null; this.render(); });
+    $('#svg')?.addEventListener('dblclick', (ev) => {
+      // double-click a room to zoom in on it, double-click again to see everything
+      if (this.step === 2 || (this.step === 1 && this.tool !== 'select')) return;   // there a click already draws or places a door
+      const [x, y] = this.pt(ev), r = roomAt(this.plan.rooms, x, y);
+      this.zoom = this.zoom ? null : r?.id || null; this.render();
+    });
     const step = this.step;
     if (step === 0) this.wireBg($, $$);
     if (step === 1) this.wireRooms($, $$);
@@ -1188,11 +1214,11 @@ class FloorplanStudioPanel extends HTMLElement {
         const it = p.items.find((i) => i.entity_id === el.dataset.item);
         const before = JSON.stringify(p);
         el.setPointerCapture(ev.pointerId);
-        const canvas = this.shadowRoot.getElementById('canvas').getBoundingClientRect();
+        const canvas = this.shadowRoot.getElementById('canvas').getBoundingClientRect(), [vx, vy, vw, vh] = this.viewBox();
         const move = (e) => {
-          it.x = Math.round(Math.max(0, Math.min(p.width, ((e.clientX - canvas.left) / canvas.width) * p.width)));
-          it.y = Math.round(Math.max(0, Math.min(p.height, ((e.clientY - canvas.top) / canvas.height) * p.height)));
-          el.style.left = `${(it.x / p.width) * 100}%`; el.style.top = `${(it.y / p.height) * 100}%`;
+          it.x = Math.round(Math.max(0, Math.min(p.width, vx + ((e.clientX - canvas.left) / canvas.width) * vw)));
+          it.y = Math.round(Math.max(0, Math.min(p.height, vy + ((e.clientY - canvas.top) / canvas.height) * vh)));
+          el.style.left = `${((it.x - vx) / vw) * 100}%`; el.style.top = `${((it.y - vy) / vh) * 100}%`;
         };
         const up = () => {
           el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up);
