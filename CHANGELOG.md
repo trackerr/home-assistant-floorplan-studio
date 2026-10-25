@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: volgt wijzigingen in de plattegrond die elders gebeuren (editor, assistent); een WLED-klok heeft geen lamp-blokje meer.
 - Gordijnen: *Hangt tot* de vloer, de vensterbank of een eigen hoogte. In de wandeling heeft een wandklok geen extra icoon meer (tik op de klok zelf).
 - Mediaspelers herkend aan hun apparaat (Nest Mini, Nest Audio/Google Home/Sonos, Nest Hub, soundbar, Chromecast, spraak-satelliet): passend icoon, staat op het meubel, en in de wandeling het echte apparaatje met lampje.
 - Bewerken in de wandeling uitgebreid: apparaten toevoegen/weghalen, meubels toevoegen (maat, hoogte, soort), ramen en deuren plaatsen, wijzigen en weghalen. Aan/uit bij stap 5 (alleen beheerders).

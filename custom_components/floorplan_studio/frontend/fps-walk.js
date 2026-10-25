@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON,
-} from './fps-core.js?v=1.4.0b26';
+} from './fps-core.js?v=1.4.0b27';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -569,7 +569,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const lampType = lampKind ? lampStyle(plan, it, st) || 'other' : null;
       const h = Math.min(Math.max(deviceHeight(plan, it, st, hass), 0.05), H - 0.08);
       let P = [px, h, pz];
-      if (lampKind) {
+      const isClock = !!ringClock(it, hass);
+      if (lampKind && !isClock) {   // a ring clock is drawn as its ring, not as a lamp
         let bb = [-1e9, -1e9, 1e9, 1e9];
         if (room) { const qs = room.rects.map(norm); bb = [M(Math.min(...qs.map((q) => q[0]))) - 0.15, M(Math.min(...qs.map((q) => q[1]))) - 0.15, M(Math.max(...qs.map((q) => q[2]))) + 0.15, M(Math.max(...qs.map((q) => q[3]))) + 0.15]; }
         const start = markers.v.length / 10;
@@ -1473,6 +1474,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   raf = requestAnimationFrame(frame);
 
   return {
+    /** The plan changed elsewhere (editor, assistant, another screen): show it, unless you are editing here. */
+    setPlan(p) {
+      if (closed || !p || dirtyEdit || editing) return;
+      plan = JSON.parse(JSON.stringify(p));
+      buildAll();
+    },
     setHass(h) {
       if (closed) return;
       hass = h;
