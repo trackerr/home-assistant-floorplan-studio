@@ -13,7 +13,7 @@ const STR = {
     clean_failed: 'The vacuum could not start: {e}', live_map: 'Live vacuum map',
     a_smoke: 'Smoke', a_gas: 'Gas', a_carbon_monoxide: 'Carbon monoxide', a_moisture: 'Water leak', a_heat: 'Heat', a_safety: 'Unsafe',
     e_solar: 'Solar', e_grid: 'Grid', e_price: 'Price',
-    lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
+    rotate: 'Turn', lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
@@ -25,7 +25,7 @@ const STR = {
     clean_failed: 'De stofzuiger kon niet starten: {e}', live_map: 'Live stofzuigerkaart',
     a_smoke: 'Rook', a_gas: 'Gas', a_carbon_monoxide: 'Koolmonoxide', a_moisture: 'Lekkage', a_heat: 'Hitte', a_safety: 'Onveilig',
     e_solar: 'Zon', e_grid: 'Net', e_price: 'Prijs',
-    lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
+    rotate: 'Draaien', lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
     a_door: 'Deur open', a_window: 'Raam open', a_garage_door: 'Garagedeur open', a_opening: 'Open',
   },
 };
@@ -653,7 +653,95 @@ export function labelSpot(plan, room, fs, rows = 2) {
  * theme never needs a re-render. `glowIds` adds a glow layer per room that the
  * card fades in when lights in that room are on.
  */
-export function planSVG(plan, { showBackground = false, editor = false } = {}) {
+/* ------------------------------------------------------------------ 2.5D */
+/** How tall furniture is, in metres (0 = stays flat on the floor). */
+export const FURN_HEIGHT = { sofa: 0.8, bed: 0.55, table: 0.75, round: 0.75, desk: 0.75, counter: 0.9, cabinet: 2, bath: 0.6, shower: 2, toilet: 0.45, stairs: 0, tv: 0.7, plant: 0.9 };
+const LIFT = 0.42;   // heights are drawn at 42% so the walls don't hide the rooms
+
+/**
+ * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted
+ * back into the plan's own box. P(x, y) gives where a floor point lands, dz(h) how far up a height goes.
+ */
+export function makeProj(plan, { rot = 0, tilt = 50 } = {}) {
+  const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), cx = W / 2, cy = H / 2;
+  const th = (rot * Math.PI) / 180, t = (tilt * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), ct = Math.cos(t), st = Math.sin(t);
+  const sc = planScale(plan) || 70, wallH = 2.6 * sc * LIFT;
+  const raw = (x, y, z = 0) => { const xr = co * (x - cx) - si * (y - cy), yr = si * (x - cx) + co * (y - cy); return [xr, yr * ct - z * st]; };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of plan.rooms.flatMap((r) => r.rects.map(norm))) {
+    for (const [x, y] of [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]]) {
+      for (const z of [0, wallH]) { const [a, b] = raw(x, y, z); x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
+    }
+  }
+  if (!Number.isFinite(x0)) { x0 = -cx; x1 = cx; y0 = -cy; y1 = cy; }
+  const pad = W * 0.03, s = Math.min((W - 2 * pad) / Math.max(1, x1 - x0), (H - 2 * pad) / Math.max(1, y1 - y0));
+  const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
+  const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
+  const [e, f] = P(0, 0), [a1, b1] = P(1, 0), [c1, d1] = P(0, 1);
+  return { P, m: [a1 - e, b1 - f, c1 - e, d1 - f, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co };
+}
+
+/** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
+function raisedSVG(plan, walls, proj) {
+  const { P, dz, s, sc, wallH } = proj, parts = [];
+  const pts = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const up = ([x, y], h) => [x, y + dz(h)];
+  // which side of an outer wall the house is on: a wall with the rooms on the viewer's side is a back wall
+  const inner = (x, y) => !!roomAt(plan.rooms, x, y);
+  const openings = (plan.openings || []).map((o) => ({ ...o, x1: safeNumber(o.x1), y1: safeNumber(o.y1), x2: safeNumber(o.x2), y2: safeNumber(o.y2) }));
+  for (const w of walls) {
+    const hor = w.y1 === w.y2, mx = (w.x1 + w.x2) / 2, my = (w.y1 + w.y2) / 2;
+    const [nx, ny] = hor ? [0, 1] : [1, 0];
+    let full = false;
+    if (w.kind === 'outer') {
+      const sgn = inner(mx + nx * 6, my + ny * 6) ? 1 : -1;            // normal pointing into the house
+      const ry = proj.si * nx * sgn + proj.co * ny * sgn;              // ... after turning: >0 = towards the viewer
+      full = ry > -0.35;                                               // back and side walls stand, front walls are cut
+    }
+    const h = full ? wallH : wallH * 0.22;
+    // split the wall where doors, windows and passages are
+    const a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2);
+    const cuts = openings.filter((o) => (hor ? o.y1 === o.y2 && Math.abs(o.y1 - w.y1) < 3 : o.x1 === o.x2 && Math.abs(o.x1 - w.x1) < 3))
+      .map((o) => ({ o, lo: Math.max(a0, hor ? Math.min(o.x1, o.x2) : Math.min(o.y1, o.y2)), hi: Math.min(a1, hor ? Math.max(o.x1, o.x2) : Math.max(o.y1, o.y2)) }))
+      .filter((c) => c.hi > c.lo).sort((p, q) => p.lo - q.lo);
+    const pieces = [];
+    let at = a0;
+    for (const c of cuts) {
+      if (c.lo > at) pieces.push({ lo: at, hi: c.lo });
+      if (c.o.type === 'window') pieces.push({ lo: c.lo, hi: c.hi, win: true, ent: c.o.entity });
+      else if (c.o.type === 'door' && c.o.entity) pieces.push({ lo: c.lo, hi: c.hi, door: true, ent: c.o.entity });
+      at = Math.max(at, c.hi);
+    }
+    if (at < a1) pieces.push({ lo: at, hi: a1 });
+    for (const pc of pieces) {
+      const A = hor ? P(pc.lo, w.y1) : P(w.x1, pc.lo), B = hor ? P(pc.hi, w.y1) : P(w.x1, pc.hi);
+      const ph = pc.door ? wallH * 0.06 : h, key = Math.max(A[1], B[1]);
+      const cls = pc.win ? 'w3 win3' : pc.door ? 'w3 door3' : `w3 ${w.kind}`;
+      const ent = pc.ent ? ` data-entity="${esc(pc.ent)}"` : '';
+      parts.push({ key, svg: `<g class="${pc.ent ? 'opening ' : ''}${cls}"${ent}><polygon class="w3face" points="${pts([A, B, up(B, ph), up(A, ph)])}"/><line class="w3cap" x1="${A[0].toFixed(1)}" y1="${(A[1] + dz(ph)).toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${(B[1] + dz(ph)).toFixed(1)}" style="stroke-width:${((w.kind === 'outer' ? 8 : 4) * s).toFixed(1)}"/></g>` });
+    }
+  }
+  for (const f of plan.furniture || []) {
+    const fh = FURN_HEIGHT[f.type];
+    if (!(fh > 0)) continue;
+    const w2 = Math.max(10, safeNumber(f.w, 100)) / 2, h2 = Math.max(6, safeNumber(f.h, 60)) / 2, r = (safeNumber(f.rot) * Math.PI) / 180;
+    const base = [[-w2, -h2], [w2, -h2], [w2, h2], [-w2, h2]].map(([x, y]) => P(safeNumber(f.x) + x * Math.cos(r) - y * Math.sin(r), safeNumber(f.y) + x * Math.sin(r) + y * Math.cos(r)));
+    const hh = fh * sc * LIFT, top = base.map((p) => up(p, hh));
+    const ccx = base.reduce((a, p) => a + p[0], 0) / 4, ccy = base.reduce((a, p) => a + p[1], 0) / 4;
+    const sides = [];
+    for (let i = 0; i < 4; i++) {
+      const p = base[i], q = base[(i + 1) % 4];
+      let nxs = q[1] - p[1], nys = -(q[0] - p[0]);
+      if (nxs * ((p[0] + q[0]) / 2 - ccx) + nys * ((p[1] + q[1]) / 2 - ccy) < 0) { nxs = -nxs; nys = -nys; }
+      if (nys > 0) sides.push(`<polygon class="f3side" points="${pts([p, q, up(q, hh), up(p, hh)])}"/>`);
+    }
+    parts.push({ key: Math.max(...base.map((p) => p[1])), svg: `<g class="f3">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/><g transform="translate(0 ${dz(hh).toFixed(1)}) matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">${furnSVG(f)}</g></g>` });
+  }
+  parts.sort((p, q) => p.key - q.key);
+  return `<g class="raised">${parts.map((p) => p.svg).join('')}</g>`;
+}
+
+export function planSVG(plan, { showBackground = false, editor = false, proj = null } = {}) {
   const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), out = [];
   const grid = safeNumber(plan.grid, 10) || 10;
   const walls = computeWalls(plan.rooms);
@@ -680,6 +768,8 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
     const b = plan.background;
     out.push(`<image href="${safeImageData(b.url)}" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" opacity="${safeNumber(b.opacity, 0.5)}" preserveAspectRatio="none"/>`);
   }
+  // 2.5D: everything on the floor goes through one tilt/turn matrix; walls and furniture are raised after it
+  if (proj) out.push(`<g class="ground" transform="matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">`);
   for (const room of plan.rooms) {
     for (const q of room.rects.map(norm)) {
       out.push(`<rect class="floor" data-room="${esc(room.id)}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}"/>`);
@@ -707,10 +797,17 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
     out.push(`<image class="livemap" clip-path="url(#c-all)" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" preserveAspectRatio="none"/>`);
   }
   if (!editor) out.push('<polyline class="vactrail" points=""/>');
-  // furniture and stairs: light outlines, under the walls
-  if ((plan.furniture || []).length) out.push(`<g class="furniture">${plan.furniture.map((f) => furnSVG(f)).join('')}</g>`);
+  // furniture and stairs: light outlines, under the walls (in 2.5D only the flat ones; the rest become blocks)
+  const flatFurn = (plan.furniture || []).filter((f) => !proj || !(FURN_HEIGHT[f.type] > 0));
+  if (flatFurn.length) out.push(`<g class="furniture">${flatFurn.map((f) => furnSVG(f)).join('')}</g>`);
   // mmWave radars: range circle, distance ring or dots per person (filled in by the card)
   if (!editor) out.push('<g class="radars"></g>');
+  if (proj) {
+    out.push('</g>');
+    out.push(raisedSVG(plan, walls, proj));
+    out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/></svg>`);
+    return out.join('');
+  }
   out.push('<g class="walls">');
   for (const w of walls) out.push(`<line class="wall ${w.kind}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
   out.push('</g>');
@@ -765,6 +862,19 @@ export const PLAN_CSS = `
   .gridline { stroke: var(--fps-accent); stroke-opacity: .07; stroke-width: 1; }
   .dot { fill: #fff; fill-opacity: .05; }
   .floor { fill: var(--fps-floor); }
+  .w3face { fill: color-mix(in srgb, var(--fps-wall) 38%, var(--fps-bg)); stroke: var(--fps-wall); stroke-width: .6; stroke-opacity: .5; }
+  .w3.inner .w3face { fill: color-mix(in srgb, var(--fps-wall-inner) 30%, var(--fps-bg)); }
+  .w3cap { stroke: var(--fps-wall); stroke-linecap: square; }
+  .w3.inner .w3cap { stroke: var(--fps-wall-inner); }
+  .w3.win3 .w3face { fill: rgba(120, 190, 255, .28); stroke: rgba(160, 210, 255, .8); }
+  .w3.win3 .w3cap { stroke: rgba(160, 210, 255, .9); stroke-width: 2 !important; }
+  .w3.door3 .w3face { fill: var(--fps-door, #888); fill-opacity: .4; }
+  .w3.door3 .w3cap { stroke: var(--fps-door, #888); stroke-width: 2 !important; }
+  .opening.isopen .w3face { fill: rgba(255, 159, 28, .45); stroke: #ff9f1c; } .opening.isopen .w3cap { stroke: #ff9f1c; }
+  .raised { pointer-events: none; filter: var(--fps-wall-glow); }
+  .f3side { fill: color-mix(in srgb, var(--fps-muted) 30%, var(--fps-bg)); stroke: var(--fps-muted); stroke-opacity: .5; stroke-width: .8; }
+  .f3top { fill: color-mix(in srgb, var(--fps-muted) 18%, var(--fps-floor)); stroke: var(--fps-muted); stroke-opacity: .6; stroke-width: .8; }
+  .f3 .furn { fill: none; stroke-opacity: .5; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
   .furn .soft { stroke-opacity: .35; } .furn .arrow { fill: none; stroke-linecap: round; }
   .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }

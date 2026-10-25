@@ -3,7 +3,7 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState,
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj,
 } from './fps-core.js?v=1.3.0b5';
 import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b5';
 
@@ -54,6 +54,7 @@ const CSS = `
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
   .item:hover { z-index: 9; }
+  .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
   /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
   .item.motion.on .bub { background: rgba(var(--fps-accent-rgb), .2); color: var(--fps-accent); border-color: var(--fps-accent); box-shadow: 0 0 1cqw rgba(var(--fps-accent-rgb), .6); }
   .item.motion.recent .bub { color: color-mix(in srgb, var(--fps-accent) calc(var(--pf, 0) * 100%), var(--fps-muted)); border-color: color-mix(in srgb, var(--fps-accent) calc(var(--pf, 0) * 100%), var(--fps-line)); }
@@ -346,6 +347,10 @@ class FloorplanStudioCard extends HTMLElement {
   get _mode() { return this._pref('mode', this._config.mode || this._s.default_mode); }
   get _theme() { const ent = themeFromEntity(this._hass, this._s); if (ent) return ent; const base = this._config.theme || this._s.theme; return this._config.show_theme_toggle ? this._pref('theme', base) : base; }
   get _realTheme() { return resolveTheme(this._theme, this._hass); }
+  get _view25() { return this._pref('view', this._config.view || '2d') === '2.5d'; }
+  get _rot() { return safeNumber(this._pref('rot', this._config.rotation || 0), 0) % 360; }
+  /** Where a floor point of the plan ends up on screen (2.5D turns and tilts it), as % of the plan box. */
+  _at(x, y) { const [a, b] = this._proj ? this._proj.P(x, y) : [x, y]; return [`${(a / this._plan.width) * 100}%`, `${(b / this._plan.height) * 100}%`]; }
   get _tempOn() { return this._pref('temp', this._s.temp_color ? 'on' : 'off') === 'on'; }
   get _showNav() { return Array.isArray(this._config.nav) && this._config.nav.length > 0 && (this._config.kiosk || isKiosk()); }
   get _greet() { return this._config.greeting ?? (this._s.greeting && !!this._config.side); }
@@ -405,6 +410,8 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._config.home) return this._buildHome();
     this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
+    // 2.5D (tilted, walls up) per screen; not while moving icons or in room-by-room mode
+    this._proj = this._view25 && !this._compact && !this._moving ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50) }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -416,6 +423,8 @@ class FloorplanStudioCard extends HTMLElement {
         </div>
         ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
+        ${this._compact ? '' : `<button class="btn icon view3 ${this._proj ? 'active' : ''}" id="view3" title="${this._proj ? '2D' : '2.5D'}">2.5D</button>`}
+        ${this._proj ? `<button class="btn icon" id="rot" title="${t(h, 'rotate')}"><ha-icon icon="mdi:rotate-right"></ha-icon></button>` : ''}
         ${this._compactButton ? `<button class="btn icon ${this._compact ? 'active' : ''}" id="cmp" title="${t(h, this._compact ? 'whole_plan' : 'by_room')}"><ha-icon icon="${this._compact ? 'mdi:floor-plan' : 'mdi:view-carousel-outline'}"></ha-icon></button>` : ''}
         <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
         ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon><span class="lbl">${t(h, this._moving ? 'done' : 'move')}</span></button>` : ''}
@@ -427,7 +436,7 @@ class FloorplanStudioCard extends HTMLElement {
         ${this._compact ? `<div class="crooms">${[['', t(h, 'overview')], ...this._compactRooms().map((r) => [r.id, r.name])].map(([id, n]) => `<button data-croom="${esc(id)}">${esc(n)}<i></i></button>`).join('')}</div><div class="chead"></div>` : ''}
         <div class="alertbar"></div>
         <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${safeNumber(plan.width, 1000)} / ${safeNumber(plan.height, 700)}; --ar: ${safeNumber(plan.width, 1000) / safeNumber(plan.height, 700)}">
-          ${planSVG(plan)}
+          ${planSVG(plan, { proj: this._proj })}
           <svg class="ghost" viewBox="0 0 ${safeNumber(plan.width, 1000)} ${safeNumber(plan.height, 700)}" preserveAspectRatio="none"></svg>
           <div class="labels"></div>
           <div class="items"></div>
@@ -461,6 +470,8 @@ class FloorplanStudioCard extends HTMLElement {
       } else { this._setPref('theme', ev.target.value); this._build(); }
     });
     root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
+    root.querySelector('#view3')?.addEventListener('click', () => { this._setPref('view', this._view25 ? '2d' : '2.5d'); this._zoomRoom = null; this._build(); });
+    root.querySelector('#rot')?.addEventListener('click', () => { this._setPref('rot', String((this._rot + 45) % 360)); this._zoomRoom = null; this._build(); });
     root.querySelector('#move')?.addEventListener('click', () => { this._moving = !this._moving; this._build(); });
     root.querySelectorAll('[data-floor]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); this._setFloor(b.dataset.floor); }));
     root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
@@ -516,8 +527,7 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
-    el.style.left = `${(it.x / this._plan.width) * 100}%`;
-    el.style.top = `${(it.y / this._plan.height) * 100}%`;
+    [el.style.left, el.style.top] = this._at(it.x, it.y);
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
     if (kind !== 'sensor') {
@@ -645,7 +655,7 @@ class FloorplanStudioCard extends HTMLElement {
       el.ring.style.r = `${r.ring || 1}px`; el.ring.style.display = r.ring ? '' : 'none';
       // the measured distance as a small label just above the sensor
       el.label.setAttribute('x', r.x); el.label.setAttribute('y', r.y - 24);
-      el.label.textContent = r.meters ? `${r.meters.toFixed(1).replace('.', ',')} m` : '';
+      el.label.textContent = r.meters && !this._proj ? `${r.meters.toFixed(1).replace('.', ',')} m` : '';
       while (el.dots.length < r.dots.length) { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', 'radar-dot'); c.setAttribute('r', 9); el.g.appendChild(c); el.dots.push(c); }
       el.dots.forEach((c, i) => {
         const d = r.dots[i];
@@ -717,8 +727,8 @@ class FloorplanStudioCard extends HTMLElement {
       const [x, y] = room.label ? [room.label.x, room.label.y] : labelSpot(plan, room, fs0, rows);
       const d = document.createElement('div');
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
-      d.style.left = `${(x / plan.width) * 100}%`; d.style.top = `${(y / plan.height) * 100}%`;
-      d.style.setProperty('--fs', `${(fs / plan.width) * 100}cqw`);
+      [d.style.left, d.style.top] = this._at(x, y);
+      d.style.setProperty('--fs', `${((fs * (this._proj ? Math.min(1, this._proj.s * 1.1) : 1)) / plan.width) * 100}cqw`);
       d.innerHTML = '<div class="rn"><span></span><span class="pd"><ha-icon icon="mdi:motion-sensor"></ha-icon></span></div><div class="rh"></div><div class="rrows"></div>';
       d.querySelector('.rn span').textContent = room.name || '';
       if (this._isAdmin && !this.planOverride) d.insertAdjacentHTML('beforeend', '<i class="rsz" title="Groter / kleiner"></i>');
@@ -915,8 +925,7 @@ class FloorplanStudioCard extends HTMLElement {
       box = document.createElement('div');
       box.className = 'people'; box.dataset.room = room.id;
       const [x0, , , y1] = roomBBox(room);
-      box.style.left = `${((x0 + 10) / this._plan.width) * 100}%`;
-      box.style.top = `${((y1 - 10) / this._plan.height) * 100}%`;
+      [box.style.left, box.style.top] = this._at(x0 + 10, y1 - 10);
       layer.appendChild(box);
     }
     box.innerHTML = '';
@@ -997,8 +1006,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (!pos || !b || !canvas) {
       if (rec.el.classList.contains('driving')) {
         rec.el.classList.remove('driving');
-        rec.el.style.left = `${(rec.it.x / this._plan.width) * 100}%`;
-        rec.el.style.top = `${(rec.it.y / this._plan.height) * 100}%`;
+        [rec.el.style.left, rec.el.style.top] = this._at(rec.it.x, rec.it.y);
       }
       this._trail = [];
       trail?.setAttribute('points', '');
@@ -1007,8 +1015,7 @@ class FloorplanStudioCard extends HTMLElement {
     const w = canvas.width || canvas.naturalWidth, hh = canvas.height || canvas.naturalHeight;
     const x = (b.x || 0) + (pos[0] / w) * b.w, y = (b.y || 0) + (pos[1] / hh) * b.h;
     rec.el.classList.add('driving');
-    rec.el.style.left = `${(x / this._plan.width) * 100}%`;
-    rec.el.style.top = `${(y / this._plan.height) * 100}%`;
+    [rec.el.style.left, rec.el.style.top] = this._at(x, y);
     this._trail = [...(this._trail || []), [Math.round(x), Math.round(y)]].slice(-60);
     trail?.setAttribute('points', this._trail.map((p) => p.join(',')).join(' '));
   }
@@ -1267,7 +1274,8 @@ class FloorplanStudioCard extends HTMLElement {
       return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="#000"/>`;
     }).join('');
     const m = `fpsghost-${room.id}`.replace(/[^\w-]/g, '');
-    g.innerHTML = `<defs><mask id="${m}" maskUnits="userSpaceOnUse" x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}"><rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" fill="#fff"/>${holes}</mask></defs>
+    const mx = this._proj ? ` transform="matrix(${this._proj.m.join(' ')})"` : '';
+    g.innerHTML = `<defs><mask id="${m}" maskUnits="userSpaceOnUse" x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}"><rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" fill="#fff"/><g${mx}>${holes}</g></mask></defs>
       <rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" mask="url(#${m})"/>`;
     g.classList.add('on');
   }
@@ -1311,6 +1319,14 @@ class FloorplanStudioCard extends HTMLElement {
    * Room view: the room is isolated (everything else dims away), zoomed into the left part of
    * the card, and a side panel shows the room's data and everything in its area.
    */
+  /** A room's box on screen: in 2.5D the box around its turned and tilted corners (and the raised walls). */
+  _screenBox(room) {
+    if (!this._proj) return roomBBox(room);
+    const { P, wallH } = this._proj, pts = [];
+    for (const q of room.rects) for (const [x, y] of [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]]) { pts.push(P(x, y)); pts.push(P(x, y, wallH * 0.5)); }
+    return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
+  }
+
   _zoom(room, animate = true) {
     if (this._compact) return this._compactZoom(room);
     if (!room && this._zoomRoom) this._zoomOutAt = Date.now();
@@ -1325,7 +1341,7 @@ class FloorplanStudioCard extends HTMLElement {
       this._stage.style.transform = '';
       panel.classList.remove('open');
     } else {
-      const [x0, y0, x1, y1] = roomBBox(room);
+      const [x0, y0, x1, y1] = this._screenBox(room);
       const side = this._stage.clientWidth > 520 ? 0.36 : 0;        // room panel takes the right 36% on wide cards
       const availW = W * (1 - side), cxT = availW / 2;
       const s = Math.min(5, Math.min(availW / (x1 - x0), H / (y1 - y0)) * 0.86);
