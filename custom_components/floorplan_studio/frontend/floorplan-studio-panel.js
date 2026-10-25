@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b1';
+import './floorplan-studio-card.js?v=1.3.0b2';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities,
-} from './fps-core.js?v=1.3.0b1';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b1';
+} from './fps-core.js?v=1.3.0b2';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b2';
 
 const L = {
   en: {
@@ -55,8 +55,8 @@ const L = {
     vacuum_opacity: 'Live map opacity', first_on_plan: 'first one on the plan', from_bg: 'the background one',
     segments: 'This room’s number in your vacuum (only if “Clean this room” doesn’t work by itself)', segments_hint: 'e.g. 16 or 16,17',
     yaml: 'Or put the card on a dashboard you already have:', preview: 'Preview', need_save: 'Save first.', loading: 'Loading…', default_name: 'Home',
-    measure_pick: 'Real sizes: pick a room and fill in how wide it really is.', measure_done: 'Sizes are in metres. To correct them: pick a room and change its real width.',
-    measure: 'Real width of this room (metres)', measure_hint: 'Fill in the real width of one room. Then the plan knows how big everything is: you see sizes in metres, and the radar knows how far 2 metres is.', dims: 'Size',
+    measure_pick: 'Real sizes: pick a room and fill in how wide or long it really is.', measure_done: 'Sizes are in metres. To correct them: pick a room and change its real width.',
+    measure_w: 'Real width (m)', measure_l: 'Real length (m)', measure: 'Real width of this room (metres)', measure_hint: 'Fill in the real width or length of one room; the other side follows from your drawing. Then the plan knows how big everything is: you see sizes in metres, and the radar knows how far 2 metres is.', dims: 'Size',
     furn_title: 'Furniture and stairs', furn_tip: 'Tap a piece to put it on the plan, then drag it to the right spot. It is only a light outline on your dashboard.',
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
     f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_turn: 'Turn 90°',
@@ -111,8 +111,8 @@ const L = {
     vacuum_opacity: 'Doorzichtigheid', first_on_plan: 'de eerste op de kaart', from_bg: 'die van stap 1',
     segments: 'Nummer van deze ruimte in je stofzuiger (alleen als “Deze ruimte zuigen” niet vanzelf werkt)', segments_hint: 'bijv. 16 of 16,17',
     yaml: 'Of zet de kaart op een dashboard dat je al hebt:', preview: 'Voorbeeld', need_save: 'Sla eerst op.', loading: 'Laden…', default_name: 'Thuis',
-    measure_pick: 'Echte maten: kies een ruimte en vul in hoe breed die echt is.', measure_done: 'De maten staan in meters. Klopt het niet? Kies een ruimte en pas de echte breedte aan.',
-    measure: 'Echte breedte van deze ruimte (meter)', measure_hint: 'Vul bij één ruimte de echte breedte in. Dan weet de plattegrond hoe groot alles is: je ziet maten in meters, en de radar weet hoe ver 2 meter is.', dims: 'Maat',
+    measure_pick: 'Echte maten: kies een ruimte en vul in hoe breed of lang die echt is.', measure_done: 'De maten staan in meters. Klopt het niet? Kies een ruimte en pas de echte breedte of lengte aan. Klopt de ene kant wel en de andere niet, dan is de ruimte scheef getekend: maak hem groter of kleiner met de hoekjes.',
+    measure_w: 'Echte breedte (m)', measure_l: 'Echte lengte (m)', measure: 'Echte breedte van deze ruimte (meter)', measure_hint: 'Vul bij één ruimte de echte breedte of lengte in; de andere kant volgt uit je tekening. Dan weet de plattegrond hoe groot alles is: je ziet maten in meters, en de radar weet hoe ver 2 meter is.', dims: 'Maat',
     furn_title: 'Meubels en trap', furn_tip: 'Tik op een meubel om het neer te zetten en sleep het daarna naar de goede plek. Op je dashboard is het alleen een lichte omtrek.',
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
     f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_turn: 'Kwartslag draaien',
@@ -427,7 +427,8 @@ class FloorplanStudioPanel extends HTMLElement {
           <div class="field"><span>${l.area}</span><select id="rarea"><option value="">${l.none}</option>${areas.map((a) => `<option value="${a.area_id}" ${a.area_id === r.area_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
           ${(() => {
             const sc = planScale(p), [x0, y0, x1, y1] = roomBBox(r), m2 = roomArea(r, sc);
-            return `<div class="field"><span>${l.measure}</span><input id="rmeasure" type="number" min="0.5" max="100" step="0.05" inputmode="decimal" value="${sc ? ((x1 - x0) / sc).toFixed(2) : ''}" placeholder="4,20"></div>
+            const inp = (k, v, ph) => `<input data-measure="${k}" type="number" min="0.5" max="100" step="0.05" inputmode="decimal" value="${sc ? (v / sc).toFixed(2) : ''}" placeholder="${ph}">`;
+            return `<div class="row" style="align-items:flex-end;margin-bottom:10px"><div class="field" style="margin:0"><span>${l.measure_w}</span>${inp('w', x1 - x0, '4,20')}</div><div class="field" style="margin:0"><span>${l.measure_l}</span>${inp('l', y1 - y0, '3,50')}</div></div>
               ${sc ? `<div class="sizeline">${l.dims}: ${fmtMeters(x1 - x0, sc)} × ${fmtMeters(y1 - y0, sc)} · ${String(m2.toFixed(1)).replace('.', ',')} m²</div>` : `<p class="hint">${l.measure_hint}</p>`}`;
           })()}
           ${r.area_id ? `<div class="field"><span>${l.temp_sensor}</span><select id="rtemp">${sensorOpts('temperature', r.temperature)}</select></div>
@@ -855,10 +856,12 @@ class FloorplanStudioPanel extends HTMLElement {
       $('#rhum')?.addEventListener('change', (ev) => this.mut(() => { r.humidity = ev.target.value || undefined; }));
       $('#rhead')?.addEventListener('change', (ev) => this.mut(() => { r.headline = ev.target.value || undefined; }));
       $('#rfloor')?.addEventListener('change', (ev) => this.mut(() => { r.floor = ev.target.value || undefined; }));
-      $('#rmeasure')?.addEventListener('change', (ev) => this.mut((pl) => {
-        const m = parseFloat(String(ev.target.value).replace(',', '.')), [x0, , x1] = roomBBox(r);
-        if (m > 0) pl.scale = Math.round(((x1 - x0) / m) * 100) / 100; else delete pl.scale;
-      }));
+      // fill in the real width or length: that sets the scale for the whole plan, the other side follows from the drawing
+      $$('[data-measure]').forEach((el) => el.addEventListener('change', () => this.mut((pl) => {
+        const m = parseFloat(String(el.value).replace(',', '.')), [x0, y0, x1, y1] = roomBBox(r);
+        const units = el.dataset.measure === 'w' ? x1 - x0 : y1 - y0;
+        if (m > 0) pl.scale = Math.round((units / m) * 100) / 100; else delete pl.scale;
+      })));
       $$('[data-rinfo]').forEach((el) => el.addEventListener('change', () => this.mut(() => {
         const v = [...this.shadowRoot.querySelectorAll('[data-rinfo]')].map((x) => x.value).filter(Boolean);
         r.info = v.length ? [...new Set(v)] : undefined;
