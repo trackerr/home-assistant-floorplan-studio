@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Camerawand** (controlekamer) als meubel: in de wandeling een donkere wand vol schermen met je camerabeelden, in perspectief op de wand, met naam per scherm; ververst één voor één (elke paar seconden). Breedte met de handvatten, onder- en bovenkant en welke camera's instelbaar (editor en wandeling); tik op een scherm voor het grote beeld.
 - Wandeling: een apparaat blijft altijd in zijn eigen Home Assistant-ruimte; staat het (net) over de lijn getekend, dan komt het op de dichtstbijzijnde plek in die ruimte, aan de muur van die ruimte.
 - **Ledstrip staand of als kader**: bij een ledstrip kies je *Liggend* (zoals altijd), *Staand* (rechtop bij elk getekend punt, van–tot hoogte) of *Kader* (een rechthoek rondom: de getekende lijn is de breedte) of *Kader open* (links, boven, rechts), in de editor en in de wandeling; ook live met WLED en in 2.5D. De leds lopen vanaf het eerste getekende punt omhoog, langs de bovenkant en aan de andere kant omlaag; met evenveel WLED-segmenten als zijden krijgt elke zijde zijn eigen segment.
 - **Constantere, live verlichting** in de wandeling: tot 32 lampen tegelijk (was 16) gekozen op wat ze echt bijdragen, zonder heen-en-weer wisselen; aan/uit, helderheid en kleur glijden in een kwart seconde mee met Home Assistant, en lampen die erbij komen of afvallen faden in plaats van te springen.

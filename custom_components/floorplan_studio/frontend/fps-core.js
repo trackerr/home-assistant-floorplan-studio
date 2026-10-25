@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b42';
+export const VERSION = '1.4.0b43';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -427,6 +427,7 @@ export const FURN_TYPES = {
   coffee: { icon: 'mdi:table-furniture', w: 110, h: 60 },
   radiator: { icon: 'mdi:radiator', w: 80, h: 10 },
   speakerbox: { icon: 'mdi:speaker', w: 22, h: 26 },
+  videowall: { icon: 'mdi:monitor-multiple', w: 280, h: 8 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
   sink: { icon: 'mdi:faucet', w: 80, h: 50 },
@@ -502,6 +503,11 @@ export function furnSVG(f, extra = '') {
       const chairs = list.map((c) => (c.side === 'n' ? R(c.cx - cw / 2, y - cs - 4, cw, cs, 4, 'soft') : c.side === 's' ? R(c.cx - cw / 2, y + h + 4, cw, cs, 4, 'soft')
         : c.side === 'e' ? R(x + w + 4, -ew / 2, cs, ew, 4, 'soft') : R(x - cs - 4, -ew / 2, cs, ew, 4, 'soft')));
       body = chairs.join('') + R(x, y, w, h, 6);
+      break;
+    }
+    case 'videowall': {   // a camera wall: a long panel with a row of screens seen from above
+      const k = Math.max(2, Math.round(w / 40));
+      body = R(x, y, w, h, 2) + Array.from({ length: k }, (_, i) => R(x + (i * w) / k + 2, y + 1, w / k - 4, h - 2, 1, 'soft')).join('');
       break;
     }
     case 'speakerbox':   // a speaker box: the cabinet, with its woofer seen from above as a ring at the front
@@ -772,10 +778,10 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
-export const furnHeight = (f) => (tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+export const furnHeight = (f) => (f?.type === 'videowall' ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
 /** A TV hung on the wall (instead of on its stand or a cabinet). */
 export const tvOnWall = (f) => f?.type === 'tv' && f.mount === 'wall';
 /**
@@ -805,8 +811,24 @@ export function setLinkedTvHeight(plan, hass, it, h) {
   delete it.height;
   return true;
 }
+/** A camera wall: from its bottom (f.elev, default 0.8 m) to its top (f.top, default 2.3 m). */
+export function videoWallSpan(f) {
+  const b = Number.isFinite(+f.elev) && f.elev !== '' && f.elev != null ? Math.max(0, +f.elev) : 0.8;
+  const t = Number.isFinite(+f.top) && f.top !== '' && f.top != null ? +f.top : 2.3;
+  return [b, Math.max(b + 0.3, Math.min(3.2, t))];
+}
+/**
+ * The cameras on a camera wall: f.cams = list of camera entities, or (empty) every camera that shows a picture
+ * (no weather radar or vacuum maps), sorted by area and name.
+ */
+export function videoWallCams(f, hass) {
+  const all = Object.keys(hass?.states || {}).filter((id) => id.startsWith('camera.') && !/buienradar|radar|_map\b|\bmap\b|roborock|vacuum|valetudo|xiaomi_cloud_map/i.test(id) && hass.states[id].state !== 'unavailable' && !hass.entities?.[id]?.hidden);
+  if (Array.isArray(f.cams) && f.cams.length) return f.cams.filter((id) => hass?.states[id]);
+  const area = (id) => hass.areas?.[entityArea(hass, id)]?.name || '~';
+  return all.sort((a, b) => area(a).localeCompare(area(b)) || friendly(hass, a).localeCompare(friendly(hass, b)));
+}
 /** How much a piece of furniture is stretched upwards by its own height (a TV on the wall: not at all). */
-export const furnStretch = (f) => (tvOnWall(f) ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
+export const furnStretch = (f) => (tvOnWall(f) || f?.type === 'videowall' ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
 /** The piece of furniture under a point (its turned rectangle), or null. */
 export function furnAt(plan, x, y) {
   for (const f of plan.furniture || []) {
@@ -1466,6 +1488,7 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       for (const ang of roundChairs(f)) { out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
       return out;
     }
+    case 'videowall': { const [b0, b1] = videoWallSpan(f); return [R(0, 0, w, h, b0 - 0.04, b1 + 0.04, 'dark')]; }
     case 'speakerbox': return [R(0, 0, w, h, 0, 1, 'dark'), R(1.5, h - 1, w - 1.5, h, 0.08, 0.95, 'soft')];
     case 'radiator': {
       // panel radiator: fins from 15 cm up, little feet
