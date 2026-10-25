@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b50';
+export const VERSION = '1.4.0b51';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -838,6 +838,19 @@ export function videoWallSpan(f) {
 // a camera's second, lighter stream (ONVIF SubStream / Profile_1, Reolink fluent, ...): quicker and smoother to show
 const LOWRES_RE = /sub ?stream|substream|profile_?1\b|\blow\b|fluent|\bsd\b|\blq\b|klein|mobile|_sub\b/i;
 const isLow = (hass, id) => LOWRES_RE.test(`${id} ${hass?.states[id]?.attributes?.friendly_name || ''}`);
+/** The picture a device shows (its image entity: a hologram fan's current clip, a printer's preview...), or null. */
+export function deviceImage(hass, id) {
+  const dev = hass?.entities?.[id]?.device_id;
+  if (!dev) return null;
+  const imgs = Object.values(hass.entities).filter((e) => e.device_id === dev && e.entity_id.startsWith('image.') && hass.states[e.entity_id] && !e.hidden);
+  return (imgs.find((e) => /shown|current|now|playing|preview|cover/i.test(e.entity_id)) || imgs[0])?.entity_id || null;
+}
+/** The other entities of a device, by domain and a name pattern (first match). */
+export function deviceSibling(hass, id, domain, re) {
+  const dev = hass?.entities?.[id]?.device_id;
+  if (!dev) return null;
+  return Object.values(hass.entities).find((e) => e.device_id === dev && e.entity_id.startsWith(`${domain}.`) && re.test(e.entity_id) && hass.states[e.entity_id] && !['unavailable'].includes(hass.states[e.entity_id].state))?.entity_id || null;
+}
 /** The light stream of a camera (its sibling on the same device), or the camera itself. */
 export function camLowRes(hass, id) {
   const dev = hass?.entities?.[id]?.device_id;

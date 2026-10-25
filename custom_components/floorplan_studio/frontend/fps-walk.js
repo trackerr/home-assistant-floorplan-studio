@@ -3,8 +3,8 @@
 import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b50';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
+} from './fps-core.js?v=1.4.0b51';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -14,8 +14,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camerawand', dishwasher: 'Vaatwasser', washer: 'Wasmachine', dryer: 'Droger', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', model: '3D-model', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', clip: 'Clip', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -456,6 +456,11 @@ canvas.gl:active { cursor: grabbing; }
 .cs { position: absolute; left: 0; top: 0; width: 320px; height: 180px; transform-origin: 0 0; pointer-events: auto; cursor: pointer; background: #050a12; overflow: hidden; box-shadow: 0 0 30px rgba(90,160,255,.35); }
 .cs img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.9) contrast(1.05); }
 .cs span { position: absolute; left: 6px; bottom: 5px; font: 600 13px/1 system-ui, sans-serif; color: #9fd0ff; text-shadow: 0 0 6px #000; letter-spacing: .04em; text-transform: uppercase; }
+.cs.holo { border-radius: 50%; background: transparent; box-shadow: none; mix-blend-mode: screen; }
+.cs.holo img { object-fit: fill; filter: saturate(1.15) brightness(1.1); }
+.cs.holo::after { display: none; }
+.cs.holo.off { opacity: .45; }
+.cs.holo.off img { filter: grayscale(.4) brightness(.7); }
 .cs::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px); pointer-events: none; }
 .wi { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
 .wi .b { position: absolute; left: -22px; top: -22px; pointer-events: auto; cursor: pointer; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; background: rgba(20,24,32,.72); border: 1.5px solid rgba(255,255,255,.35); color: #e8edf3; backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
@@ -480,6 +485,7 @@ button ha-icon { --mdc-icon-size: 22px; }
 .hint { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); max-width: calc(100% - 32px); text-align: center; padding: 6px 12px; border-radius: 10px; background: rgba(0,0,0,.5); font-size: 13px; transition: opacity 1s;  z-index: 25;}
 .sheet img.cam { display: block; width: 100%; border-radius: 10px; margin-top: 8px; cursor: zoom-out; }
 .sheet.camsh { width: min(840px, calc(100% - 24px)); bottom: 64px; cursor: zoom-out; }
+.sheet img.cam.holo { width: min(260px, 70%); aspect-ratio: 1; object-fit: cover; border-radius: 50%; margin: 8px auto 0; background: #000; cursor: default; }
 .sheet.camsh img.cam { max-height: calc(100vh - 200px); object-fit: contain; background: #000; }
 .sheet { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); box-sizing: border-box; padding: 12px 14px; border-radius: 16px; background: rgba(15,18,24,.85); backdrop-filter: blur(8px); display: none;  z-index: 40;}
 .sheet.show { display: block; }
@@ -749,6 +755,18 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           ob(cx, cz, -0.03, 0.03, -0.06, 0.0, h - 0.03, h + 0.03, DK);
           disc(cx, cz, h, 0.3, 0.0, 0.006, GLW, glow, 0.04);
           set([cx, h, cz], 0.32, h + 0.45);
+          // what it shows (its image entity: the clip playing now, or the last one) as the picture on the spinning disc
+          const imgId = deviceImage(hass, it.entity_id);
+          if (imgId) {
+            const rg = [n[1], -n[0]], R0 = 0.3, C3 = [cx + n[0] * 0.012, h, cz + n[1] * 0.012];
+            const P3 = (a, y) => [C3[0] + rg[0] * a, y, C3[2] + rg[1] * a];
+            const el = document.createElement('div');
+            el.className = 'cs holo';
+            el.innerHTML = '<img alt="">';
+            el.addEventListener('click', (ev) => { ev.stopPropagation(); if (!editing) showInfo(it); });
+            iconsEl.appendChild(el);
+            camWalls.push({ f: null, c: C3, screens: [{ id: imgId, holo: it.entity_id, corners: [P3(-R0, h + R0), P3(R0, h + R0), P3(R0, h - R0), P3(-R0, h - R0)], el, img: el.firstChild, t: 0 }] });
+          }
           return [cx + n[0] * 0.1, h, cz + n[1] * 0.1];
         }
         if (k === 'tree') {
@@ -1210,7 +1228,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         if (editing || ev.button === 2) return;
         if (lpDone) { lpDone = false; return; }   // that was a long press: its menu is open
         const dd = it.via ? 'switch' : d;
-        if (['light', 'switch', 'fan', 'input_boolean'].includes(dd) && !ringClock(it, hass) && applianceKind(it, st, hass) !== 'thermo') { hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id }); return; }
+        if (['light', 'switch', 'fan', 'input_boolean'].includes(dd) && !ringClock(it, hass) && !['thermo', 'holofan'].includes(applianceKind(it, st, hass))) { hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id }); return; }
         // anything else (TV, speaker, climate, curtain, sensor...): what it is doing, and its buttons
         showInfo(it);
       });
@@ -1586,7 +1604,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     if (dev) {
       // the device itself: a lamp or switch goes on/off, anything else shows what it does and its buttons
       const it = dev.it, dd = it.via ? 'switch' : dev.d;
-      if (['light', 'switch', 'fan', 'input_boolean'].includes(dd) && !ringClock(it, hass) && applianceKind(it, hass.states[it.entity_id], hass) !== 'thermo') hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id });
+      if (['light', 'switch', 'fan', 'input_boolean'].includes(dd) && !ringClock(it, hass) && !['thermo', 'holofan'].includes(applianceKind(it, hass.states[it.entity_id], hass))) hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id });
       else showInfo(it);
       return;
     }
@@ -1974,6 +1992,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (refresh && sh.dataset.cam === it.entity_id && sh.querySelector('img.cam')) return;
       const live = camStream(hass, it.entity_id), still = camPic(hass, it.entity_id, 900);
       body = `<small>${state}</small>${live || still ? `<img class="cam" src="${esc(live || still)}" alt="">` : ''}`;
+    } else if (applianceKind(it, st, hass) === 'holofan') {
+      // a hologram fan: what it shows (its picture), the clip playing, pick another clip, play/stop and on/off
+      const img = deviceImage(hass, it.entity_id), pic = img && hass.states[img]?.attributes?.entity_picture;
+      const playing = deviceSibling(hass, it.entity_id, 'sensor', /playing/), file = deviceSibling(hass, it.entity_id, 'select', /file/), play = deviceSibling(hass, it.entity_id, 'switch', /playing/);
+      const fs = file ? hass.states[file] : null, ps = playing ? hass.states[playing]?.state : null;
+      body = `<small>${state}${ps ? ` · ▶ ${esc(ps)}` : ''}</small>${pic ? `<img class="cam holo" src="${esc(pic)}${pic.includes('?') ? '&' : '?'}_=${encodeURIComponent(hass.states[img].state)}" alt="">` : ''}
+        ${fs?.attributes?.options?.length ? `<div class="row"><span>${T.clip}</span><select data-file="${esc(file)}">${fs.attributes.options.map((o) => `<option ${o === fs.state ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>` : ''}
+        <div class="row"><button data-s="homeassistant.toggle"><ha-icon icon="mdi:power"></ha-icon>${T.power}</button>${play ? `<button data-play="${esc(play)}" class="${hass.states[play]?.state === 'on' ? 'pri' : ''}"><ha-icon icon="mdi:${hass.states[play]?.state === 'on' ? 'pause' : 'play'}"></ha-icon></button>` : ''}</div>`;
     } else if (applianceKind(it, st, hass) === 'thermo') {
       // a thermometer: the temperature and humidity of its device (whatever entity is on the plan)
       const dev = hass.entities?.[it.entity_id]?.device_id, vals = Object.values(hass.entities || {}).filter((e) => dev ? e.device_id === dev : e.entity_id === it.entity_id).map((e) => hass.states[e.entity_id]).filter((x) => x && ['temperature', 'humidity', 'battery'].includes(x.attributes?.device_class));
@@ -1990,8 +2016,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     // a camera: twice as big, no cross - a click on the picture closes it
     const isCam = d === 'camera';
     if (sh.dataset.cam && sh.dataset.cam !== it.entity_id) { const im = sh.querySelector('img.cam'); if (im) im.src = ''; }
+    const oldPic = sh.querySelector('img.cam.holo');
     sh.innerHTML = `<b>${name}</b>${body}${isCam ? '' : `<button class="x2" data-close="1" title="${T.close}">×</button>`}`;
     sh.classList.toggle('camsh', isCam);
+    // the same picture as before: keep the loaded one (no flash on every update)
+    const newPic = sh.querySelector('img.cam.holo');
+    if (oldPic && newPic && oldPic.src === newPic.src) newPic.replaceWith(oldPic);
     sh.classList.add('show');
     sh.dataset.cam = isCam ? it.entity_id : '';
     sh.onclick = isCam ? (ev) => { ev.stopPropagation(); hideSheet(); } : null;
@@ -2019,6 +2049,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       hass.callService(dom, svc, data);
     }));
     sh.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const t = +(hass.states[it.entity_id]?.attributes?.temperature ?? 20) + +b.dataset.t; hass.callService('climate', 'set_temperature', { entity_id: it.entity_id, temperature: t }); }));
+    sh.querySelectorAll('[data-file]').forEach((el) => el.addEventListener('change', (ev) => { ev.stopPropagation(); hass.callService('select', 'select_option', { entity_id: el.dataset.file, option: el.value }); el.blur(); }));
+    sh.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); hass.callService('switch', 'toggle', { entity_id: b.dataset.play }); }));
     sh.querySelector('[data-close]')?.addEventListener('click', (ev) => { ev.stopPropagation(); infoIt = null; sh.classList.remove('show'); });
   }
   /**
@@ -2391,6 +2423,19 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           sc.el.style.display = '';
           sc.el.style.transform = `matrix3d(${a / BW},${d / BW},0,${g / BW},${b / BH},${e / BH},0,${hh / BH},0,0,1,0,${x0},${y0},0,1)`;
           sc.el.style.pointerEvents = editing ? 'none' : '';
+          if (sc.holo) {
+            // a hologram fan: a new picture when its image entity changes; bright while it plays, dimmed when off
+            const ist = hass.states[sc.id], pic = ist?.attributes?.entity_picture;
+            if (pic && ist.state !== sc.last) {
+              sc.last = ist.state;
+              const im = new Image(), url = `${pic}${pic.includes('?') ? '&' : '?'}_=${encodeURIComponent(ist.state)}`, tgt = sc;
+              im.onload = () => { tgt.img.src = url; };
+              im.src = url;
+            }
+            const on = isOn(hass.states[sc.holo]) || hass.states[deviceSibling(hass, sc.holo, 'switch', /playing/) || '']?.state === 'on';
+            sc.el.classList.toggle('off', !on);
+            continue;
+          }
           if (!oldest || sc.t < oldest.t) oldest = sc;
         }
       }

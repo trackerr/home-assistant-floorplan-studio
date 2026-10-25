@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b50';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b50';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b51';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b51';
 
 
 const CSS = `
@@ -41,6 +41,7 @@ const CSS = `
   .bub { width: calc(2.9cqw * var(--fps-icon-scale, 1) * var(--fps-k, 1)); height: calc(2.9cqw * var(--fps-icon-scale, 1) * var(--fps-k, 1)); min-width: calc(24px * var(--fps-icon-scale, 1) * var(--fps-k, 1)); min-height: calc(24px * var(--fps-icon-scale, 1) * var(--fps-k, 1)); border-radius: 50%; display: grid; place-items: center;
          background: var(--fps-off); border: 1.5px solid var(--fps-lamp-border, var(--fps-line)); color: var(--fps-muted); transition: background .3s, box-shadow .3s, color .3s; }
   .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: calc(max(14px, 1.6cqw) * var(--fps-icon-scale, 1) * var(--fps-k, 1)); }
+  .bub.pic { background-size: cover !important; background-position: center; background-color: #000 !important; } .bub.pic > * { opacity: 0; }
   .item.on .bub { background: rgb(var(--c, var(--fps-accent-rgb))); color: #10161d; border: 2px solid var(--fps-ring, transparent);
                   box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), .9), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), .45); }
   .item.lamp.on .bub { background: color-mix(in srgb, rgb(var(--c, var(--fps-accent-rgb))) calc(45% + 55% * var(--b, 1)), var(--fps-off));
@@ -716,7 +717,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b50');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b51');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -812,6 +813,17 @@ class FloorplanStudioCard extends HTMLElement {
   _tvGlow() {
     const svg = this.shadowRoot.querySelector('svg.plan'), h = this._hass, plan = this._plan;
     for (const [id, rec] of this._items) {
+      // a hologram fan: its icon shows the picture it plays (its image entity) while it is on
+      if (rec.holo === undefined) rec.holo = applianceKind(rec.it, h.states[id], h) === 'holofan' ? deviceImage(h, id) : null;
+      if (rec.holo) {
+        const ist = h.states[rec.holo], pic = ist?.attributes?.entity_picture, bub = rec.el.querySelector('.bub'), on = isOn(h.states[id]);
+        const url = on && pic ? `${pic}${pic.includes('?') ? '&' : '?'}_=${encodeURIComponent(ist.state)}` : '';
+        if (bub && bub.dataset.pic !== url) {
+          bub.dataset.pic = url;
+          if (!url) { bub.style.backgroundImage = ''; bub.classList.remove('pic'); }
+          else { const im = new Image(); im.onload = () => { if (bub.dataset.pic === url) { bub.style.backgroundImage = `url("${url}")`; bub.classList.add('pic'); } }; im.src = url; }
+        }
+      }
       if (!rec.el.classList.contains('aircon')) continue;
       const m = airconMode(h.states[id]);
       for (const k of ['cool', 'heat', 'dry', 'fan']) rec.el.classList.toggle(`ac-${k}`, m === k);
