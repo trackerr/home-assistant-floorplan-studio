@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Projectiescherm: *open* (of een hogere stand) is nu uitgerold, dicht/0 % opgerold — zoals de meeste schermmotoren het melden. Werkt het bij jou andersom, kies dan bij stap 4 *Projectiescherm: open betekent* → *Opgerold*.
 - Eigen 3D-model: breedte, diepte en hoogte werken nu altijd (in de editor en in de wandeling); het model vult precies de maat die je geeft. Na het uploaden of kiezen nemen diepte en hoogte vanzelf de verhouding van het model aan; de knop *Eigen verhouding* zet ze later weer terug.
 - **Hologramfan (P56) toont wat hij speelt**: zijn beeld-entiteit (bijv. `image.…_shown`) hoort vanzelf bij de fan. In de wandeling staat het beeld op de draaiende schijf (zwart = doorzichtig, zoals een echte hologramfan; gedimd als hij uit staat), op de kaart wordt het icoon dat beeld zolang hij aan staat. Tik op de fan (niet meer aan/uit): het beeld groot, de clip die speelt, een andere clip kiezen, afspelen/pauze en aan/uit. Werkt voor elk apparaat met een beeld-entiteit dat als hologramfan herkend wordt.
 - **Eigen 3D-modellen** als meubel (*Eigen 3D-model* bij stap 3): upload een .glb (uit Blender, Sketchfab, van een fabrikant…) of .obj, tot 40 MB; het bestand blijft in Home Assistant (`/config/floorplan_studio/models`). In de wandeling staat het echte model, met de kleuren van zijn texturen, passend in de breedte en diepte (verhouding blijft; een hoogte begrenst het). Ligt het op zijn kant: kies *Rechtop* Z omhoog. Op de kaart een gestippeld blok met een kubus.

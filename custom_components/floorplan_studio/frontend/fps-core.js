@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b52';
+export const VERSION = '1.4.0b53';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -920,6 +920,14 @@ export function pathMid(path) {
  */
 const CURTAIN_RE = /gordijn|curtain|rolluik|rolgordijn|blind|jaloezie|vitrage|shade|shutter|screen/i;
 const SCREEN_RE = /beamer|projector|projectie|projection|leinwand/i;
+/** How far a projection screen is rolled down (0 = up, 1 = down): open = down, unless you set it the other way (it.screen_open = 'up'). */
+export function screenDown(it, st) {
+  const pos = +st?.attributes?.current_position;
+  let down = Number.isFinite(pos) ? pos / 100 : st?.state === 'open' || st?.state === 'opening' ? 1 : 0;
+  if (it?.screen_open === 'up') down = 1 - down;
+  return Math.max(0, Math.min(1, down));
+}
+export const isScreenLabel = (t) => SCREEN_RE.test(t || '');
 export function curtainFor(plan, it, st) {
   if (it.curtain === false) return null;
   const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
