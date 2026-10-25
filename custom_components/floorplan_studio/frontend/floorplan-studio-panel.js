@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b3';
+import './floorplan-studio-card.js?v=1.3.0b4';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities,
-} from './fps-core.js?v=1.3.0b3';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b3';
+} from './fps-core.js?v=1.3.0b4';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b4';
 
 const L = {
   en: {
@@ -62,7 +62,7 @@ const L = {
     f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_turn: 'Turn 90°',
     kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
-    radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)',
+    radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
     motion_fade: 'Motion icon fades out over … minutes (0 = straight away)',
   },
   nl: {
@@ -119,7 +119,7 @@ const L = {
     f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_turn: 'Kwartslag draaien',
     kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
-    radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)',
+    radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
     motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)',
   },
 };
@@ -362,7 +362,8 @@ class FloorplanStudioPanel extends HTMLElement {
         if (!it.radar) continue;
         const st = this._hass.states[it.radar.range], u = (st?.attributes.unit_of_measurement || 'm').toLowerCase();
         const rm = st ? parseFloat(st.state) / (u === 'mm' ? 1000 : u === 'cm' ? 100 : 1) : 0;
-        if (rm > 0) out.push(`<circle class="rrange" cx="${safeNumber(it.x)}" cy="${safeNumber(it.y)}" r="${rm * sc}"/><text class="fsize" x="${safeNumber(it.x)}" y="${safeNumber(it.y) - rm * sc - 6}" text-anchor="middle">${String(rm).replace('.', ',')} m</text>`);
+        const he = Math.max(0, safeNumber(it.radar.height) - 1.1), rf = he > 0 ? Math.sqrt(Math.max(0, rm * rm - he * he)) : rm;
+        if (rf > 0) out.push(`<circle class="rrange" cx="${safeNumber(it.x)}" cy="${safeNumber(it.y)}" r="${rf * sc}"/><text class="fsize" x="${safeNumber(it.x)}" y="${safeNumber(it.y) - rf * sc - 6}" text-anchor="middle">${rf.toFixed(1).replace('.', ',')} m</text>`);
       }
     }
     if (this.sel?.type === 'room' && this.step === 1 && this.tool === 'select') {
@@ -514,6 +515,7 @@ class FloorplanStudioPanel extends HTMLElement {
           const kind = (found.xy || []).length ? l.radar_dots : l.radar_dist;
           return `<label class="row" style="font-size:13px;margin-top:8px"><input type="checkbox" id="iradar" ${it.radar ? 'checked' : ''} style="flex:none">${l.radar} (${kind})</label>
             ${it.radar && !planScale(p) ? `<p class="hint">${l.radar_scale}</p>` : ''}
+            ${it.radar ? `<div class="field"><span>${l.radar_height}</span><input type="number" id="iradarh" min="0" max="6" step="0.1" placeholder="${l.radar_wall}" value="${it.radar.height || ''}"></div>` : ''}
             ${it.radar && (it.radar.xy || []).length ? `<div class="field"><span>${l.radar_angle}</span><input type="number" id="iradarangle" step="15" value="${safeNumber(it.radar.angle)}"></div>` : ''}`;
         })()}
         <button class="danger" id="idel" style="margin-top:8px"><ha-icon icon="mdi:map-marker-remove"></ha-icon>${l.remove}</button></div>` : ''}
@@ -967,6 +969,7 @@ class FloorplanStudioPanel extends HTMLElement {
       const r = radarEntities(h, it.entity_id) || {};
       it.radar = { distance: r.distance || '', range: r.range || '', xy: r.xy || [], angle: 0 };
     }));
+    $('#iradarh')?.addEventListener('change', (ev) => this.mut(() => { const v = parseFloat(String(ev.target.value).replace(',', '.')); if (v > 0) it.radar.height = v; else delete it.radar.height; }));
     $('#iradarangle')?.addEventListener('change', (ev) => this.mut(() => { it.radar.angle = safeNumber(ev.target.value); }));
     $('#idel').addEventListener('click', () => this.deleteSel());
   }

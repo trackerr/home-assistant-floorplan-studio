@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b3';
+export const VERSION = '1.3.0b4';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -398,8 +398,12 @@ export function radarState(hass, it, scale) {
   const r = it.radar;
   if (!r || !scale) return null;
   const on = hass.states[it.entity_id]?.state === 'on';
-  const rangeM = r.range ? toMeters(hass.states[r.range]) : safeNumber(r.range_m, 0);
-  const distM = r.distance ? toMeters(hass.states[r.distance]) : NaN;
+  // a sensor on the ceiling measures at a slant down to you: take the part along the floor
+  // (height of the sensor minus about 1.1 m, the middle of someone standing or sitting)
+  const hEff = Math.max(0, safeNumber(r.height, 0) - 1.1);
+  const flat = (m) => (hEff > 0 && Number.isFinite(m) ? Math.sqrt(Math.max(0, m * m - hEff * hEff)) : m);
+  const rangeM = flat(r.range ? toMeters(hass.states[r.range]) : safeNumber(r.range_m, 0));
+  const distM = flat(r.distance ? toMeters(hass.states[r.distance]) : NaN);
   const a = (safeNumber(r.angle, 0) * Math.PI) / 180;
   const dots = (r.xy || []).map(([xe, ye]) => [toMeters(hass.states[xe]) , toMeters(hass.states[ye])])
     .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && (x !== 0 || y !== 0))
@@ -409,6 +413,7 @@ export function radarState(hass, it, scale) {
     on, x: it.x, y: it.y,
     range: rangeM > 0 ? rangeM * scale : 0,
     ring: on && distM > 0 && !(r.xy || []).length ? distM * scale : 0,
+    meters: on && distM > 0 ? distM : 0,
     dots: on ? dots : [],
   };
 }
@@ -763,9 +768,10 @@ export const PLAN_CSS = `
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
   .furn .soft { stroke-opacity: .35; } .furn .arrow { fill: none; stroke-linecap: round; }
   .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }
-  .radar-ring { fill: none; stroke: rgb(var(--fps-accent-rgb)); stroke-width: 7; stroke-opacity: .5; pointer-events: none; transition: r .8s ease; animation: fpsRing 2.2s ease-in-out infinite; }
+  .radar-ring { fill: none; stroke: rgb(var(--fps-accent-rgb)); stroke-width: 3.5; stroke-opacity: .7; pointer-events: none; transition: r .8s ease; animation: fpsRing 2.2s ease-in-out infinite; }
   .radar-dot { fill: rgb(var(--fps-accent-rgb)); stroke: var(--fps-bg); stroke-width: 3; pointer-events: none; transition: cx .6s ease, cy .6s ease; filter: drop-shadow(0 0 6px rgba(var(--fps-accent-rgb), .9)); }
-  @keyframes fpsRing { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: .25; } }
+  @keyframes fpsRing { 0%, 100% { stroke-opacity: .75; } 50% { stroke-opacity: .35; } }
+  .radar-label { fill: var(--fps-fg); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--fps-bg); stroke-width: 3px; pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { .radar-ring { animation: none; } }
   .glow { opacity: 0; transition: opacity .8s ease; pointer-events: none; }
   .glow.on { opacity: var(--fps-glow, 1); }

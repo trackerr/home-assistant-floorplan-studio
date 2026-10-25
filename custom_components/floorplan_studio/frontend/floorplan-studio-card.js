@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState,
-} from './fps-core.js?v=1.3.0b3';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b3';
+} from './fps-core.js?v=1.3.0b4';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b4';
 
 
 const CSS = `
@@ -631,6 +631,7 @@ class FloorplanStudioCard extends HTMLElement {
         const g = document.createElementNS(ns, 'g');
         const mk = (cls) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', cls); g.appendChild(c); return c; };
         el = { g, range: mk('radar-range'), ring: mk('radar-ring'), dots: [] };
+        el.label = document.createElementNS(ns, 'text'); el.label.setAttribute('class', 'radar-label'); el.label.setAttribute('text-anchor', 'middle'); g.appendChild(el.label);
         // the radar only "sees" inside its own room
         const room = roomAt(this._plan.rooms, it.x, it.y);
         if (room) g.setAttribute('clip-path', `url(#c-${safeSvgId(room.id)})`);
@@ -642,6 +643,9 @@ class FloorplanStudioCard extends HTMLElement {
       for (const c of [el.range, el.ring]) { c.setAttribute('cx', r.x); c.setAttribute('cy', r.y); }
       el.range.setAttribute('r', r.range); el.range.style.display = r.range ? '' : 'none';
       el.ring.style.r = `${r.ring || 1}px`; el.ring.style.display = r.ring ? '' : 'none';
+      // the measured distance as a small label just above the sensor
+      el.label.setAttribute('x', r.x); el.label.setAttribute('y', r.y - 24);
+      el.label.textContent = r.meters ? `${r.meters.toFixed(1).replace('.', ',')} m` : '';
       while (el.dots.length < r.dots.length) { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', 'radar-dot'); c.setAttribute('r', 9); el.g.appendChild(c); el.dots.push(c); }
       el.dots.forEach((c, i) => {
         const d = r.dots[i];
