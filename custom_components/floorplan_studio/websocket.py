@@ -168,6 +168,8 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
     """
     import asyncio  # noqa: PLC0415
 
+    import aiohttp  # noqa: PLC0415
+
     from homeassistant.helpers import entity_registry as er  # noqa: PLC0415
     from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: PLC0415
 
@@ -198,51 +200,93 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
             resp = await session.get(f"http://{host}{path}")
             return await resp.json(content_type=None)
 
+    frames: dict[str, dict[str, Any]] = {}   # host -> {"leds": ["rrggbb", ...], "w": int|None, "h": int|None}
+
+    async def watch(host: str) -> None:
+        """WLED's own live preview: its websocket sends the LEDs as binary frames ("L", version, [w, h], rgb...)."""
+        while True:
+            try:
+                async with session.ws_connect(f"ws://{host}/ws", heartbeat=30, timeout=5) as ws:
+                    await ws.send_str('{"lv":true}')
+                    async for m in ws:
+                        if m.type != aiohttp.WSMsgType.BINARY:
+                            continue
+                        b = m.data
+                        if len(b) < 2 or b[0] != 0x4C:   # "L"
+                            continue
+                        w = h = None
+                        off = 2
+                        if b[1] == 2 and len(b) >= 4:
+                            w, h, off = b[2], b[3], 4
+                        rgb = b[off:]
+                        frames[host] = {"leds": [rgb[i:i + 3].hex() for i in range(0, len(rgb) - 2, 3)], "w": w, "h": h}
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - offline, or no websocket: try the JSON live API
+                try:
+                    live = await get(host, "/json/live")
+                    step = max(1, int(live.get("n") or 1))
+                    frames[host] = {"leds": live.get("leds") or [], "w": live.get("w"), "h": live.get("h"), "step": step}
+                    await asyncio.sleep(0.4)
+                    continue
+                except Exception:  # noqa: BLE001
+                    pass
+                await asyncio.sleep(10)
+
     async def run() -> None:
         segs: dict[str, dict[int, dict[str, Any]]] = {}
         dims: dict[str, tuple[int, int] | None] = {}
+        counts: dict[str, int] = {}
         last: dict[str, Any] = {}
         tick = 0
-        while True:
-            for host, ents in hosts.items():
-                try:
-                    if tick % 60 == 0 or host not in segs:
-                        data = await get(host, "/json")
-                        segs[host] = {s.get("id", i): s for i, s in enumerate(data.get("state", {}).get("seg", [])) if isinstance(s, dict)}
-                        m = (data.get("info", {}).get("leds", {}) or {}).get("matrix")
-                        dims[host] = (int(m["w"]), int(m["h"])) if isinstance(m, dict) and m.get("w") and m.get("h") else None
-                    live = await get(host, "/json/live")
-                except Exception:  # noqa: BLE001 - device offline: try again later
-                    continue
-                leds = live.get("leds") or []
-                step = max(1, int(live.get("n") or 1))
-                out: dict[str, list[str]] = {}
-                mat: dict[str, list[int]] = {}
-                for eid, sid in ents.items():
-                    seg = segs[host].get(sid) if sid is not None else None
-                    if seg is None and sid is None and len(segs[host]) == 1:
-                        seg = next(iter(segs[host].values()))
-                    if dims.get(host) and (live.get("w") or seg is None or "startY" in (seg or {})):
-                        # a matrix: the whole picture, row by row
-                        w = int(live.get("w") or dims[host][0])
-                        h = int(live.get("h") or max(1, len(leds) // max(1, w)))
-                        out[eid] = leds[: w * h]
-                        mat[eid] = [w, h]
+        watchers = [hass.async_create_background_task(watch(host), "floorplan_studio_wled_watch") for host in hosts]
+        try:
+            while True:
+                for host, ents in hosts.items():
+                    try:
+                        if tick % 90 == 0 or host not in segs:
+                            data = await get(host, "/json")
+                            segs[host] = {sg.get("id", i): sg for i, sg in enumerate(data.get("state", {}).get("seg", [])) if isinstance(sg, dict)}
+                            leds_info = data.get("info", {}).get("leds", {}) or {}
+                            counts[host] = int(leds_info.get("count") or 0)
+                            m = leds_info.get("matrix")
+                            dims[host] = (int(m["w"]), int(m["h"])) if isinstance(m, dict) and m.get("w") and m.get("h") else None
+                    except Exception:  # noqa: BLE001 - device offline: try again later
                         continue
-                    a, b = (int(seg.get("start", 0)), int(seg.get("stop", 0))) if seg else (0, len(leds) * step)
-                    part = leds[a // step: max(a // step + 1, b // step)]
-                    if seg and seg.get("rev"):
-                        part = part[::-1]
-                    if len(part) > 96:
-                        k = len(part) / 96
-                        part = [part[int(i * k)] for i in range(96)]
-                    out[eid] = part
-                key = repr((out, mat))
-                if out and last.get(host) != key:
-                    last[host] = key
-                    connection.send_message(websocket_api.event_message(msg["id"], {"leds": out, "matrix": mat}))
-            tick += 1
-            await asyncio.sleep(0.35)
+                    fr = frames.get(host)
+                    if not fr or not fr["leds"]:
+                        continue
+                    leds = fr["leds"]
+                    # the preview may skip LEDs to fit: map LED numbers onto it
+                    total = counts.get(host) or len(leds)
+                    scale = len(leds) / total if total else 1
+                    out: dict[str, list[str]] = {}
+                    mat: dict[str, list[int]] = {}
+                    for eid, sid in ents.items():
+                        seg = segs[host].get(sid) if sid is not None else None
+                        if seg is None and sid is None and len(segs[host]) == 1:
+                            seg = next(iter(segs[host].values()))
+                        if dims.get(host) and (fr.get("w") or seg is None or "startY" in (seg or {})):
+                            w = int(fr.get("w") or dims[host][0])
+                            h = int(fr.get("h") or max(1, len(leds) // max(1, w)))
+                            out[eid] = leds[: w * h]
+                            mat[eid] = [w, h]
+                            continue
+                        a, b = (int(seg.get("start", 0)), int(seg.get("stop", 0))) if seg else (0, total)
+                        part = leds[int(a * scale): max(int(a * scale) + 1, int(b * scale))]
+                        if len(part) > 96:
+                            k = len(part) / 96
+                            part = [part[int(i * k)] for i in range(96)]
+                        out[eid] = part
+                    key = repr((out, mat))
+                    if out and last.get(host) != key:
+                        last[host] = key
+                        connection.send_message(websocket_api.event_message(msg["id"], {"leds": out, "matrix": mat}))
+                tick += 1
+                await asyncio.sleep(0.3)
+        finally:
+            for t in watchers:
+                t.cancel()
 
     task = hass.async_create_background_task(run(), "floorplan_studio_wled_live")
     connection.subscriptions[msg["id"]] = task.cancel
