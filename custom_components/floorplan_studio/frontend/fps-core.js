@@ -1,11 +1,11 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b27';
+export const VERSION = '1.4.0b28';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
   en: {
-    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
+    simple: 'Simple', all: 'All', none_mode: 'None', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
     lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
     loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
     on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
@@ -17,7 +17,7 @@ const STR = {
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
-    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
+    simple: 'Eenvoudig', all: 'Alles', none_mode: 'Geen', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
     lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
     loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
     on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
@@ -424,6 +424,7 @@ export const FURN_TYPES = {
   bed: { icon: 'mdi:bed-outline', w: 160, h: 200 },
   table: { icon: 'mdi:table-chair', w: 160, h: 90 },
   round: { icon: 'mdi:table-furniture', w: 110, h: 110 },
+  coffee: { icon: 'mdi:table-furniture', w: 110, h: 60 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
   sink: { icon: 'mdi:faucet', w: 80, h: 50 },
@@ -467,6 +468,9 @@ export function furnSVG(f, extra = '') {
       body = chairs.join('') + R(x, y, w, h, 6);
       break;
     }
+    case 'coffee':   // a low coffee table: a rounded top with a shelf line, no chairs
+      body = R(x, y, w, h, Math.min(w, h) * 0.18) + `<rect class="soft" x="${x + w * 0.12}" y="${y + h * 0.2}" width="${w * 0.76}" height="${h * 0.6}" rx="${Math.min(w, h) * 0.1}" fill-opacity=".35"/>`;
+      break;
     case 'round':
       body = [0, 1, 2, 3].map((i) => { const a = (i * Math.PI) / 2 + Math.PI / 4; return `<circle class="soft" cx="${Math.cos(a) * (w / 2 + 10)}" cy="${Math.sin(a) * (h / 2 + 10)}" r="11"/>`; }).join('') + `<ellipse cx="0" cy="0" rx="${w / 2}" ry="${h / 2}"/>`;
       break;
@@ -591,7 +595,7 @@ export function transformImage(img, ops = []) {
 /** Every user-adjustable setting with its default (stored per floorplan in plan.settings). */
 export const DEFAULT_SETTINGS = {
   theme: 'warm',            // default theme of the card
-  default_mode: 'all',      // simple | all
+  default_mode: 'all',      // simple | all | none (no icons)
   usage_days: 14,           // Simple: show what was used in the last N days
   learning_days: 3,         // Simple shows everything until this much history exists
   compact: 'auto',          // small screens: auto = room by room below compact_width | on | off
@@ -724,10 +728,41 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
-export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+export const furnHeight = (f) => (tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+/** A TV hung on the wall (instead of on its stand or a cabinet). */
+export const tvOnWall = (f) => f?.type === 'tv' && f.mount === 'wall';
+/**
+ * Where a TV's screen is, bottom and top in metres. On the wall: from its own height (elev, the bottom
+ * of the screen, default 1 m), 16:9 to its width. On a stand: the usual screen, stretched with its height.
+ */
+export function tvScreen(f, S = 70, plan = null) {
+  if (tvOnWall(f)) {
+    const b = Number.isFinite(+f.elev) && f.elev !== '' && f.elev != null ? +f.elev : 1.0;
+    const hs = Math.max(0.3, Math.min(1.4, (Math.max(10, safeNumber(f.w, 100)) / (S || 70)) * 0.5625));
+    return [b, b + hs];
+  }
+  const zs = (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : 1.15) / 1.15, base = tvBase(plan, f);
+  return [base + 0.47 * zs, base + 1.13 * zs];
+}
+/** A TV on its stand that stands on a cabinet or table: the top of that furniture (else 0, the floor). */
+export function tvBase(plan, f) {
+  if (!plan || f?.type !== 'tv' || tvOnWall(f)) return 0;
+  const g = (plan.furniture || []).find((x) => x !== f && x.type !== 'tv' && furnAt({ furniture: [x] }, safeNumber(f.x), safeNumber(f.y)) && furnHeight(x) > 0.2 && furnHeight(x) < 1.6);
+  return g ? furnHeight(g) : 0;
+}
+/** A height given to a TV that is linked to TV furniture goes to that furniture: it then hangs on the wall at that height. */
+export function setLinkedTvHeight(plan, hass, it, h) {
+  const f = tvLinks(plan, hass).get(it.entity_id);
+  if (!f) return false;
+  if (h == null) { delete f.mount; delete f.elev; } else { f.mount = 'wall'; f.elev = Math.round(h * 100) / 100; delete f.z; }
+  delete it.height;
+  return true;
+}
+/** How much a piece of furniture is stretched upwards by its own height (a TV on the wall: not at all). */
+export const furnStretch = (f) => (tvOnWall(f) ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
 /** The piece of furniture under a point (its turned rectangle), or null. */
 export function furnAt(plan, x, y) {
   for (const f of plan.furniture || []) {
@@ -856,6 +891,24 @@ export function tvLinks(plan, hass) {
     if (!cur || d < cur.d) best.set(f.id, { it, d });
   }
   for (const [fid, { it }] of best) out.set(it.entity_id, (plan.furniture || []).find((x) => x.id === fid));
+  // more entities of the same TV (a Chromecast with Google TV shows up as cast + Android TV remote, a Sony as
+  // Bravia + cast + DLNA...): the same device, the same device name, or a TV-like player close to that TV
+  // furniture - those are that TV too, so they get no icon of their own
+  out.secondary = new Set();
+  const devOf = (id) => { const e = hass?.entities?.[id]; return e?.device_id ? hass?.devices?.[e.device_id] : null; };
+  const dname = (dv) => (dv ? `${dv.name_by_user || dv.name || ''}`.trim().toLowerCase() : '');
+  const linked = [...out.entries()].map(([id, f]) => ({ f, dev: devOf(id), name: dname(devOf(id)) }));
+  for (const it of plan.items || []) {
+    const id = it.entity_id;
+    if (out.has(id) || id.split('.')[0] !== 'media_player' || it.tvlink === false) continue;
+    const dv = devOf(id), nm = dname(dv), st = hass?.states[id];
+    let f = linked.find((l) => (dv && l.dev && dv.id === l.dev.id) || (nm && nm === l.name))?.f;
+    if (!f && (st?.attributes?.device_class === 'tv' || TV_RE.test(`${id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`))) {
+      let bd = 2.0 * S;
+      for (const l of linked) { const dd = Math.hypot(safeNumber(l.f.x) - safeNumber(it.x), safeNumber(l.f.y) - safeNumber(it.y)); if (dd < bd) { bd = dd; f = l.f; } }
+    }
+    if (f) { out.set(id, f); out.secondary.add(id); }
+  }
   return out;
 }
 /**
@@ -878,6 +931,39 @@ export function mediaKind(it, hass) {
   if (/chromecast|shield|apple ?tv|fire ?tv|android ?tv|google ?tv|kodi|mediabox|tv ?box/i.test(t)) return 'player';
   return null;
 }
+/**
+ * What a device physically is, recognised from its domain, device class, name and make, so the walk
+ * (and the heights in 2.5D) can show it as the thing it is: 'vacuum', 'camera', 'lock', 'radiator'
+ * (radiator valve), 'thermostat', 'ceiling_fan', 'fan', 'purifier', 'plug', 'motion' or null.
+ * it.device_kind overrides it ('none' = just the icon).
+ */
+const TRV_RE = /\btrv\b|radiator|radiateur|thermostatic|thermostaatknop|thermostaatkraan|eurotronic|danfoss ally|popp|tado.*(valve|radiator)|smart radiator/i;
+const PURIFIER_RE = /purifier|luchtreiniger|luchtzuiveraar|air ?purif|starkvind|levoit|dyson pure|philips air|humidifier|luchtbevochtiger|ontvochtiger|dehumidifier/i;
+const CEILFAN_RE = /plafond ?ventilator|ceiling ?fan|plafondfan/i;
+const PLUG_RE = /plug|stekker|stopcontact|outlet|socket|\bwcd\b|tasmota|shelly ?plug|blitzwolf|nous a1/i;
+export function deviceKind(it, st, hass) {
+  if (it.device_kind) return it.device_kind === 'none' ? null : it.device_kind;
+  const d = it.entity_id.split('.')[0], a = st?.attributes || {};
+  if (it.kind === 'lamp' || d === 'light') return null;
+  const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null;
+  const t = `${it.entity_id} ${it.name || ''} ${a.friendly_name || ''} ${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name || ''}`;
+  if (d === 'vacuum' || d === 'lawn_mower') return d === 'vacuum' ? 'vacuum' : null;
+  if (d === 'camera') return 'camera';
+  if (d === 'lock') return 'lock';
+  if (d === 'climate') {
+    if (isAircon(it, st)) return null;
+    return TRV_RE.test(t) ? 'radiator' : 'thermostat';
+  }
+  if (d === 'humidifier') return 'purifier';
+  if (d === 'fan') return PURIFIER_RE.test(t) ? 'purifier' : CEILFAN_RE.test(t) ? 'ceiling_fan' : 'fan';
+  if (d === 'switch' && (a.device_class === 'outlet' || PLUG_RE.test(t))) return 'plug';
+  if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(a.device_class)) return 'motion';
+  return null;
+}
+/** Where such a device usually is, in metres above the floor (when you did not give it a height). */
+const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3 };
+export const KIND_ICON = { vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
+
 export const MEDIA_ICON = { mini: 'mdi:speaker', speaker: 'mdi:speaker', hub: 'mdi:tablet', soundbar: 'mdi:soundbar', player: 'mdi:cast', voice: 'mdi:microphone', group: 'mdi:speaker-multiple' };
 
 /** A WLED ring clock (a WLED light called klok/clock): drawn as its ring of LEDs showing the time. */
@@ -980,6 +1066,11 @@ export function deviceHeight(plan, it, st, hass = null) {
       const top = { mini: 0.03, speaker: 0.1, hub: 0.09, soundbar: 0.05, player: 0.03, voice: 0.03 }[mk];
       h = under ? furnHeight(under) + top : mk === 'soundbar' ? 0.55 : itemHeight(it, st);
     } else if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
+    else if (!style && KIND_H[deviceKind(it, st, hass)] != null) {
+      // a recognised device: where it usually is (a plug or vacuum stays low even on a cupboard line)
+      const k = deviceKind(it, st, hass);
+      h = under && ['fan', 'purifier', 'plug'].includes(k) ? furnHeight(under) + (k === 'plug' ? 0.02 : 0.2) : KIND_H[k];
+    }
     else if (style === 'spot') h = WALL_H - 0.15;
     else if (style === 'ceiling') h = WALL_H - 0.12;
     else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;
@@ -1035,7 +1126,7 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true 
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
 /** Furniture as a few solid pieces for 2.5D (local units around its centre; z in metres). */
-export function furnModel(f, spin = 0, onTop = false) {
+export function furnModel(f, spin = 0, onTop = false, S = 70) {
   const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x0 = -w / 2, y0 = -h / 2;
   const R = (a, b, c, d, z0, z1, cls) => ({ poly: [[x0 + a, y0 + b], [x0 + c, y0 + b], [x0 + c, y0 + d], [x0 + a, y0 + d]], z0, z1, cls });
   // round shapes: smooth, with their corners kept still towards the viewer (spin), so turning the house doesn't make them twirl
@@ -1063,6 +1154,7 @@ export function furnModel(f, spin = 0, onTop = false) {
       for (let i = 0; i < 4; i++) { const ang = (i * Math.PI) / 2 + Math.PI / 4; out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
       return out;
     }
+    case 'coffee': return [...legs(0.36, Math.min(5, Math.min(w, h) * 0.08)), R(0, 0, w, h, 0.36, 0.42), R(5, 5, w - 5, h - 5, 0.08, 0.11)];
     case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft')];
     case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)];
     case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
@@ -1081,7 +1173,14 @@ export function furnModel(f, spin = 0, onTop = false) {
       for (let i = 0; i < k; i++) out.push(R(0, (i * h) / k, w, ((i + 1) * h) / k, 0, (2.4 * (k - i)) / k));
       return out;
     }
-    case 'tv': return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
+    case 'tv': {
+      if (tvOnWall(f)) {
+        // on the wall: just the flat screen at its height, with a small bracket behind it
+        const [b0, b1] = tvScreen(f, S);
+        return [R(w * 0.4, 0, w * 0.6, h / 2 - 1.5, (b0 + b1) / 2 - 0.08, (b0 + b1) / 2 + 0.08, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, b0, b1, 'dark')];
+      }
+      return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
+    }
     case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot'), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant')];
     default: return [R(0, 0, w, h, 0, FURN_HEIGHT[f.type] || 0.8)];
   }
@@ -1139,13 +1238,15 @@ export function raisedSVG(plan, walls, proj) {
     const fh = furnHeight(f);
     if (!(fh > 0)) continue;
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
-    const zs = fh / (FURN_HEIGHT[f.type] || fh);   // an own height stretches the whole piece
-    const toP = ([x, y], z) => P(fx + x * cr - y * sr, fy + x * sr + y * cr, z * zs * sc * proj.lift);
-    // a hob or sink on a worktop: just the top part, drawn right after the worktop under it
-    const support = ['hob', 'sink'].includes(f.type) ? (plan.furniture || []).find((g) => g !== f && ['counter', 'island', 'sink', 'stove'].includes(g.type) && furnAt({ furniture: [g] }, fx, fy)) : null;
+    const zs = furnStretch(f);   // an own height stretches the whole piece
+    const zb = tvBase(plan, f);   // a TV standing on a cabinet: on top of it
+    const toP = ([x, y], z) => P(fx + x * cr - y * sr, fy + x * sr + y * cr, (z * zs + zb) * sc * proj.lift);
+    // a hob or sink on a worktop: just the top part, drawn right after the worktop under it (a TV: after its cabinet)
+    const support = ['hob', 'sink'].includes(f.type) ? (plan.furniture || []).find((g) => g !== f && ['counter', 'island', 'sink', 'stove'].includes(g.type) && furnAt({ furniture: [g] }, fx, fy))
+      : zb ? (plan.furniture || []).find((g) => g !== f && g.type !== 'tv' && furnAt({ furniture: [g] }, fx, fy) && furnHeight(g) === zb) : null;
     const footKey = (g) => { const gr = (safeNumber(g.rot) * Math.PI) / 180, gw = safeNumber(g.w, 100) / 2, gh = safeNumber(g.h, 60) / 2; return Math.max(...[[-gw, -gh], [gw, -gh], [gw, gh], [-gw, gh]].map(([x, y]) => P(safeNumber(g.x) + x * Math.cos(gr) - y * Math.sin(gr), safeNumber(g.y) + x * Math.sin(gr) + y * Math.cos(gr))[1])); };
     const onKey = support ? footKey(support) + 0.05 : null;
-    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180), !!support)) {
+    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180), !!support, planScale(plan) || 70)) {
       const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
       const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
       const sides = [];

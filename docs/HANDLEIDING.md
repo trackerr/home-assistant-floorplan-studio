@@ -117,7 +117,7 @@ Klik **Volgende**.
 
 ![Ramen en een deur met sensor die open staan](img/raam-open.png)
 
-**Meubels en trap.** Onder de deuren staan knoppen voor een bank, bed, tafel, ronde tafel, bureau, aanrecht, gootsteen, kookplaat, fornuis, koelkast, kookeiland, bovenkast, kast, bad, douche, wc, trap, tv en plant. Tik erop om het neer te zetten en sleep het naar de goede plek. Een gekozen meubel heeft **handvatten**: sleep een hoek om breedte en diepte tegelijk te veranderen (Shift = in verhouding), of een zijkant voor één maat; de overkant blijft staan. Daarnaast kun je de soort, de **breedte**, **diepte** en **hoogte** aanpassen (in cm zodra je de echte maat bij stap 2 hebt ingevuld) en het een kwartslag draaien. Op het dashboard is het een lichte omtrek; in 2.5D worden het blokken. Een L-vormige keuken maak je van twee keer **Aanrecht (blad)**, waarvan je er één een kwartslag draait. Zet daarna een **Kookplaat** of **Gootsteen** bovenop het blad: die worden dan in het blad getekend in plaats van als losse kast.
+**Meubels en trap.** Onder de deuren staan knoppen voor een bank, bed, tafel, ronde tafel, salontafel, bureau, aanrecht, gootsteen, kookplaat, fornuis, koelkast, kookeiland, bovenkast, kast, bad, douche, wc, trap, tv en plant. Tik erop om het neer te zetten en sleep het naar de goede plek. Een gekozen meubel heeft **handvatten**: sleep een hoek om breedte en diepte tegelijk te veranderen (Shift = in verhouding), of een zijkant voor één maat; de overkant blijft staan. Daarnaast kun je de soort, de **breedte**, **diepte** en **hoogte** aanpassen (in cm zodra je de echte maat bij stap 2 hebt ingevuld) en het een kwartslag draaien. Op het dashboard is het een lichte omtrek; in 2.5D worden het blokken. Een L-vormige keuken maak je van twee keer **Aanrecht (blad)**, waarvan je er één een kwartslag draait. Zet daarna een **Kookplaat** of **Gootsteen** bovenop het blad: die worden dan in het blad getekend in plaats van als losse kast. Bij een **tv** kies je de **bevestiging**: *op voet / meubel* (staat hij op een kast, dan staat hij óp die kast) of *aan de muur*, met de hoogte van de onderkant van het scherm. Geef je een hoogte aan een tv die bij de getekende tv hoort, dan hangt die tv op die hoogte aan de muur.
 
 ![Stap 3: een bank geselecteerd, met zijn maat](img/stap3-meubels.png)
 
@@ -318,8 +318,9 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
 - **Zelf rondkijken:** slepen. **Lopen:** tik op de vloer waar je heen wilt (hij loopt om muren en meubels heen), of gebruik de pijltjes of W A S D (Shift = sneller). Op een telefoon kun je ook de knoppen **Lopen** en terug ingedrukt houden. Tik op het kaartje rechtsboven om daarheen te lopen.
 - **Klik = stoppen:** loop je (rondleiding, of op weg naar een plek), dan stopt een klik je meteen waar je bent. Sta je stil, dan loop je met een klik op de vloer daarheen.
 - Zodra je zelf iets doet, pauzeert de rondleiding; met **Verder** gaat hij door waar hij was.
-- **Tik op een tv, speaker, airco of gordijn** (of op de tv zelf): je ziet wat hij doet, met knoppen (aan/uit, afspelen, volume, temperatuur, open/stop/dicht).
-- **Iconen** van de ruimte waar je bent (en wat dichtbij is) hangen op hun plek; tik op een lamp of schakelaar om hem aan of uit te zetten.
+- **Tik op het apparaat zelf:** wat als echt ding getekend is (lamp, ledstrip, speaker, tv, airco, gordijn, klok, stofzuiger, camera, slot, thermostaat, radiatorknop, ventilator, luchtreiniger, stekker, bewegingsmelder) heeft geen icoon. Een lamp of schakelaar gaat aan/uit; bij de rest zie je wat hij doet, met knoppen (afspelen, volume, temperatuur, open/stop/dicht, zuigen/naar dock, op slot/open, camerabeeld). Houd je de muis erboven, dan verschijnt het icoon met de naam.
+- **Iconen** van de overige apparaten in de ruimte waar je bent (en wat dichtbij is) hangen op hun plek; tik erop voor aan/uit of info.
+- **Vanzelf herkend:** Floorplan Studio kijkt naar het soort apparaat, de naam en het merk/model. Een Chromecast met Google TV of een Sony-tv met meerdere entiteiten hoort helemaal bij de getekende tv. Een slot bij een deur hangt naast de deur, een radiatorknop onderaan de muur, een thermostaat op 1,5 m, een camera of bewegingsmelder hoog aan de muur, een stekker laag bij de vloer.
 - Een deur met een sensor staat open of dicht zoals hij echt is. Ramen zijn glas met een kozijn; je kijkt naar buiten.
 - **Ledstrips** gloeien als een band langs de lijn die je tekende, op hun eigen hoogte.
 - **Bewerken** (alleen voor beheerders): tik op **Bewerken** onderin. Daarna:
@@ -332,7 +333,7 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
   - **Apparaat van de kaart halen:** kies het en tik **Van de kaart halen**.
   - Ruimtes en muren teken je in de editor (2D); dat blijft daar het prettigst. Bewerken in de wandeling kun je bij stap 5 uitzetten.
   - **Opslaan** bewaart alles in je plattegrond (2D, 2.5D en de wandeling kloppen meteen); **Annuleren** gooit de wijzigingen weg.
-- Je loopt nooit door een muur: de rondleiding gaat alleen door deuren en doorgangen, en een ruimte zonder deur slaat hij over. Ook zelf lopen stopt bij de muur.
+- Je loopt nooit door een muur: de rondleiding gaat alleen door deuren en doorgangen, en een ruimte zonder deur slaat hij over. Ook zelf lopen stopt bij de muur, en je loopt nooit naar buiten (ook niet door een buitendeur). Tik je op een muur of raam, dan loop je naar die muur toe.
 - Sluiten met het kruisje of Esc. Heb je nog niet opgeslagen, dan waarschuwt hij eerst.
 - Hoe hoog muren en iconen zijn stel je in bij stap 5 → *Telefoon, tablet en 2.5D*: de **echte maat** of een eigen percentage.
 
@@ -347,6 +348,14 @@ Heb je per verdieping een eigen plattegrond, zet dan in de kaart `floors: true` 
 ### Camera
 
 ![Camerabeeld over de kaart](img/camera.png)
+
+### Eenvoudig, Alles of Geen
+
+- **Alles**: elk apparaat met zijn icoon.
+- **Eenvoudig**: alleen wat je gebruikt (zie hieronder).
+- **Geen**: geen iconen, een rustige kaart. Ruimtes en meubels blijven aantikbaar, en wat als zichzelf getekend is laat zien wat het doet: ledstrips gloeien, gordijnen gaan open en dicht, een tv licht op, spots schijnen en een WLED-klok toont de tijd.
+
+Welke weergave een scherm eerst toont stel je in bij stap 5 (*Begint op*) of in de kaart (`mode: all`, `simple` of `none`).
 
 ### Wat doet "Eenvoudig"?
 

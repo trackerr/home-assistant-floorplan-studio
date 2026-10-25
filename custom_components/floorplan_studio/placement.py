@@ -12,6 +12,7 @@ from homeassistant.helpers import entity_registry as er
 
 # words for furniture, Dutch and English (longest first when matching)
 FURN_WORDS: dict[str, list[str]] = {
+    "coffee": ["salontafel", "koffietafel", "bijzettafel", "coffee table", "side table"],
     "round": ["ronde tafel", "round table"],
     "island": ["kookeiland", "keukeneiland", "eiland", "kitchen island", "island"],
     "wallcab": ["bovenkast", "wandkast", "wall cabinet", "wall cupboard"],
@@ -33,10 +34,10 @@ FURN_WORDS: dict[str, list[str]] = {
     "stairs": ["trap", "stairs", "staircase"],
 }
 FURN_SAY = {
-    "nl": {"round": "de ronde tafel", "island": "het kookeiland", "wallcab": "de bovenkast", "table": "de tafel", "sofa": "de bank", "bed": "het bed", "desk": "het bureau", "cabinet": "de kast", "counter": "het aanrecht", "tv": "de tv", "bath": "het bad", "shower": "de douche", "toilet": "de wc", "fridge": "de koelkast", "stove": "het fornuis", "hob": "de kookplaat", "sink": "de gootsteen", "plant": "de plant", "stairs": "de trap"},
-    "en": {"round": "the round table", "island": "the kitchen island", "wallcab": "the wall cupboard", "table": "the table", "sofa": "the sofa", "bed": "the bed", "desk": "the desk", "cabinet": "the cupboard", "counter": "the counter", "tv": "the TV", "bath": "the bath", "shower": "the shower", "toilet": "the toilet", "fridge": "the fridge", "stove": "the cooker", "hob": "the hob", "sink": "the sink", "plant": "the plant", "stairs": "the stairs"},
+    "nl": {"coffee": "de salontafel", "round": "de ronde tafel", "island": "het kookeiland", "wallcab": "de bovenkast", "table": "de tafel", "sofa": "de bank", "bed": "het bed", "desk": "het bureau", "cabinet": "de kast", "counter": "het aanrecht", "tv": "de tv", "bath": "het bad", "shower": "de douche", "toilet": "de wc", "fridge": "de koelkast", "stove": "het fornuis", "hob": "de kookplaat", "sink": "de gootsteen", "plant": "de plant", "stairs": "de trap"},
+    "en": {"coffee": "the coffee table", "round": "the round table", "island": "the kitchen island", "wallcab": "the wall cupboard", "table": "the table", "sofa": "the sofa", "bed": "the bed", "desk": "the desk", "cabinet": "the cupboard", "counter": "the counter", "tv": "the TV", "bath": "the bath", "shower": "the shower", "toilet": "the toilet", "fridge": "the fridge", "stove": "the cooker", "hob": "the hob", "sink": "the sink", "plant": "the plant", "stairs": "the stairs"},
 }
-FURN_HEIGHT = {"hob": 0.9, "sink": 0.9, "stove": 0.9, "fridge": 1.85, "island": 0.92, "wallcab": 2.1, "sofa": 0.85, "bed": 0.95, "table": 0.9, "round": 0.76, "desk": 0.76, "counter": 0.9, "cabinet": 2, "bath": 0.58, "shower": 2, "toilet": 0.8, "stairs": 2.4, "tv": 1.15, "plant": 0.9}
+FURN_HEIGHT = {"coffee": 0.42, "hob": 0.9, "sink": 0.9, "stove": 0.9, "fridge": 1.85, "island": 0.92, "wallcab": 2.1, "sofa": 0.85, "bed": 0.95, "table": 0.9, "round": 0.76, "desk": 0.76, "counter": 0.9, "cabinet": 2, "bath": 0.58, "shower": 2, "toilet": 0.8, "stairs": 2.4, "tv": 1.15, "plant": 0.9}
 
 
 def _norm(text: str) -> str:

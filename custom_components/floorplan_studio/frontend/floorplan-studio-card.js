@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b27';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b27';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b28';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b28';
 
 
 const CSS = `
@@ -24,7 +24,7 @@ const CSS = `
   .themesel option { color: #111; }
   .viewport { position: relative; overflow: hidden; touch-action: pan-y; }
   .viewport.freezoom { touch-action: none; cursor: grab; }
-  .freereset { all: unset; position: absolute; right: 10px; bottom: 10px; z-index: 9; display: none; align-items: center; gap: 6px; cursor: pointer; padding: 7px 12px;
+  .freereset { all: unset; position: absolute; right: 10px; bottom: 10px; z-index: 1500; display: none; align-items: center; gap: 6px; cursor: pointer; padding: 7px 12px;
                border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--fps-bg); color: var(--fps-fg); border: 1px solid var(--fps-line); box-shadow: 0 6px 18px rgba(0,0,0,.4); --mdc-icon-size: 16px; }
   .freereset ha-icon { color: var(--fps-accent); }
   .viewport.freezoom .freereset { display: inline-flex; }
@@ -69,7 +69,7 @@ const CSS = `
   @keyframes fps-blow { 50% { box-shadow: 0 0 0 5px rgba(150, 190, 255, .15), 0 0 22px rgba(150, 190, 255, .35); } }
   svg.plan .stalks { transition: opacity .2s; }
   .turning .item, .turning svg.plan .stalks { opacity: var(--fps-turn-op, .1) !important; }   /* 2.5D: only name and temperature, so it stays calm */
-  .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+  .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2300; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
   .zoomhint.on { opacity: 1; }
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
   /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
@@ -90,7 +90,7 @@ const CSS = `
   .item.out { opacity: 0; pointer-events: none; }
   .item.driving { transition: left 5s linear, top 5s linear, transform .55s, opacity .3s; z-index: 6; }
   .item.driving .bub { box-shadow: 0 0 0 .35cqw rgba(var(--fps-device-rgb), .35), 0 0 1.4cqw rgba(var(--fps-device-rgb), .6); }
-  .roompanel { position: absolute; top: 0; right: 0; bottom: 0; width: 36%; z-index: 10; box-sizing: border-box; padding: 14px 16px; overflow-y: auto;
+  .roompanel { position: absolute; top: 0; right: 0; bottom: 0; width: 36%; z-index: 2000; box-sizing: border-box; padding: 14px 16px; overflow-y: auto;
                background: color-mix(in srgb, var(--fps-bg) 82%, transparent); backdrop-filter: blur(6px); border-left: 1px solid var(--fps-line);
                transform: translateX(105%); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
   .roompanel.open { transform: none; }
@@ -120,7 +120,7 @@ const CSS = `
   .chip ha-state-icon { --mdc-icon-size: 16px; }
   .chip small { color: var(--fps-muted); }
   .item.camera .bub { border-radius: 22%; color: var(--fps-device); border-color: rgba(var(--fps-device-rgb), .55); }
-  .camview { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.82);
+  .camview { position: absolute; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.82);
              cursor: zoom-out; animation: fpsfade .2s ease; }
   .camview .frame { position: relative; width: 94%; max-height: 94%; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--fps-line), 0 10px 40px rgba(0,0,0,.6); }
   .camview ha-camera-stream, .camview img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
@@ -128,7 +128,7 @@ const CSS = `
   .camview .x { position: absolute; right: 12px; top: 10px; color: #fff; --mdc-icon-size: 22px; pointer-events: none; }
   @keyframes fpsfade { from { opacity: 0; } to { opacity: 1; } }
   .btn.icon { padding: 5px 8px; }
-  .kioskstart { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
+  .kioskstart { position: absolute; inset: 0; z-index: 2400; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
                 background: rgba(0,0,0,.55); color: #fff; font-size: 18px; font-weight: 600; cursor: pointer; --mdc-icon-size: 64px; }
   ha-card { position: relative; }
   .msg { padding: 28px; color: var(--fps-muted); text-align: center; }
@@ -258,7 +258,7 @@ const CSS = `
                 background: var(--fps-accent); cursor: nwse-resize; box-shadow: 0 0 0 2px var(--fps-bg); }
   .moving .rinfo .rsz, .can-edit .rinfo:hover .rsz { display: block; }
   .can-edit .labels .rinfo { cursor: grab; }
-  .lmenu { position: absolute; z-index: 15; transform: translate(0, -4px); min-width: 170px; padding: 6px; border-radius: 12px; background: var(--fps-bg);
+  .lmenu { position: absolute; z-index: 2100; transform: translate(0, -4px); min-width: 170px; padding: 6px; border-radius: 12px; background: var(--fps-bg);
            border: 1px solid var(--fps-line); box-shadow: 0 10px 30px rgba(0,0,0,.5); font-family: var(--fps-font); animation: fpsfade .15s ease; }
   .lmenu .lm-t { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fps-muted); padding: 4px 8px 6px; }
   .lmenu button { all: unset; display: flex; align-items: center; gap: 8px; width: calc(100% - 16px); padding: 7px 8px; border-radius: 8px; font-size: 13px; color: var(--fps-fg); cursor: pointer; --mdc-icon-size: 17px; }
@@ -299,7 +299,7 @@ const CSS = `
   .side .srow .v { font-weight: 600; white-space: nowrap; }
   .side .navbar { padding: 0; justify-content: flex-start; }
   .navbar { display: flex; justify-content: center; gap: 8px; padding: 8px 12px 12px; flex-wrap: wrap; }
-  .toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 25; padding: 8px 14px; border-radius: 999px; font-size: 13px;
+  .toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2300; padding: 8px 14px; border-radius: 999px; font-size: 13px;
            background: rgba(0,0,0,.8); color: #fff; animation: fpsfade .2s ease; pointer-events: none; }
 `;
 
@@ -473,6 +473,7 @@ class FloorplanStudioCard extends HTMLElement {
         <div class="seg" id="mode">
           <button data-mode="simple" class="${mode === 'simple' ? 'active' : ''}"><ha-icon icon="mdi:star-outline"></ha-icon>${t(h, 'simple')}</button>
           <button data-mode="all" class="${mode === 'all' ? 'active' : ''}"><ha-icon icon="mdi:view-grid-outline"></ha-icon>${t(h, 'all')}</button>
+          <button data-mode="none" class="${mode === 'none' ? 'active' : ''}"><ha-icon icon="mdi:eye-off-outline"></ha-icon>${t(h, 'none_mode')}</button>
         </div>
         ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
@@ -658,7 +659,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b27');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b28');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -766,7 +767,7 @@ class FloorplanStudioCard extends HTMLElement {
       const st = h.states[id];
       if (!st || !['on', 'playing', 'paused', 'idle', 'buffering'].includes(st.state)) continue;
       const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 6, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 6, fx = safeNumber(f.x), fy = safeNumber(f.y);
-      const z = p ? furnHeight(f) * 0.7 * p.sc * p.lift : 0;
+      const sc2 = tvScreen(f, planScale(plan) || 70, plan), z = p ? ((sc2[0] + sc2[1]) / 2) * p.sc * p.lift : 0;
       const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
       out.push(`<polygon points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
     }
@@ -823,6 +824,8 @@ class FloorplanStudioCard extends HTMLElement {
 
   /* ---------------------------------------------------------- update */
   _visible(entityId, it) {
+    // 'none': a calm map without icons; what is drawn as itself (LED strips, curtains, TV, spots, a ring clock) still shows what it does
+    if (this._mode === 'none') return !!ringClock(it, this._hass);
     if (this._mode !== 'simple' || it.pin) return true;
     if (entityId.startsWith('vacuum.') && VACUUM_BUSY.includes(this._hass?.states[entityId]?.state)) return true;   // a vacuum on the move is always shown
     const u = this._usage;
@@ -2195,13 +2198,13 @@ class FloorplanStudioCardEditor extends HTMLElement {
     const c = this._config, plans = this._plans || [];
     const nl = (this._hass?.locale?.language || 'en').startsWith('nl');
     const L = nl
-      ? { plan: 'Plattegrond', theme: 'Thema', mode: 'Standaard weergave', simple: 'Eenvoudig (laatst gebruikt)', all: 'Alles', toolbar: 'Knoppenbalk tonen', themetoggle: 'Thema-knoppen tonen', title: 'Titel (leeg = naam plattegrond)', open: 'Plattegronden tekenen en bewerken doe je via Floorplan in de zijbalk.' }
-      : { plan: 'Floorplan', theme: 'Theme', mode: 'Default view', simple: 'Simple (recently used)', all: 'All', toolbar: 'Show toolbar', themetoggle: 'Show theme buttons', title: 'Title (empty = plan name)', open: 'Draw and edit floorplans via Floorplan in the sidebar.' };
+      ? { plan: 'Plattegrond', theme: 'Thema', mode: 'Standaard weergave', simple: 'Eenvoudig (laatst gebruikt)', all: 'Alles', none_mode: 'Geen (geen iconen, rustige kaart)', toolbar: 'Knoppenbalk tonen', themetoggle: 'Thema-knoppen tonen', title: 'Titel (leeg = naam plattegrond)', open: 'Plattegronden tekenen en bewerken doe je via Floorplan in de zijbalk.' }
+      : { plan: 'Floorplan', theme: 'Theme', mode: 'Default view', simple: 'Simple (recently used)', all: 'All', none_mode: 'None (no icons, a calm map)', toolbar: 'Show toolbar', themetoggle: 'Show theme buttons', title: 'Title (empty = plan name)', open: 'Draw and edit floorplans via Floorplan in the sidebar.' };
     this.innerHTML = `<style>.r{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}label{font-size:13px;color:var(--secondary-text-color)}select,input[type=text]{padding:8px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color)}.c{flex-direction:row;align-items:center;gap:8px}p{font-size:12px;color:var(--secondary-text-color)}</style>
       <div class="r"><label>${L.plan}</label><select data-k="plan">${plans.map((p) => `<option value="${p.id}" ${c.plan === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
       <div class="r"><label>${L.title}</label><input type="text" data-k="title" value="${esc(c.title || '')}"></div>
       <div class="r"><label>${L.theme}</label><select data-k="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${c.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
-      <div class="r"><label>${L.mode}</label><select data-k="mode"><option value="all" ${c.mode !== 'simple' ? 'selected' : ''}>${L.all}</option><option value="simple" ${c.mode === 'simple' ? 'selected' : ''}>${L.simple}</option></select></div>
+      <div class="r"><label>${L.mode}</label><select data-k="mode"><option value="all" ${!['simple', 'none'].includes(c.mode) ? 'selected' : ''}>${L.all}</option><option value="simple" ${c.mode === 'simple' ? 'selected' : ''}>${L.simple}</option><option value="none" ${c.mode === 'none' ? 'selected' : ''}>${L.none_mode}</option></select></div>
       <div class="r c"><input type="checkbox" data-k="show_toolbar" ${c.show_toolbar !== false ? 'checked' : ''}><label>${L.toolbar}</label></div>
       <div class="r c"><input type="checkbox" data-k="show_theme_toggle" ${c.show_theme_toggle ? 'checked' : ''}><label>${L.themetoggle}</label></div>
       <p>${L.open}</p>`;

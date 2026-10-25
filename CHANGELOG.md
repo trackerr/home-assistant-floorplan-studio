@@ -1,6 +1,14 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Weergave "Geen"** naast Eenvoudig en Alles: geen iconen, een rustige kaart. Ruimtes en meubels blijven aantikbaar, en wat als zichzelf getekend is laat zien wat het doet (ledstrips, gordijnen, tv-gloed, spotbundels, WLED-klok). Ook als standaard te kiezen.
+- **Salontafel** als meubel (laag, met plank), ook voor de AI: "zet de lamp op de salontafel".
+- **Tv aan de muur:** bij een tv-meubel *Bevestiging: aan de muur* met de hoogte van de onderkant van het scherm (editor en wandeling). Een tv op voet op een kast staat nu óp die kast. Een hoogte die je aan een gekoppelde tv geeft, gaat naar die tv.
+- Een tv met meerdere entiteiten (bijv. Chromecast met Google TV: cast + Android TV; Sony: Bravia + cast) hoort helemaal bij de getekende tv: geen losse iconen meer.
+- **Meer apparaten vanzelf herkend** en in de wandeling getekend als wat ze zijn: robotstofzuiger, camera, slot (naast de deur), radiatorknop, thermostaat, plafondventilator, ventilator, luchtreiniger/-bevochtiger, slimme stekker en bewegingsmelder, elk op de gebruikelijke hoogte (ook in 2.5D).
+- Wandeling: wat getekend is (lamp, ledstrip, speaker, tv, airco, gordijn, klok en de apparaten hierboven) heeft geen icoon meer: **tik op het apparaat zelf** (lamp/schakelaar aan/uit, de rest info en bediening; stofzuiger, slot en camerabeeld erbij). Met de muis erboven verschijnt het icoon met de naam.
+- Wandeling: je komt niet meer buiten het huis terecht (een tik op een muur of raam loopt naar die muur in plaats van naar de vloer erachter; door een buitendeur lopen kan niet meer).
+- Pop-ups (ruimtepaneel, menu's, camerabeeld, meldingen, AI-hulp, info in de wandeling) liggen altijd boven de iconen.
 - Wandeling: volgt wijzigingen in de plattegrond die elders gebeuren (editor, assistent); een WLED-klok heeft geen lamp-blokje meer.
 - Gordijnen: *Hangt tot* de vloer, de vensterbank of een eigen hoogte. In de wandeling heeft een wandklok geen extra icoon meer (tik op de klok zelf).
 - Mediaspelers herkend aan hun apparaat (Nest Mini, Nest Audio/Google Home/Sonos, Nest Hub, soundbar, Chromecast, spraak-satelliet): passend icoon, staat op het meubel, en in de wandeling het echte apparaatje met lampje.
