@@ -16,6 +16,8 @@ from . import assist, websocket
 from .const import (
     CARD_FILE,
     DOMAIN,
+    MODELS_DIR,
+    MODELS_URL,
     PANEL_COMPONENT,
     PANEL_FILE,
     PANEL_URL_PATH,
@@ -74,6 +76,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # every file is loaded with ?v=<version>, so browsers may keep it: no check on every reload
             [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), True)]
         )
+        # your own 3D models: the file names carry a content hash, so browsers may keep them
+        models = Path(hass.config.path(MODELS_DIR))
+        await hass.async_add_executor_job(lambda: models.mkdir(parents=True, exist_ok=True))
+        await hass.http.async_register_static_paths([StaticPathConfig(MODELS_URL, str(models), True)])
         websocket.async_register(hass)
         hass.data[f"{DOMAIN}_static"] = True
     # Load the card on every dashboard; no manual "resource" needed.

@@ -11,7 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
-from .const import DEFAULT_USAGE_DAYS, DOMAIN, SIGNAL_PLAN_SAVED
+from .const import DEFAULT_USAGE_DAYS, DOMAIN, MODEL_EXTS, MODEL_MAX_BYTES, MODELS_DIR, MODELS_URL, SIGNAL_PLAN_SAVED
 
 
 def _data(hass: HomeAssistant) -> dict[str, Any]:
@@ -27,6 +27,9 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_wled)
     websocket_api.async_register_command(hass, ws_wled_live)
+    websocket_api.async_register_command(hass, ws_model_upload)
+    websocket_api.async_register_command(hass, ws_model_list)
+    websocket_api.async_register_command(hass, ws_model_delete)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/plans"})
@@ -299,3 +302,97 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
     task = hass.async_create_background_task(run(), "floorplan_studio_wled_live")
     connection.subscriptions[msg["id"]] = task.cancel
     connection.send_result(msg["id"])
+
+
+# ------------------------------------------------------------------ your own 3D models
+def _models_dir(hass: HomeAssistant):
+    from pathlib import Path  # noqa: PLC0415
+
+    return Path(hass.config.path(MODELS_DIR))
+
+
+def _safe_stem(name: str) -> str:
+    import re  # noqa: PLC0415
+
+    stem = re.sub(r"[^a-zA-Z0-9_-]+", "-", name.rsplit(".", 1)[0]).strip("-").lower()
+    return stem[:40] or "model"
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "floorplan_studio/model/upload",
+        vol.Required("name"): str,
+        vol.Required("upload_id"): vol.Match(r"^[a-z0-9]{6,24}$"),
+        vol.Required("part"): vol.All(int, vol.Range(min=0, max=4000)),
+        vol.Required("data"): str,
+        vol.Optional("last", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_model_upload(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Receive a 3D model (.glb, .gltf, .obj) in base64 parts; the last part stores it as <name>-<hash>.<ext>."""
+    import base64  # noqa: PLC0415
+    import hashlib  # noqa: PLC0415
+
+    name = msg["name"]
+    ext = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in MODEL_EXTS:
+        connection.send_error(msg["id"], "bad_type", "Only .glb, .gltf or .obj files")
+        return
+    folder = _models_dir(hass)
+    tmp = folder / f".upload-{msg['upload_id']}"
+    try:
+        chunk = base64.b64decode(msg["data"], validate=True)
+    except ValueError:
+        connection.send_error(msg["id"], "bad_data", "Not base64")
+        return
+
+    def write() -> dict[str, Any] | str:
+        folder.mkdir(parents=True, exist_ok=True)
+        with open(tmp, "wb" if msg["part"] == 0 else "ab") as fh:
+            fh.write(chunk)
+        size = tmp.stat().st_size
+        if size > MODEL_MAX_BYTES:
+            tmp.unlink(missing_ok=True)
+            return "too_big"
+        if not msg["last"]:
+            return {"received": size}
+        data = tmp.read_bytes()
+        final = folder / f"{_safe_stem(name)}-{hashlib.sha1(data).hexdigest()[:10]}{ext}"
+        tmp.replace(final)
+        return {"file": final.name, "url": f"{MODELS_URL}/{final.name}", "size": size}
+
+    result = await hass.async_add_executor_job(write)
+    if result == "too_big":
+        connection.send_error(msg["id"], "too_big", f"The model is larger than {MODEL_MAX_BYTES // 1048576} MB")
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/model/list"})
+@websocket_api.async_response
+async def ws_model_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The 3D models you uploaded."""
+    folder = _models_dir(hass)
+
+    def scan() -> list[dict[str, Any]]:
+        if not folder.is_dir():
+            return []
+        return [
+            {"file": p.name, "url": f"{MODELS_URL}/{p.name}", "size": p.stat().st_size}
+            for p in sorted(folder.iterdir())
+            if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in MODEL_EXTS
+        ]
+
+    connection.send_result(msg["id"], {"models": await hass.async_add_executor_job(scan)})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/model/delete", vol.Required("file"): vol.Match(r"^[a-z0-9_-]+\.(glb|gltf|obj)$")})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_model_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Remove an uploaded 3D model."""
+    path = _models_dir(hass) / msg["file"]
+    await hass.async_add_executor_job(lambda: path.unlink(missing_ok=True))
+    connection.send_result(msg["id"], {})

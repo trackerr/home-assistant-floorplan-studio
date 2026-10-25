@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b49';
+export const VERSION = '1.4.0b50';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -446,6 +446,7 @@ export const FURN_TYPES = {
   stairs: { icon: 'mdi:stairs', w: 90, h: 260 },
   tv: { icon: 'mdi:television', w: 140, h: 12 },
   plant: { icon: 'mdi:flower-outline', w: 45, h: 45 },
+  model: { icon: 'mdi:cube-outline', w: 70, h: 70 },   // your own 3D model (.glb / .obj, uploaded in the editor)
 };
 /**
  * Where the chairs of a table go: f.chairs (or as many as fit), on the long sides and, when the number is odd
@@ -576,6 +577,10 @@ export function furnSVG(f, extra = '') {
     }
     case 'tv':
       body = R(x, y, w, h, 2) + R(x + w * 0.3, y + h, w * 0.4, 4, 1, 'soft');
+      break;
+    case 'model':
+      // your own 3D model: a dashed box with a cube in it (the model itself shows in the walk)
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" stroke-dasharray="5 3"/>` + `<path d="M${-w * 0.18},${-h * 0.08} L0,${-h * 0.2} L${w * 0.18},${-h * 0.08} L${w * 0.18},${h * 0.14} L0,${h * 0.26} L${-w * 0.18},${h * 0.14} Z M${-w * 0.18},${-h * 0.08} L0,${h * 0.04} L${w * 0.18},${-h * 0.08} M0,${h * 0.04} L0,${h * 0.26}" fill="none"/>`;
       break;
     case 'plant':
       body = [0, 1, 2, 3, 4].map((i) => { const a = (i * 2 * Math.PI) / 5; return `<ellipse cx="${(Math.cos(a) * w) / 4}" cy="${(Math.sin(a) * h) / 4}" rx="${w / 5}" ry="${h / 9}" transform="rotate(${(a * 180) / Math.PI} ${(Math.cos(a) * w) / 4} ${(Math.sin(a) * h) / 4})"/>`; }).join('') + `<circle cx="0" cy="0" r="${Math.min(w, h) / 7}"/>`;
@@ -785,7 +790,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { model: 1, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f?.type === 'videowall' ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -830,11 +835,34 @@ export function videoWallSpan(f) {
  * The cameras on a camera wall: f.cams = list of camera entities, or (empty) every camera that shows a picture
  * (no weather radar or vacuum maps), sorted by area and name.
  */
+// a camera's second, lighter stream (ONVIF SubStream / Profile_1, Reolink fluent, ...): quicker and smoother to show
+const LOWRES_RE = /sub ?stream|substream|profile_?1\b|\blow\b|fluent|\bsd\b|\blq\b|klein|mobile|_sub\b/i;
+const isLow = (hass, id) => LOWRES_RE.test(`${id} ${hass?.states[id]?.attributes?.friendly_name || ''}`);
+/** The light stream of a camera (its sibling on the same device), or the camera itself. */
+export function camLowRes(hass, id) {
+  const dev = hass?.entities?.[id]?.device_id;
+  if (!dev || isLow(hass, id)) return id;
+  const low = Object.values(hass.entities).find((e) => e.device_id === dev && e.entity_id !== id && e.entity_id.startsWith('camera.') && hass.states[e.entity_id] && hass.states[e.entity_id].state !== 'unavailable' && isLow(hass, e.entity_id));
+  return low ? low.entity_id : id;
+}
+/** A still of the camera, small (Home Assistant scales it to this width), from its light stream. */
+export function camPic(hass, id, width = 480) {
+  const pic = hass?.states[camLowRes(hass, id)]?.attributes?.entity_picture;
+  return pic ? `${pic}${pic.includes('?') ? '&' : '?'}width=${width}` : null;
+}
+/** The live picture (MJPEG) of the camera's light stream. */
+export function camStream(hass, id) {
+  const pic = hass?.states[camLowRes(hass, id)]?.attributes?.entity_picture;
+  return pic && pic.includes('/api/camera_proxy/') ? pic.replace('/api/camera_proxy/', '/api/camera_proxy_stream/') : null;
+}
 export function videoWallCams(f, hass) {
   const all = Object.keys(hass?.states || {}).filter((id) => id.startsWith('camera.') && !/buienradar|radar|_map\b|\bmap\b|roborock|vacuum|valetudo|xiaomi_cloud_map/i.test(id) && hass.states[id].state !== 'unavailable' && !hass.entities?.[id]?.hidden);
   if (Array.isArray(f.cams) && f.cams.length) return f.cams.filter((id) => hass?.states[id]);
   const area = (id) => hass.areas?.[entityArea(hass, id)]?.name || '~';
-  return all.sort((a, b) => area(a).localeCompare(area(b)) || friendly(hass, a).localeCompare(friendly(hass, b)));
+  // one screen per camera: its main and sub stream are the same camera (the screen shows the light one)
+  const seen = new Set();
+  const one = all.sort((a, b) => Number(isLow(hass, a)) - Number(isLow(hass, b))).filter((id) => { const dv = hass.entities?.[id]?.device_id; if (!dv) return true; if (seen.has(dv)) return false; seen.add(dv); return true; });
+  return one.sort((a, b) => area(a).localeCompare(area(b)) || friendly(hass, a).localeCompare(friendly(hass, b)));
 }
 /** How much a piece of furniture is stretched upwards by its own height (a TV on the wall: not at all). */
 export const furnStretch = (f) => (tvOnWall(f) || f?.type === 'videowall' ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
@@ -1114,11 +1142,20 @@ const APPLIANCE_RE = { dishwasher: /vaatwasser|afwasmachine|dishwasher|sp[üu]lm
 // the side features of a machine (child lock, remote start, firmware...): never the one that tells whether it runs
 const APP_SIDE_RE = /child|kinder|lock|slot|remote|firmware|update|wrinkle|kreuk|bubble|detergent|zeep|temp|humid|calibrat|signal|rssi|battery|batterij|countdown|indicator|outage|energy|energie|saved|amps|volt|current/i;
 /** The entity that tells whether a dishwasher / washer / dryer you drew is running: f.entity, or the best match (its room first). */
+// the automatic choice only changes when entities come or go: remembered per entity list (cards redraw many times a second)
+const APP_CACHE = new WeakMap();
 export function applianceEntity(plan, f, hass) {
   if (f.entity === '' || f.entity === false) return null;
   if (f.entity && hass?.states[f.entity]) return f.entity;
   const re = APPLIANCE_RE[f.type];
   if (!re || !hass) return null;
+  const ck = hass.entities || hass.states, key = `${f.type}|${Math.round(safeNumber(f.x))}|${Math.round(safeNumber(f.y))}|${plan.rooms?.length}`;
+  let memo = APP_CACHE.get(ck);
+  if (!memo) { memo = new Map(); APP_CACHE.set(ck, memo); }
+  if (!memo.has(key)) memo.set(key, applianceFind(plan, f, hass, re));
+  return memo.get(key);
+}
+function applianceFind(plan, f, hass, re) {
   const room = roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y));
   const score = (id) => {
     const st = hass.states[id], d = id.split('.')[0], dc = st?.attributes?.device_class, u = st?.attributes?.unit_of_measurement;
@@ -1136,8 +1173,14 @@ export function applianceEntity(plan, f, hass) {
   return [...(inRoom.length ? inRoom : ids)].sort((a, b) => score(b) - score(a))[0] || null;
 }
 /** The devices on the plan a drawn dishwasher / washer / dryer stands for (its linked entity, and its plug or sensors by name in the same room): they get no icon of their own. */
+const ABS_CACHE = new WeakMap();
 export function applianceAbsorbs(plan, hass) {
+  const sig = (plan.furniture || []).filter((f) => APPLIANCE_RE[f.type]).map((f) => `${f.type}${f.x},${f.y},${f.entity}`).join('|') + `#${plan.items?.length}`;
+  if (sig.startsWith('#')) return new Set();   // no appliances drawn
+  const ck = hass?.entities || hass?.states || plan, hit = ABS_CACHE.get(ck);
+  if (hit && hit.sig === sig) return hit.out;
   const out = new Set();
+  ABS_CACHE.set(ck, { sig, out });
   for (const f of plan.furniture || []) {
     const re = APPLIANCE_RE[f.type];
     if (!re) continue;
