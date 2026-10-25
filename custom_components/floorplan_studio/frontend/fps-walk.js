@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc,
-} from './fps-core.js?v=1.4.0b1';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea,
+} from './fps-core.js?v=1.4.0b2';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const TXT = {
@@ -408,13 +408,13 @@ const CSS = `
 canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
 canvas.gl:active { cursor: grabbing; }
 .icons { position: absolute; inset: 0; pointer-events: none; }
-.wi { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; transform-origin: 50% 50%; will-change: transform; }
-.wi .b { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(20,24,32,.72); border: 1.5px solid rgba(255,255,255,.35); color: #e8edf3; backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.wi { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+.wi .b { position: absolute; left: -22px; top: -22px; pointer-events: auto; cursor: pointer; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; background: rgba(20,24,32,.72); border: 1.5px solid rgba(255,255,255,.35); color: #e8edf3; backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
 .wi.on .b { background: rgb(var(--c, 255, 190, 110)); color: #151a20; border-color: rgba(255,255,255,.9); box-shadow: 0 0 18px rgba(var(--c, 255, 190, 110), .85); }
 .wi .b ha-icon, .wi .b ha-state-icon { --mdc-icon-size: 24px; }
 .wi .b.txt { font-size: 12px; font-weight: 600; }
-.wi .n { margin-top: 4px; padding: 2px 8px; border-radius: 8px; background: rgba(0,0,0,.55); font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .2s; }
-.wi.near .n, .wi:hover .n { opacity: 1; }
+.wi .n { position: absolute; top: 26px; left: 0; transform: translateX(-50%); pointer-events: none; padding: 2px 8px; border-radius: 8px; background: rgba(0,0,0,.55); font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .2s; }
+.wi.near .n, .wi:hover .n, .wi .b:hover + .n { opacity: 1; }
 .top { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; pointer-events: none; }
 .top > * { pointer-events: auto; }
 button.x, .bar button { border: 0; border-radius: 22px; background: rgba(15,18,24,.72); color: #fff; height: 44px; min-width: 44px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; font: inherit; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px); }
@@ -478,26 +478,84 @@ export function openWalk(host, { plan, hass, onClose }) {
   const S = planScale(plan) || 70, M = (v) => v / S;
   const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
 
+  /** The room a device belongs to: its Home Assistant area first, otherwise the room most of its icon is in. */
+  function itemRoom(it) {
+    const area = entityArea(hass, it.entity_id);
+    if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
+    const x = safeNumber(it.x), y = safeNumber(it.y), half = 0.25 * S;
+    let best = roomAt(plan.rooms, x, y), most = 0;
+    for (const r of plan.rooms) {
+      let a = 0;
+      for (const q of r.rects.map(norm)) a += Math.max(0, Math.min(q[2], x + half) - Math.max(q[0], x - half)) * Math.max(0, Math.min(q[3], y + half) - Math.max(q[1], y - half));
+      if (a > most) { most = a; best = r; }
+    }
+    return best;
+  }
+  /** The nearest point inside a room, at least `inset` metres from its walls. */
+  function insideRoom(room, x, z, inset) {
+    let best = [x, z], bd = Infinity;
+    for (const q of room.rects.map(norm)) {
+      const x0 = M(q[0]) + inset, z0 = M(q[1]) + inset, x1 = M(q[2]) - inset, z1 = M(q[3]) - inset;
+      if (x1 < x0 || z1 < z0) continue;
+      const cx = Math.max(x0, Math.min(x, x1)), cz = Math.max(z0, Math.min(z, z1)), dd = Math.hypot(cx - x, cz - z);
+      if (dd < bd) { bd = dd; best = [cx, cz]; }
+    }
+    // only pull devices that sit on or right next to a wall; a device in the room stays exactly where it is
+    return bd < 0.6 ? best : [x, z];
+  }
+
   /** Lamps (their spot, the room their light stays in, and a small fixture to draw) and the icons. */
   function buildItems() {
     lamps = []; items = []; iconsEl.innerHTML = '';
-    const markers = new Mesh();
+    const markers = new Mesh(), fixtures = new Mesh();
+    const circle = (cx, cz, r, k = 14) => Array.from({ length: k }, (_, i) => [cx + r * Math.cos((i / k) * 2 * Math.PI), cz + r * Math.sin((i / k) * 2 * Math.PI)]);
+    const DARK = [0.2, 0.2, 0.22];
     for (const it of plan.items || []) {
       const st = hass.states[it.entity_id], d = it.entity_id.split('.')[0];
-      const x = safeNumber(it.x), y = safeNumber(it.y), room = roomAt(plan.rooms, x, y);
+      const x = safeNumber(it.x), y = safeNumber(it.y), room = itemRoom(it);
       const lampKind = it.kind !== 'device' && (d === 'light' || it.kind === 'lamp');
       const under = furnAt(plan, x, y), own = it.height != null && it.height !== '';
       const ceil = lampKind && isCeilingLamp(it, st);
-      let h = ceil && !own ? H - 0.12 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
+      // where it really is: a device drawn on a wall hangs just in front of it, in its own room
+      let [px, pz] = [M(x), M(y)];
+      if (room) [px, pz] = insideRoom(room, px, pz, 0.2);
+      const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+      // what kind of lamp: on the ceiling, hanging over a table, standing on the floor, on a table or desk, or a strip/other
+      const lampType = !lampKind ? null : ceil ? 'ceiling'
+        : /vloer|staand|floor|standing|stalamp/i.test(label) ? 'floor'
+          : under && ['table', 'round', 'island'].includes(under.type) && !own ? 'pendant'
+            : /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i.test(label) || (under && !own) ? 'table'
+              : 'other';
+      let h;
+      if (own) h = itemHeight(it, st);
+      else if (lampType === 'ceiling') h = H - 0.12;
+      else if (lampType === 'pendant') h = furnHeight(under) + 0.85;
+      else if (lampType === 'floor') h = 1.5;
+      else if (lampType === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
+      else h = under ? furnHeight(under) + 0.35 : itemHeight(it, st);
       h = Math.min(Math.max(h, 0.15), H - 0.08);
-      const P = [M(x), h, M(y)];
+      let P = [px, h, pz];
       if (lampKind) {
         let bb = [-1e9, -1e9, 1e9, 1e9];
         if (room) { const qs = room.rects.map(norm); bb = [M(Math.min(...qs.map((q) => q[0]))) - 0.15, M(Math.min(...qs.map((q) => q[1]))) - 0.15, M(Math.max(...qs.map((q) => q[2]))) + 0.15, M(Math.max(...qs.map((q) => q[3]))) + 0.15]; }
         const start = markers.v.length / 10;
-        if (ceil) { const k = 14, r0 = 0.17; markers.prism(Array.from({ length: k }, (_, i) => [P[0] + r0 * Math.cos((i / k) * 2 * Math.PI), P[2] + r0 * Math.sin((i / k) * 2 * Math.PI)]), H - 0.07, H - 0.005, [1, 1, 1]); }
-        else { const r0 = 0.09; markers.prism(Array.from({ length: 10 }, (_, i) => [P[0] + r0 * Math.cos((i / 10) * 2 * Math.PI), P[2] + r0 * Math.sin((i / 10) * 2 * Math.PI)]), h - 0.08, h + 0.08, [1, 1, 1]); }
-        lamps.push({ it, P: [P[0], ceil ? H - 0.25 : h + 0.05, P[2]], bb, start, count: markers.v.length / 10 - start });
+        let lightY = h;
+        if (lampType === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, [1, 1, 1]); lightY = H - 0.25; P = [px, H - 0.45, pz]; }
+        else if (lampType === 'pendant') {
+          fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.12, H, DARK);                 // cord
+          markers.prism(circle(px, pz, 0.16), h - 0.04, h + 0.12, [1, 1, 1]); lightY = h - 0.1; P = [px, h + 0.4, pz];
+        } else if (lampType === 'floor') {
+          fixtures.prism(circle(px, pz, 0.14, 12), 0, 0.025, DARK);                                                 // foot
+          fixtures.box(px - 0.012, pz - 0.012, px + 0.012, pz + 0.012, 0.025, h - 0.05, DARK);                       // pole
+          markers.prism(circle(px, pz, 0.19), h - 0.05, h + 0.2, [1, 1, 1]); lightY = h + 0.05; P = [px, h + 0.5, pz];
+        } else if (lampType === 'table') {
+          const base = h - 0.3;
+          fixtures.prism(circle(px, pz, 0.06, 10), base, base + 0.02, DARK);
+          fixtures.box(px - 0.008, pz - 0.008, px + 0.008, pz + 0.008, base + 0.02, h - 0.06, DARK);
+          markers.prism(circle(px, pz, 0.11), h - 0.06, h + 0.08, [1, 1, 1]); lightY = h; P = [px, h + 0.35, pz];
+        } else { markers.prism(circle(px, pz, 0.05, 10), h - 0.03, h + 0.03, [1, 1, 1]); P = [px, h + 0.2, pz]; }
+        P[1] = Math.min(P[1], H - 0.1);
+        lamps.push({ it, P: [px, lightY, pz], bb, start, count: markers.v.length / 10 - start });
       }
       // the icon you can tap
       const el = document.createElement('div');
@@ -523,8 +581,7 @@ export function openWalk(host, { plan, hass, onClose }) {
       iconsEl.appendChild(el);
       items.push({ it, el, P, d, isSensor, icon: b.firstChild, room: room?.id || null });
     }
-    if (buf.markers) gl.deleteBuffer(buf.markers.b);
-    buf.markers = markers.v.length ? upload(markers) : null;
+    for (const [k, m] of [['markers', markers], ['fixtures', fixtures]]) { if (buf[k]) gl.deleteBuffer(buf[k].b); buf[k] = m.v.length ? upload(m) : null; }
     refreshStates();
   }
   function buildAll() {
@@ -803,6 +860,7 @@ export function openWalk(host, { plan, hass, onClose }) {
     gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
     gl.disable(gl.BLEND); gl.depthMask(true);
     if (buf.solid) { bind(buf.solid); gl.drawArrays(gl.TRIANGLES, 0, buf.solid.n); }
+    if (buf.fixtures) { bind(buf.fixtures); gl.drawArrays(gl.TRIANGLES, 0, buf.fixtures.n); }
     if (buf.markers) {
       bind(buf.markers); gl.uniform1f(U.uEmis, 1);
       for (const l of lamps) { gl.uniform3fv(U.uTint, l.on ? l.col.map((v) => 0.55 + 0.45 * v) : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
@@ -821,12 +879,12 @@ export function openWalk(host, { plan, hass, onClose }) {
       // the room you are in, plus anything close by in the next room (keeps it calm)
       let show = cwv > 0.1 && (dist < 3.5 || (dist < 10 && I.room === lastRoom));
       // hidden behind a wall (the wall it hangs on itself doesn't count)
-      if (show) show = !world.blockers.some((q) => !(x >= q[0] - 0.08 && x <= q[2] + 0.08 && z >= q[1] - 0.08 && z <= q[3] + 0.08) && segHitsBox(cam.x, cam.z, x, z, q));
+      if (show) show = !world.blockers.some((q) => segHitsBox(cam.x, cam.z, x, z, q));
       if (!show) { if (I.el.style.display !== 'none') I.el.style.display = 'none'; continue; }
       const sx = ((cx / cwv + 1) / 2) * cw, sy = ((1 - cy / cwv) / 2) * ch, sc = Math.max(0.5, Math.min(1.25, 2.2 / Math.max(dist, 0.5)));
       if (sx < -60 || sx > cw + 60 || sy < -60 || sy > ch + 60) { I.el.style.display = 'none'; continue; }
       I.el.style.display = '';
-      I.el.style.transform = `translate(${(sx - 22).toFixed(1)}px, ${(sy - 22).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+      I.el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) scale(${sc.toFixed(3)})`;
       I.el.style.zIndex = String(1000 - Math.round(dist * 50));
       I.el.classList.toggle('near', dist < 2.6);
     }

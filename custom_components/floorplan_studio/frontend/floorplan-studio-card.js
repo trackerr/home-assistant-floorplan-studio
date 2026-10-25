@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b1';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b1';
+} from './fps-core.js?v=1.4.0b2';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b2';
 
 
 const CSS = `
@@ -634,7 +634,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b1');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b2');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
