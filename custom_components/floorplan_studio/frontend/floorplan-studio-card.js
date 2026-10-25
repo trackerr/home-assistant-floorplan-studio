@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b10';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b10';
+} from './fps-core.js?v=1.3.0b11';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b11';
 
 
 const CSS = `
@@ -79,7 +79,7 @@ const CSS = `
                background: color-mix(in srgb, var(--fps-bg) 82%, transparent); backdrop-filter: blur(6px); border-left: 1px solid var(--fps-line);
                transform: translateX(105%); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
   .roompanel.open { transform: none; }
-  .ptop { display: flex; justify-content: space-between; align-items: center; }
+  .ptop { display: flex; align-items: center; gap: 6px; } .ptop .grow { flex: 1; }
   .roompanel.min, .roompanel.narrow.min { top: 10px; right: 10px; bottom: auto; left: auto; width: auto; height: auto; padding: 6px 8px; border: 1px solid var(--fps-line); border-radius: 14px; overflow: visible; }
   .pminbar { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
   .pminbar .pname { margin: 0; font-size: 12px; } .pminbar .pmt { font-size: 18px; font-weight: 300; color: var(--fps-fg); }
@@ -489,7 +489,7 @@ class FloorplanStudioCard extends HTMLElement {
     root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
     root.querySelector('#view3')?.addEventListener('click', () => { this._setPref('view', this._view25 ? '2d' : '2.5d'); this._zoomRoom = null; this._build(); });
     root.querySelector('#rot')?.addEventListener('click', () => { this._setPref('rot', String((this._rot + 45) % 360)); this._zoomRoom = null; this._build(); });
-    root.querySelector('#move')?.addEventListener('click', () => { this._moving = !this._moving; this._build(); });
+    root.querySelector('#move')?.addEventListener('click', () => this._toggleMove());
     root.querySelectorAll('[data-floor]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); this._setFloor(b.dataset.floor); }));
     root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
     const fs = () => toggleFull();
@@ -1365,6 +1365,10 @@ class FloorplanStudioCard extends HTMLElement {
    * Room view: the room is isolated (everything else dims away), zoomed into the left part of
    * the card, and a side panel shows the room's data and everything in its area.
    */
+  get _canMove() { return this._isAdmin && !this.planOverride; }
+  /** "Move icons" on/off; a zoomed-in room stays zoomed in. */
+  _toggleMove() { this._moving = !this._moving; this._build(); }
+
   /** A room's box on screen: in 2.5D the box around its turned and tilted corners (and the raised walls). */
   _screenBox(room) {
     if (!this._proj) return roomBBox(room);
@@ -1430,12 +1434,14 @@ class FloorplanStudioCard extends HTMLElement {
       // made small: just the room, its temperature and a button to open the panel again
       panel.innerHTML = `<div class="pminbar"><button class="btn icon" id="back" title="${t(h, 'back')}"><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <span class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</span>${info.headline ? `<span class="pmt">${esc(info.headline)}</span>` : ''}
+        ${this._canMove ? `<button class="btn icon ${this._moving ? 'active' : ''}" id="pmove" title="${t(h, this._moving ? 'done' : 'move')}"><ha-icon icon="mdi:cursor-move"></ha-icon></button>` : ''}
         <button class="btn icon" id="pmin" title="${t(h, 'panel_open')}"><ha-icon icon="mdi:arrow-expand-left"></ha-icon></button></div>`;
+      panel.querySelector('#pmove')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._toggleMove(); });
       panel.querySelector('#back').addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
       panel.querySelector('#pmin').addEventListener('click', (ev) => { ev.stopPropagation(); this._panelMin = false; this._zoom(this._zoomRoom); });
       return;
     }
-    panel.innerHTML = `<div class="ptop"><button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button><button class="btn icon" id="pmin" title="${t(h, 'panel_min')}"><ha-icon icon="mdi:arrow-collapse-right"></ha-icon></button></div>
+    panel.innerHTML = `<div class="ptop"><button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button><span class="grow"></span>${this._canMove ? `<button class="btn ${this._moving ? 'active' : ''}" id="pmove"><ha-icon icon="mdi:cursor-move"></ha-icon>${t(h, this._moving ? 'done' : 'move')}</button>` : ''}<button class="btn icon" id="pmin" title="${t(h, 'panel_min')}"><ha-icon icon="mdi:arrow-collapse-right"></ha-icon></button></div>
       <div class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</div>
       ${info.headline ? `<div class="ptemp">${esc(info.headline)}</div>` : ''}
       <div class="prows">${info.rows.map((r) => `<div class="pline prow2 ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}">${r.icon ? `<ha-icon icon="${r.icon}"></ha-icon>` : `<ha-state-icon data-id="${esc(r.entity)}"></ha-state-icon>`}<span>${esc(r.text)}</span></div>`).join('')}</div>
@@ -1447,6 +1453,7 @@ class FloorplanStudioCard extends HTMLElement {
     panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
     panel.querySelector('#clean')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._cleanRoom(room); });
     panel.querySelector('#pmin')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._panelMin = true; this._zoom(this._zoomRoom); });
+    panel.querySelector('#pmove')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._toggleMove(); });
     // "In this room" starts folded; tap the heading to open it (kept while you go from room to room)
     panel.querySelector('#pfold')?.addEventListener('click', (ev) => {
       ev.stopPropagation(); this._plistOpen = !this._plistOpen;
