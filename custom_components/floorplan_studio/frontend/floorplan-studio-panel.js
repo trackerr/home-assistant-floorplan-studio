@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b29';
+import './floorplan-studio-card.js?v=1.3.0b30';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b29';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b29';
+} from './fps-core.js?v=1.3.0b30';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b30';
 
 const L = {
   en: {
@@ -934,8 +934,16 @@ class FloorplanStudioPanel extends HTMLElement {
     $$('[data-door]').forEach((b) => b.addEventListener('click', () => { this.doorType = b.dataset.door; this.render(); }));
     $$('[data-addfurn]').forEach((b) => b.addEventListener('click', () => this.mut((pl) => {
       const type = b.dataset.addfurn, d = FURN_TYPES[type], sc = planScale(pl) || 70;   // without a measured room: about 70 units per metre
-      const near = this.sel?.type === 'furn' && (pl.furniture || []).find((x) => x.id === this.sel.id);
-      const f = { id: uid('f'), type, x: this.snap(near ? near.x + 30 : pl.width / 2), y: this.snap(near ? near.y + 30 : pl.height / 2), w: Math.round((d.w / 100) * sc), h: Math.round((d.h / 100) * sc), rot: 0 };
+      // Zoomed in on a room: the new piece lands in that room (middle of its biggest part), not in the middle of the whole plan.
+      const zr = this.zoom && this.room(this.zoom);
+      let near = this.sel?.type === 'furn' && (pl.furniture || []).find((x) => x.id === this.sel.id);
+      if (near && zr && roomAt([zr], near.x, near.y) !== zr) near = null;
+      let cx = pl.width / 2, cy = pl.height / 2;
+      if (zr) {
+        const q = zr.rects.map(norm).sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1]))[0];
+        cx = (q[0] + q[2]) / 2; cy = (q[1] + q[3]) / 2;
+      }
+      const f = { id: uid('f'), type, x: this.snap(near ? near.x + 30 : cx), y: this.snap(near ? near.y + 30 : cy), w: Math.round((d.w / 100) * sc), h: Math.round((d.h / 100) * sc), rot: 0 };
       pl.furniture = [...(pl.furniture || []), f];
       this.sel = { type: 'furn', id: f.id };
     })));
