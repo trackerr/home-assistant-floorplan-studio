@@ -3,12 +3,13 @@ import './floorplan-studio-card.js?v=1.2.3';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
+  FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities,
 } from './fps-core.js?v=1.2.3';
 import { buildDashboard } from './fps-dashboard.js?v=1.2.3';
 
 const L = {
   en: {
-    steps: ['Background', 'Rooms', 'Doors', 'Devices', 'Settings', 'Finish'],
+    steps: ['Background', 'Rooms', 'Doors & furniture', 'Devices', 'Settings', 'Finish'],
     save: 'Save', saved: 'Saved ✓', unsaved: 'Unsaved changes', new_plan: 'New floorplan', delete_plan: 'Delete floorplan', undo: 'Undo',
     confirm_delete: 'Delete this floorplan and its generated dashboard? You can’t undo this.', confirm_discard: 'You have unsaved changes. Discard them?', bg_load_failed: 'The picture could not be loaded. Check the connection and try again.', plan_name: 'Name', size: 'Canvas size (width × height)',
     bg_title: 'What do you want to trace over?', bg_adjust: 'Line up the picture', bg_upload: 'Upload a picture', bg_upload_hint: 'A building plan, a photo of it, or a screenshot from your vacuum’s app.',
@@ -54,9 +55,16 @@ const L = {
     vacuum_opacity: 'Live map opacity', first_on_plan: 'first one on the plan', from_bg: 'the background one',
     segments: 'This room’s number in your vacuum (only if “Clean this room” doesn’t work by itself)', segments_hint: 'e.g. 16 or 16,17',
     yaml: 'Or put the card on a dashboard you already have:', preview: 'Preview', need_save: 'Save first.', loading: 'Loading…', default_name: 'Home',
+    measure: 'Real width of this room (metres)', measure_hint: 'Fill in the real width of one room. Then the plan knows how big everything is: you see sizes in metres, and the radar knows how far 2 metres is.', dims: 'Size',
+    furn_title: 'Furniture and stairs', furn_tip: 'Tap a piece to put it on the plan, then drag it to the right spot. It is only a light outline on your dashboard.',
+    f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
+    f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_turn: 'Turn 90°',
+    via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
+    radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)',
+    motion_fade: 'Motion icon fades out over … minutes (0 = straight away)',
   },
   nl: {
-    steps: ['Achtergrond', 'Ruimtes', 'Deuren', 'Apparaten', 'Instellingen', 'Klaar'],
+    steps: ['Achtergrond', 'Ruimtes', 'Deuren & meubels', 'Apparaten', 'Instellingen', 'Klaar'],
     save: 'Opslaan', saved: 'Opgeslagen ✓', unsaved: 'Niet opgeslagen', new_plan: 'Nieuwe plattegrond', delete_plan: 'Plattegrond verwijderen', undo: 'Ongedaan maken',
     confirm_delete: 'Deze plattegrond en het dashboard dat ervoor is gemaakt verwijderen? Dit kun je niet terugdraaien.', confirm_discard: 'Je hebt wijzigingen die niet zijn opgeslagen. Wil je ze weggooien?', bg_load_failed: 'Het plaatje kon niet worden geladen. Controleer de verbinding en probeer het opnieuw.', plan_name: 'Naam', size: 'Grootte van het tekenvlak (breedte × hoogte)',
     bg_title: 'Waar wil je overheen tekenen?', bg_adjust: 'Plaatje goed leggen', bg_upload: 'Plaatje uploaden', bg_upload_hint: 'Een bouwtekening, een foto ervan, of een screenshot uit de app van je stofzuiger.',
@@ -102,6 +110,13 @@ const L = {
     vacuum_opacity: 'Doorzichtigheid', first_on_plan: 'de eerste op de kaart', from_bg: 'die van stap 1',
     segments: 'Nummer van deze ruimte in je stofzuiger (alleen als “Deze ruimte zuigen” niet vanzelf werkt)', segments_hint: 'bijv. 16 of 16,17',
     yaml: 'Of zet de kaart op een dashboard dat je al hebt:', preview: 'Voorbeeld', need_save: 'Sla eerst op.', loading: 'Laden…', default_name: 'Thuis',
+    measure: 'Echte breedte van deze ruimte (meter)', measure_hint: 'Vul bij één ruimte de echte breedte in. Dan weet de plattegrond hoe groot alles is: je ziet maten in meters, en de radar weet hoe ver 2 meter is.', dims: 'Maat',
+    furn_title: 'Meubels en trap', furn_tip: 'Tik op een meubel om het neer te zetten en sleep het daarna naar de goede plek. Op je dashboard is het alleen een lichte omtrek.',
+    f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
+    f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_turn: 'Kwartslag draaien',
+    via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
+    radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)',
+    motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)',
   },
 };
 
@@ -180,6 +195,14 @@ const CSS = `
   .it:hover .tip, .it.sel .tip { opacity: 1; }
   .items.off .it { pointer-events: none; opacity: .55; }
   .preview { width: 100%; }
+  .furn { fill: #ffffff; fill-opacity: .05; stroke: #d7dee8; stroke-opacity: .7; stroke-width: 1.5; pointer-events: none; }
+  .furn .arrow { fill: none; }
+  .doors-mode .furn { pointer-events: visiblePainted; cursor: move; }
+  .fsel .furn { stroke: var(--primary-color); stroke-opacity: 1; stroke-width: 2.5; fill: var(--primary-color); fill-opacity: .12; }
+  .furnbtns { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .furnbtns button { flex-direction: column; font-size: 12px; padding: 6px 4px; }
+  .furnbtns ha-icon { --mdc-icon-size: 22px; }
+  .sizeline { font-size: 13px; margin: -4px 0 10px; color: var(--primary-text-color); }
 `;
 
 const ROOM_COLORS = ['#f2a541', '#4fc3f7', '#81c784', '#ba68c8', '#ff8a65', '#4db6ac', '#f06292', '#aed581', '#7986cb', '#ffd54f', '#90a4ae', '#e57373'];
@@ -301,6 +324,7 @@ class FloorplanStudioPanel extends HTMLElement {
         out.push(`<rect class="rect ${sp ? 'sel' : ''}" data-room="${esc(r.id)}" data-part="${k}" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="${c}" fill-opacity="${s ? 0.32 : 0.16}" stroke="${c}"/>`);
       });
     });
+    for (const f of p.furniture || []) out.push(`<g data-furn="${esc(f.id)}" class="${this.sel?.type === 'furn' && this.sel.id === f.id ? 'fsel' : ''}">${furnSVG(f)}</g>`);
     for (const w of computeWalls(p.rooms)) out.push(`<line class="wall ${w.kind}" data-wall="${w.x1},${w.y1},${w.x2},${w.y2}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
     for (const o of p.openings) out.push(`<line class="op ${o.type === 'door' ? 'door' : o.type === 'window' ? 'window' : 'open'} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${esc(o.id)}" x1="${safeNumber(o.x1)}" y1="${safeNumber(o.y1)}" x2="${safeNumber(o.x2)}" y2="${safeNumber(o.y2)}"/>`);
     p.rooms.forEach((r) => {
@@ -368,6 +392,11 @@ class FloorplanStudioPanel extends HTMLElement {
       ${r ? `<div class="card">
           <div class="field"><span>${l.room}</span><input id="rname" value="${esc(r.name || '')}"></div>
           <div class="field"><span>${l.area}</span><select id="rarea"><option value="">${l.none}</option>${areas.map((a) => `<option value="${a.area_id}" ${a.area_id === r.area_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+          ${(() => {
+            const sc = planScale(p), [x0, y0, x1, y1] = roomBBox(r), m2 = roomArea(r, sc);
+            return `<div class="field"><span>${l.measure}</span><input id="rmeasure" type="number" min="0.5" max="100" step="0.05" inputmode="decimal" value="${sc ? ((x1 - x0) / sc).toFixed(2) : ''}" placeholder="4,20"></div>
+              ${sc ? `<div class="sizeline">${l.dims}: ${fmtMeters(x1 - x0, sc)} × ${fmtMeters(y1 - y0, sc)} · ${String(m2.toFixed(1)).replace('.', ',')} m²</div>` : `<p class="hint">${l.measure_hint}</p>`}`;
+          })()}
           ${r.area_id ? `<div class="field"><span>${l.temp_sensor}</span><select id="rtemp">${sensorOpts('temperature', r.temperature)}</select></div>
           <div class="field"><span>${l.hum_sensor}</span><select id="rhum">${sensorOpts('humidity', r.humidity)}</select></div>` : ''}
           ${r.area_id ? (() => {
@@ -404,6 +433,21 @@ class FloorplanStudioPanel extends HTMLElement {
         ${o.type !== 'open' ? `<div class="field"><span>${l.o_sensor}</span><select id="osensor"><option value="">${l.o_none}</option>${this.openSensors().map((id) => `<option value="${esc(id)}" ${o.entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>` : ''}
         <div class="field"><span>${l.length} (${len})</span><input type="range" id="olen" min="20" max="400" step="5" value="${len}"></div>
         <div class="row"><button id="owhole">${l.whole}</button><button class="danger" id="odel">${l.delete}</button></div></div>` : ''}
+      <h3>${l.furn_title}</h3>
+      <p>${l.furn_tip}</p>
+      <div class="furnbtns">${Object.entries(FURN_TYPES).map(([k, v]) => `<button data-addfurn="${k}"><ha-icon icon="${v.icon}"></ha-icon>${l['f_' + k]}</button>`).join('')}</div>
+      ${(() => {
+        const f = this.sel?.type === 'furn' ? (p.furniture || []).find((x) => x.id === this.sel.id) : null;
+        if (!f) return '';
+        const sc = planScale(p);
+        const dim = (k) => sc
+          ? `<div class="field"><span>${l['f_' + k]} (cm)</span><input type="number" data-fdim="${k}" min="10" max="1000" step="5" value="${Math.round((f[k] / sc) * 100)}"></div>`
+          : `<div class="field"><span>${l['f_' + k]}</span><input type="range" data-fdim="${k}" min="6" max="500" step="2" value="${Math.round(f[k])}"></div>`;
+        return `<div class="card">
+          <div class="field"><span>${l.f_kind}</span><select id="ftype">${Object.keys(FURN_TYPES).map((k) => `<option value="${k}" ${f.type === k ? 'selected' : ''}>${l['f_' + k]}</option>`).join('')}</select></div>
+          ${dim('w')}${dim('h')}
+          <div class="row"><button id="fturn"><ha-icon icon="mdi:rotate-right"></ha-icon>${l.f_turn}</button><button class="danger" id="fdel">${l.delete}</button></div></div>`;
+      })()}
       ${this.navHTML()}`;
   }
 
@@ -421,6 +465,19 @@ class FloorplanStudioPanel extends HTMLElement {
         <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
         <div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>
         <label class="row" style="font-size:13px"><input type="checkbox" id="ipin" ${it.pin ? 'checked' : ''} style="flex:none">${l.show_always}</label>
+        ${it.entity_id.startsWith('light.') ? (() => {
+          const area = entityArea(h, it.entity_id);
+          const sw = Object.keys(h.states).filter((id) => id.startsWith('switch.')).sort((a, b) => ((entityArea(h, b) === area) - (entityArea(h, a) === area)) || friendly(h, a).localeCompare(friendly(h, b)));
+          return `<div class="field" style="margin-top:8px"><span>${l.via}</span><select id="ivia"><option value="">${l.none}</option>${sw.map((id) => `<option value="${esc(id)}" ${it.via === id ? 'selected' : ''}>${esc(friendly(h, id))}</option>`).join('')}</select></div><p class="hint">${l.via_hint}</p>`;
+        })() : ''}
+        ${(() => {
+          const found = it.radar || (it.entity_id.startsWith('binary_sensor.') && radarEntities(h, it.entity_id));
+          if (!found) return '';
+          const kind = (found.xy || []).length ? l.radar_dots : l.radar_dist;
+          return `<label class="row" style="font-size:13px;margin-top:8px"><input type="checkbox" id="iradar" ${it.radar ? 'checked' : ''} style="flex:none">${l.radar} (${kind})</label>
+            ${it.radar && !planScale(p) ? `<p class="hint">${l.radar_scale}</p>` : ''}
+            ${it.radar && (it.radar.xy || []).length ? `<div class="field"><span>${l.radar_angle}</span><input type="number" id="iradarangle" step="15" value="${safeNumber(it.radar.angle)}"></div>` : ''}`;
+        })()}
         <button class="danger" id="idel" style="margin-top:8px"><ha-icon icon="mdi:map-marker-remove"></ha-icon>${l.remove}</button></div>` : ''}
       <div class="field"><input id="isearch" list="entlist" placeholder="${l.search}"><datalist id="entlist">${Object.keys(h.states).filter((id) => !placed.has(id)).sort().map((id) => `<option value="${id}">${esc(friendly(h, id))}</option>`).join('')}</datalist></div>
       ${groups.length ? `<h3>${l.unplaced}</h3>` : ''}
@@ -709,7 +766,10 @@ class FloorplanStudioPanel extends HTMLElement {
       ...(Array.isArray(data.background.ops) ? { ops: data.background.ops.filter((op) => ['left', 'right', 'flip'].includes(op)) } : {}),
     } : null;
     return { ...newPlan(typeof data.name === 'string' && data.name.trim() ? data.name : this.L.default_name), id: '', width, height,
-      grid: Math.min(100, Math.max(2, safeNumber(data.grid, 10))), background, rooms, openings, items, settings };
+      grid: Math.min(100, Math.max(2, safeNumber(data.grid, 10))), background, rooms, openings, items, settings,
+      furniture: (Array.isArray(data.furniture) ? data.furniture : []).filter((f) => isRecord(f) && FURN_TYPES[f.type]).map((f, i) => ({
+        id: typeof f.id === 'string' ? f.id : `f${i}`, type: f.type, x: safeNumber(f.x), y: safeNumber(f.y), w: Math.max(6, safeNumber(f.w, 100)), h: Math.max(6, safeNumber(f.h, 60)), rot: safeNumber(f.rot) })),
+      ...(safeNumber(data.scale) > 0 ? { scale: safeNumber(data.scale) } : {}) };
   }
 
   /** Rotate the background 90° (or mirror it); the image itself is turned so it stays sharp and saves correctly. */
@@ -762,6 +822,10 @@ class FloorplanStudioPanel extends HTMLElement {
       $('#rhum')?.addEventListener('change', (ev) => this.mut(() => { r.humidity = ev.target.value || undefined; }));
       $('#rhead')?.addEventListener('change', (ev) => this.mut(() => { r.headline = ev.target.value || undefined; }));
       $('#rfloor')?.addEventListener('change', (ev) => this.mut(() => { r.floor = ev.target.value || undefined; }));
+      $('#rmeasure')?.addEventListener('change', (ev) => this.mut((pl) => {
+        const m = parseFloat(String(ev.target.value).replace(',', '.')), [x0, , x1] = roomBBox(r);
+        if (m > 0) pl.scale = Math.round(((x1 - x0) / m) * 100) / 100; else delete pl.scale;
+      }));
       $$('[data-rinfo]').forEach((el) => el.addEventListener('change', () => this.mut(() => {
         const v = [...this.shadowRoot.querySelectorAll('[data-rinfo]')].map((x) => x.value).filter(Boolean);
         r.info = v.length ? [...new Set(v)] : undefined;
@@ -783,6 +847,24 @@ class FloorplanStudioPanel extends HTMLElement {
 
   wireDoors($, $$) {
     $$('[data-door]').forEach((b) => b.addEventListener('click', () => { this.doorType = b.dataset.door; this.render(); }));
+    $$('[data-addfurn]').forEach((b) => b.addEventListener('click', () => this.mut((pl) => {
+      const type = b.dataset.addfurn, d = FURN_TYPES[type], sc = planScale(pl) || 70;   // without a measured room: about 70 units per metre
+      const near = this.sel?.type === 'furn' && (pl.furniture || []).find((x) => x.id === this.sel.id);
+      const f = { id: uid('f'), type, x: this.snap(near ? near.x + 30 : pl.width / 2), y: this.snap(near ? near.y + 30 : pl.height / 2), w: Math.round((d.w / 100) * sc), h: Math.round((d.h / 100) * sc), rot: 0 };
+      pl.furniture = [...(pl.furniture || []), f];
+      this.sel = { type: 'furn', id: f.id };
+    })));
+    const f = this.sel?.type === 'furn' ? (this.plan.furniture || []).find((x) => x.id === this.sel.id) : null;
+    if (f) {
+      const sc = planScale(this.plan);
+      $('#ftype').addEventListener('change', (ev) => this.mut(() => { f.type = ev.target.value; }));
+      $$('[data-fdim]').forEach((el) => el.addEventListener('change', () => this.mut(() => {
+        const v = parseFloat(el.value);
+        if (v > 0) f[el.dataset.fdim] = sc ? Math.round((v / 100) * sc) : v;
+      })));
+      $('#fturn').addEventListener('click', () => this.mut(() => { f.rot = ((safeNumber(f.rot) + 90) % 360); }));
+      $('#fdel').addEventListener('click', () => this.deleteSel());
+    }
     const o = this.sel?.type === 'opening' ? this.plan.openings.find((x) => x.id === this.sel.id) : null;
     if (!o) return;
     $('#otype').addEventListener('change', (ev) => this.mut(() => { o.type = ev.target.value; if (o.type === 'open') delete o.entity; }));
@@ -838,6 +920,13 @@ class FloorplanStudioPanel extends HTMLElement {
     $('#icolor').addEventListener('change', (ev) => this.mut(() => { it.color = ev.target.value; }));
     $('#icolorclr').addEventListener('click', () => this.mut(() => { delete it.color; }));
     $('#ipin').addEventListener('change', (ev) => this.mut(() => { it.pin = ev.target.checked || undefined; }));
+    $('#ivia')?.addEventListener('change', (ev) => this.mut(() => { it.via = ev.target.value || undefined; }));
+    $('#iradar')?.addEventListener('change', (ev) => this.mut(() => {
+      if (!ev.target.checked) { delete it.radar; return; }
+      const r = radarEntities(h, it.entity_id) || {};
+      it.radar = { distance: r.distance || '', range: r.range || '', xy: r.xy || [], angle: 0 };
+    }));
+    $('#iradarangle')?.addEventListener('change', (ev) => this.mut(() => { it.radar.angle = safeNumber(ev.target.value); }));
     $('#idel').addEventListener('click', () => this.deleteSel());
   }
 
@@ -960,7 +1049,7 @@ class FloorplanStudioPanel extends HTMLElement {
       ${sideSel('solar_today', ids.filter((id) => id.startsWith('sensor.') && this._hass.states[id].attributes.device_class === 'energy'))}
       <div class="field"><span>${l.s_status}</span>${[0, 1, 2, 3, 4].map((i) => `<select data-sidelist="status" style="margin-bottom:4px">${optsOf(ids.filter((id) => !id.startsWith('sun.') && !id.startsWith('zone.')), side.status?.[i], l.none)}</select>`).join('')}</div>
       <h3>${l.set_temp}</h3>${chk('temp_color')}${num('temp_min', 10, 22, 0.5)}${num('temp_max', 18, 30, 0.5)}
-      <h3>${l.set_presence}</h3>${chk('presence')}
+      <h3>${l.set_presence}</h3>${chk('presence')}${num('motion_fade', 0, 30, 1)}
       ${persons.length ? `<p>${l.people_hint}</p>${persons.map((pid) => `<div class="field"><span>${esc(friendly(this._hass, pid))}</span><select data-person="${pid}"><option value="">${l.none}</option>${sensors.map((id) => `<option value="${id}" ${s.people?.[pid] === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>`).join('')}` : ''}
       <h3>${l.set_alerts}</h3>${chk('alerts')}${chk('alert_open')}
       <h3>${l.set_vacuum}</h3>
@@ -1021,6 +1110,7 @@ class FloorplanStudioPanel extends HTMLElement {
       if (s.type === 'room') { pl.rooms = pl.rooms.filter((r) => r.id !== s.id); }
       if (s.type === 'opening') pl.openings = pl.openings.filter((o) => o.id !== s.id);
       if (s.type === 'item') pl.items = pl.items.filter((i) => i.entity_id !== s.id);
+      if (s.type === 'furn') pl.furniture = (pl.furniture || []).filter((f) => f.id !== s.id);
     });
     this.sel = null;
     this.render();
@@ -1067,7 +1157,7 @@ class FloorplanStudioPanel extends HTMLElement {
     svg.addEventListener('pointerdown', (ev) => {
       const tgt = ev.target, [x, y] = this.pt(ev);
       if (this.step === 1) this.roomsPointer(ev, tgt, x, y, svg, draft);
-      else if (this.step === 2) this.doorsPointer(tgt, x, y);
+      else if (this.step === 2) this.doorsPointer(tgt, x, y, ev, svg);
       else if (this.step === 3 && this.sel) { this.sel = null; this.render(); }
     });
   }
@@ -1149,9 +1239,32 @@ class FloorplanStudioPanel extends HTMLElement {
     svg.addEventListener('pointermove', move); svg.addEventListener('pointerup', up);
   }
 
-  doorsPointer(tgt, x, y) {
+  doorsPointer(tgt, x, y, ev, svg) {
     const p = this.plan;
     if (tgt.dataset.op) { this.sel = { type: 'opening', id: tgt.dataset.op }; this.render(); return; }
+    const fe = tgt.closest?.('[data-furn]');
+    if (fe) {
+      // drag a piece of furniture around
+      const f = (p.furniture || []).find((q) => q.id === fe.dataset.furn);
+      if (!f) return;
+      const before = JSON.stringify(p), ox = f.x - x, oy = f.y - y, g = fe.firstElementChild;
+      let moved = false;
+      svg.setPointerCapture(ev.pointerId);
+      const move = (e) => {
+        const [mx, my] = this.pt(e), nx = this.snap(mx + ox), ny = this.snap(my + oy);
+        if (nx !== f.x || ny !== f.y) moved = true;
+        f.x = nx; f.y = ny;
+        g.setAttribute('transform', `translate(${f.x} ${f.y}) rotate(${safeNumber(f.rot)})`);
+      };
+      const up = () => {
+        svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerup', up);
+        if (moved) { this.history.push(before); this.dirty = true; }
+        this.sel = { type: 'furn', id: f.id };
+        this.render();
+      };
+      svg.addEventListener('pointermove', move); svg.addEventListener('pointerup', up);
+      return;
+    }
     const w = nearestWall(computeWalls(p.rooms), x, y, 20);
     if (!w) { this.sel = null; this.render(); return; }
     const hor = w.dir === 'h', len = this.doorType === 'door' ? 80 : 160;

@@ -326,16 +326,176 @@ const norm2 = (v) => String(v ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' 
 
 /** Is anyone in this room? Sensors in the room's area, plus people tracked to a room. */
 export function roomPresence(hass, room, settings = DEFAULT_SETTINGS) {
-  const by = areaEntities(hass, room.area_id, ['binary_sensor']).filter((id) => {
+  const sensors = areaEntities(hass, room.area_id, ['binary_sensor']).filter((id) => {
     const st = hass.states[id];
-    return st.state === 'on' && PRESENCE_DC.includes(st.attributes.device_class) && !NOT_PEOPLE.test(id.split('.')[1]);
+    return PRESENCE_DC.includes(st.attributes.device_class) && !NOT_PEOPLE.test(id.split('.')[1]);
   });
+  const by = sensors.filter((id) => hass.states[id].state === 'on');
   const names = [room.name, room.area_id, room.area_id && hass.areas?.[room.area_id]?.name].filter(Boolean).map(norm2);
   const people = Object.entries(settings.people || {}).filter(([person, sensor]) => {
     const st = sensor && hass.states[sensor];
     return st && names.includes(norm2(st.state)) && hass.states[person]?.state !== 'not_home';
   }).map(([person]) => person);
-  return { occupied: by.length > 0 || people.length > 0, by, people };
+  const occupied = by.length > 0 || people.length > 0;
+  return { occupied, by, people, fade: occupied ? 0 : Math.max(0, ...sensors.map((id) => motionFade(hass.states[id], settings))) };
+}
+
+/**
+ * How much of the "someone was just here" colour a motion sensor still has: 1 right after it went
+ * quiet, sliding to 0 over `motion_fade` minutes. 0 while it is on (then it is simply "on").
+ */
+export function motionFade(st, settings = DEFAULT_SETTINGS, now = Date.now()) {
+  const mins = +settings.motion_fade || 0;
+  if (!st || st.state !== 'off' || mins <= 0) return 0;
+  const ago = (now - new Date(st.last_changed).getTime()) / 60000;
+  return ago >= 0 && ago < mins ? Math.round((1 - ago / mins) * 20) / 20 : 0;
+}
+export const isMotion = (st) => !!st && st.entity_id.startsWith('binary_sensor.') && PRESENCE_DC.includes(st.attributes.device_class);
+
+/* --------------------------------------------------------- real-world size */
+/** Plan units per metre, or null when the plan has not been measured yet. */
+export const planScale = (plan) => (safeNumber(plan?.scale, 0) > 0 ? +plan.scale : null);
+export function fmtMeters(units, scale, digits = 2) {
+  return scale ? `${(units / scale).toFixed(digits).replace('.', ',')} m` : '';
+}
+/** Floor area of a room in m² (overlapping pieces counted once, on a 10 cm raster). */
+export function roomArea(room, scale) {
+  if (!scale) return null;
+  const rects = room.rects.map(norm), step = scale / 10;
+  const [x0, y0, x1, y1] = roomBBox(room);
+  let n = 0;
+  for (let y = y0 + step / 2; y < y1; y += step) for (let x = x0 + step / 2; x < x1; x += step) if (rects.some((q) => x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3])) n++;
+  return n / 100;
+}
+
+/* ---------------------------------------------------------------- radar */
+/**
+ * mmWave radar entities on the same device as a presence sensor:
+ * distance-only sensors (Tuya 24G, LD2410: "someone at 1.9 m") and x/y trackers (LD2450: dots).
+ */
+export function radarEntities(hass, entityId) {
+  const dev = hass.entities?.[entityId]?.device_id;
+  if (!dev) return null;
+  const ids = Object.keys(hass.entities).filter((id) => hass.entities[id].device_id === dev && hass.states[id]);
+  const pick = (re, dom) => ids.find((id) => id.startsWith(dom) && re.test(id.split('.')[1]));
+  const xy = [];
+  for (let n = 1; n <= 5; n++) {
+    const x = pick(new RegExp(`target_?${n}_x$`), 'sensor.'), y = pick(new RegExp(`target_?${n}_y$`), 'sensor.');
+    if (x && y) xy.push([x, y]);
+  }
+  const distance = pick(/(target_distance|moving_distance|detection_distance|distance)$/, 'sensor.');
+  const range = pick(/(detection_range|max_distance|maximum_distance|max_range)$/, 'number.') || pick(/(detection_range|max_distance)$/, 'sensor.');
+  if (!xy.length && !distance) return null;
+  return { distance: distance || '', range: range || '', xy };
+}
+const toMeters = (st) => {
+  if (!st) return NaN;
+  const v = parseFloat(st.state), u = (st.attributes.unit_of_measurement || 'm').toLowerCase();
+  return u === 'mm' ? v / 1000 : u === 'cm' ? v / 100 : v;
+};
+/** Where the radar sees people, in plan units: a ring (distance only) and/or dots (x/y). */
+export function radarState(hass, it, scale) {
+  const r = it.radar;
+  if (!r || !scale) return null;
+  const on = hass.states[it.entity_id]?.state === 'on';
+  const rangeM = r.range ? toMeters(hass.states[r.range]) : safeNumber(r.range_m, 0);
+  const distM = r.distance ? toMeters(hass.states[r.distance]) : NaN;
+  const a = (safeNumber(r.angle, 0) * Math.PI) / 180;
+  const dots = (r.xy || []).map(([xe, ye]) => [toMeters(hass.states[xe]) , toMeters(hass.states[ye])])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && (x !== 0 || y !== 0))
+    // the sensor looks "down" the plan at angle 0; x is sideways, y is straight ahead
+    .map(([x, y]) => [it.x + (x * Math.cos(a) - y * Math.sin(a)) * scale, it.y + (x * Math.sin(a) + y * Math.cos(a)) * scale]);
+  return {
+    on, x: it.x, y: it.y,
+    range: rangeM > 0 ? rangeM * scale : 0,
+    ring: on && distM > 0 && !(r.xy || []).length ? distM * scale : 0,
+    dots: on ? dots : [],
+  };
+}
+
+/* ------------------------------------------------------------ furniture */
+export const FURN_TYPES = {
+  sofa: { icon: 'mdi:sofa-outline', w: 200, h: 90 },
+  bed: { icon: 'mdi:bed-outline', w: 160, h: 200 },
+  table: { icon: 'mdi:table-chair', w: 160, h: 90 },
+  round: { icon: 'mdi:table-furniture', w: 110, h: 110 },
+  desk: { icon: 'mdi:desk', w: 140, h: 70 },
+  counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
+  cabinet: { icon: 'mdi:wardrobe-outline', w: 120, h: 55 },
+  bath: { icon: 'mdi:bathtub-outline', w: 170, h: 75 },
+  shower: { icon: 'mdi:shower', w: 90, h: 90 },
+  toilet: { icon: 'mdi:toilet', w: 40, h: 65 },
+  stairs: { icon: 'mdi:stairs', w: 90, h: 260 },
+  tv: { icon: 'mdi:television', w: 140, h: 12 },
+  plant: { icon: 'mdi:flower-outline', w: 45, h: 45 },
+};
+/** One piece of furniture as SVG: f = {id, type, x, y (centre), w, h, rot (degrees)}. */
+export function furnSVG(f, extra = '') {
+  const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x = -w / 2, y = -h / 2;
+  const R = (a, b, c, d, r = 0, cls = '') => `<rect${cls ? ` class="${cls}"` : ''} x="${a}" y="${b}" width="${c}" height="${d}" rx="${r}"/>`;
+  const L = (a, b, c, d) => `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}"/>`;
+  let body = '';
+  switch (f.type) {
+    case 'sofa': {
+      const arm = Math.min(w * 0.12, 22), back = Math.min(h * 0.28, 24);
+      body = R(x, y, w, h, 8) + R(x + arm, y, w - 2 * arm, back, 5) + L(x + arm, y + back, x + arm, y + h) + L(x + w - arm, y + back, x + w - arm, y + h) + L(0, y + back, 0, y + h);
+      break;
+    }
+    case 'bed': {
+      const pw = w > 120 ? (w - 30) / 2 : w - 20, ph = Math.min(30, h * 0.16);
+      body = R(x, y, w, h, 5) + (w > 120 ? R(x + 10, y + 8, pw, ph, 6) + R(x + 20 + pw, y + 8, pw, ph, 6) : R(x + 10, y + 8, pw, ph, 6)) + L(x, y + h * 0.38, x + w, y + h * 0.38);
+      break;
+    }
+    case 'table': {
+      const cw = Math.min(34, w / 4), cs = 14;
+      const chairs = [];
+      for (let i = 0; i < Math.max(1, Math.floor(w / 60)); i++) {
+        const cx = x + ((i + 0.5) * w) / Math.max(1, Math.floor(w / 60)) - cw / 2;
+        chairs.push(R(cx, y - cs - 4, cw, cs, 4, 'soft'), R(cx, y + h + 4, cw, cs, 4, 'soft'));
+      }
+      body = chairs.join('') + R(x, y, w, h, 6);
+      break;
+    }
+    case 'round':
+      body = [0, 1, 2, 3].map((i) => { const a = (i * Math.PI) / 2 + Math.PI / 4; return `<circle class="soft" cx="${Math.cos(a) * (w / 2 + 10)}" cy="${Math.sin(a) * (h / 2 + 10)}" r="11"/>`; }).join('') + `<ellipse cx="0" cy="0" rx="${w / 2}" ry="${h / 2}"/>`;
+      break;
+    case 'desk':
+      body = R(x, y, w, h, 4) + `<circle class="soft" cx="0" cy="${y + h + 18}" r="15"/>`;
+      break;
+    case 'counter': {
+      const sw = Math.min(60, w / 4);
+      body = R(x, y, w, h, 3) + R(x + w * 0.2, y + h * 0.2, sw, h * 0.6, 6) + [0, 1].map((i) => [0, 1].map((j) => `<circle cx="${x + w * 0.62 + i * 26}" cy="${y + h * 0.3 + j * (h * 0.4)}" r="8"/>`).join('')).join('');
+      break;
+    }
+    case 'cabinet':
+      body = R(x, y, w, h, 2) + L(x, y, x + w, y + h) + L(x + w, y, x, y + h);
+      break;
+    case 'bath':
+      body = R(x, y, w, h, 8) + R(x + 8, y + 8, w - 16, h - 16, Math.min(h, w) / 3) + `<circle cx="${x + w - 22}" cy="0" r="4"/>`;
+      break;
+    case 'shower':
+      body = R(x, y, w, h, 3) + L(x, y, x + w, y + h) + L(x + w, y, x, y + h) + '<circle cx="0" cy="0" r="5"/>';
+      break;
+    case 'toilet':
+      body = R(x, y, w, h * 0.3, 4) + `<ellipse cx="0" cy="${y + h * 0.3 + (h * 0.7) / 2}" rx="${w / 2 - 2}" ry="${(h * 0.7) / 2}"/>`;
+      break;
+    case 'stairs': {
+      const n = Math.max(3, Math.round(h / 26)), lines = [];
+      for (let i = 1; i < n; i++) lines.push(L(x, y + (i * h) / n, x + w, y + (i * h) / n));
+      // arrow: up the stairs
+      body = R(x, y, w, h, 2) + lines.join('') + `<path class="arrow" d="M0,${y + h - 10} V${y + 14} M-9,${y + 26} L0,${y + 14} L9,${y + 26}"/>`;
+      break;
+    }
+    case 'tv':
+      body = R(x, y, w, h, 2) + R(x + w * 0.3, y + h, w * 0.4, 4, 1, 'soft');
+      break;
+    case 'plant':
+      body = [0, 1, 2, 3, 4].map((i) => { const a = (i * 2 * Math.PI) / 5; return `<ellipse cx="${(Math.cos(a) * w) / 4}" cy="${(Math.sin(a) * h) / 4}" rx="${w / 5}" ry="${h / 9}" transform="rotate(${(a * 180) / Math.PI} ${(Math.cos(a) * w) / 4} ${(Math.sin(a) * h) / 4})"/>`; }).join('') + `<circle cx="0" cy="0" r="${Math.min(w, h) / 7}"/>`;
+      break;
+    default:
+      body = R(x, y, w, h, 4);
+  }
+  return `<g class="furn f-${esc(f.type || 'box')}"${extra} transform="translate(${safeNumber(f.x)} ${safeNumber(f.y)}) rotate(${safeNumber(f.rot)})">${body}</g>`;
 }
 
 // not 'heat' (boiler flame sensors use it) and not 'safety' (NAS / device health) – those would cry wolf
@@ -423,6 +583,7 @@ export const DEFAULT_SETTINGS = {
   temp_color: false,        // colour the rooms from cold (blue) to warm (red)
   temp_min: 17, temp_max: 24,
   presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
+  motion_fade: 5,           // minutes the motion icon slowly fades out after the last movement (0 = off)
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
   alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
   alert_open: true,         // open doors/windows: the room gets an orange edge
@@ -446,7 +607,7 @@ export const levelMode = (s) => (s.lamp_level === false || s.lamp_level === 'off
 export const settingsOf = (plan) => ({ ...DEFAULT_SETTINGS, ...(plan?.settings || {}) });
 
 export function newPlan(name = 'Home') {
-  return { id: '', name, width: 1000, height: 700, grid: 10, background: null, rooms: [], openings: [], items: [], settings: { ...DEFAULT_SETTINGS } };
+  return { id: '', name, width: 1000, height: 700, grid: 10, background: null, rooms: [], openings: [], items: [], furniture: [], settings: { ...DEFAULT_SETTINGS } };
 }
 
 /** Width of the widest part of a room (L-shaped rooms: the text has to fit in one part). */
@@ -541,6 +702,10 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
     out.push(`<image class="livemap" clip-path="url(#c-all)" x="${safeNumber(b.x)}" y="${safeNumber(b.y)}" width="${safeNumber(b.w, W) || W}" height="${safeNumber(b.h, H) || H}" preserveAspectRatio="none"/>`);
   }
   if (!editor) out.push('<polyline class="vactrail" points=""/>');
+  // furniture and stairs: light outlines, under the walls
+  if ((plan.furniture || []).length) out.push(`<g class="furniture">${plan.furniture.map((f) => furnSVG(f)).join('')}</g>`);
+  // mmWave radars: range circle, distance ring or dots per person (filled in by the card)
+  if (!editor) out.push('<g class="radars"></g>');
   out.push('<g class="walls">');
   for (const w of walls) out.push(`<line class="wall ${w.kind}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
   out.push('</g>');
@@ -595,6 +760,13 @@ export const PLAN_CSS = `
   .gridline { stroke: var(--fps-accent); stroke-opacity: .07; stroke-width: 1; }
   .dot { fill: #fff; fill-opacity: .05; }
   .floor { fill: var(--fps-floor); }
+  .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
+  .furn .soft { stroke-opacity: .35; } .furn .arrow { fill: none; stroke-linecap: round; }
+  .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }
+  .radar-ring { fill: none; stroke: rgb(var(--fps-accent-rgb)); stroke-width: 7; stroke-opacity: .5; pointer-events: none; transition: r .8s ease; animation: fpsRing 2.2s ease-in-out infinite; }
+  .radar-dot { fill: rgb(var(--fps-accent-rgb)); stroke: var(--fps-bg); stroke-width: 3; pointer-events: none; transition: cx .6s ease, cy .6s ease; filter: drop-shadow(0 0 6px rgba(var(--fps-accent-rgb), .9)); }
+  @keyframes fpsRing { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .radar-ring { animation: none; } }
   .glow { opacity: 0; transition: opacity .8s ease; pointer-events: none; }
   .glow.on { opacity: var(--fps-glow, 1); }
   .g0 { stop-color: rgb(var(--glow, var(--fps-accent-rgb))); stop-opacity: .42; }

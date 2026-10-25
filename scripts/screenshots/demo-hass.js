@@ -57,6 +57,17 @@ const DEF = [
   ['binary_sensor.rookmelder_keuken', 'off', { friendly_name: 'Rookmelder keuken', device_class: 'smoke' }, 'keuken'],
   ['binary_sensor.lekkage_badkamer', 'off', { friendly_name: 'Lekkagesensor badkamer', device_class: 'moisture' }, 'badkamer'],
   ['binary_sensor.achterdeur', 'off', { friendly_name: 'Achterdeur', device_class: 'door' }, 'berging'],
+  ['binary_sensor.radar_keuken', 'on', { friendly_name: 'Radar keuken', device_class: 'presence' }, 'keuken', { device: 'radar_k' }],
+  ['sensor.radar_keuken_target_distance', '1.6', { friendly_name: 'Radar keuken afstand', unit_of_measurement: 'm', device_class: 'distance' }, 'keuken', { device: 'radar_k' }],
+  ['number.radar_keuken_detection_range', '3.5', { friendly_name: 'Radar keuken bereik', unit_of_measurement: 'm' }, 'keuken', { device: 'radar_k' }],
+  ['binary_sensor.radar_woonkamer', 'on', { friendly_name: 'Radar woonkamer', device_class: 'occupancy' }, 'woonkamer', { device: 'radar_w' }],
+  ['sensor.radar_woonkamer_target_1_x', '-600', { unit_of_measurement: 'mm' }, 'woonkamer', { device: 'radar_w' }],
+  ['sensor.radar_woonkamer_target_1_y', '1800', { unit_of_measurement: 'mm' }, 'woonkamer', { device: 'radar_w' }],
+  ['sensor.radar_woonkamer_target_2_x', '900', { unit_of_measurement: 'mm' }, 'woonkamer', { device: 'radar_w' }],
+  ['sensor.radar_woonkamer_target_2_y', '3000', { unit_of_measurement: 'mm' }, 'woonkamer', { device: 'radar_w' }],
+  ['number.radar_woonkamer_max_distance', '4', { unit_of_measurement: 'm' }, 'woonkamer', { device: 'radar_w' }],
+  ['binary_sensor.beweging_hal', 'off', { friendly_name: 'Beweging hal', device_class: 'motion' }, 'hal', { ago: 1.5 }],
+  ['switch.stekker_kinderkamer', 'on', { friendly_name: 'Stekker kinderkamer' }, 'kinderkamer'],
   ['binary_sensor.raam_woonkamer', 'off', { friendly_name: 'Raam woonkamer', device_class: 'window' }, 'woonkamer'],
   ['person.anna', 'home', { friendly_name: 'Anna' }, null],
   ['person.tom', 'home', { friendly_name: 'Tom' }, null],
@@ -83,9 +94,10 @@ export function makeHass(plan, { sun = 'day', set = {}, extraPlans = [] } = {}) 
     : { next_rising: new Date(now + 18 * h).toISOString(), next_setting: new Date(now + 5 * h).toISOString() };
   const states = {}, entities = {}, areas = {};
   for (const [id, name] of Object.entries(AREAS)) areas[id] = { area_id: id, name, icon: null };
-  for (const [id, state, attr, area] of DEF) {
+  for (const [id, state, attr, area, ex = {}] of DEF) {
     states[id] = S(id, state, attr);
-    entities[id] = { entity_id: id, area_id: area, device_id: null, platform: 'demo', hidden: false, entity_category: null };
+    if (ex.ago) states[id].last_changed = new Date(now - ex.ago * 60e3).toISOString();
+    entities[id] = { entity_id: id, area_id: area, device_id: ex.device || null, platform: 'demo', hidden: false, entity_category: null };
   }
   for (const [id, state] of Object.entries(set)) if (states[id]) states[id] = { ...states[id], state };
   states['sun.sun'] = S('sun.sun', sun === 'night' ? 'below_horizon' : 'above_horizon', { friendly_name: 'Zon', ...sunAttr });

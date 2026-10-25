@@ -3,7 +3,7 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth,
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState,
 } from './fps-core.js?v=1.2.3';
 import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.3';
 
@@ -54,6 +54,10 @@ const CSS = `
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
   .item:hover { z-index: 9; }
+  /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
+  .item.motion.on .bub { background: rgba(var(--fps-accent-rgb), .2); color: var(--fps-accent); border-color: var(--fps-accent); box-shadow: 0 0 1cqw rgba(var(--fps-accent-rgb), .6); }
+  .item.motion.recent .bub { color: color-mix(in srgb, var(--fps-accent) calc(var(--pf, 0) * 100%), var(--fps-muted)); border-color: color-mix(in srgb, var(--fps-accent) calc(var(--pf, 0) * 100%), var(--fps-line)); }
+  .rinfo.recent .pd { display: inline-flex; animation: none; filter: none; color: color-mix(in srgb, var(--fps-accent) calc(var(--pf, 0) * 100%), var(--fps-muted)); opacity: calc(.4 + .6 * var(--pf, 0)); }
   /* playing media: a TV gets a soft blue screen glow, a speaker sends out sound waves */
   .item.playing .bub { position: relative; }
   .item.tv.playing .bub { background: rgba(70,150,255,.22); color: #9fd0ff; border-color: #5aa9ff; box-shadow: 0 0 1.2cqw rgba(70,150,255,.75), 0 0 3cqw rgba(70,150,255,.35); animation: fpsTv 3s ease-in-out infinite; }
@@ -315,7 +319,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._fsHook = this._fsHook || (() => { if (this._built) this._build(); });
     window.addEventListener('fps-fullscreen', this._fsHook);
     this._usageTimer = setInterval(() => this._loadUsage(), 10 * 60 * 1000);
-    this._clock = setInterval(() => { if (this._config?.side || this._greet) this._update(); }, 20000);
+    this._clock = setInterval(() => { if (this._config?.side || this._greet || this._fading) this._update(); }, 20000);
     // wait until the size has settled (full screen, rotating, a scrollbar) before switching
     this._ro = this._ro || new ResizeObserver(() => { clearTimeout(this._roT); this._roT = setTimeout(() => this._compactCheck(), 150); });
     this._ro.observe(this);
@@ -510,6 +514,7 @@ class FloorplanStudioCard extends HTMLElement {
     const el = document.createElement('div');
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
+    if (isMotion(st)) el.classList.add('motion');
     el.style.left = `${(it.x / this._plan.width) * 100}%`;
     el.style.top = `${(it.y / this._plan.height) * 100}%`;
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
@@ -524,7 +529,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._pointer(el, it);
     this._layer.appendChild(el);
     this._items.set(it.entity_id, { el, it, kind, label, icon: bub.firstChild, st: null });
-    if (!st) el.style.opacity = '.35';
+    if (!st && !it.via) el.style.opacity = '.35';
   }
 
   /* ---------------------------------------------------------- update */
@@ -541,14 +546,26 @@ class FloorplanStudioCard extends HTMLElement {
     const h = this._hass;
     this._themeTick();
     if (this._config.home) { this._updateHome(force); return; }
+    this._fading = false;
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       rec.el.classList.toggle('hidden', !this._visible(id, rec.it));
-      if (!force && st === rec.st) continue;
-      rec.st = st;
-      if (!st) continue;
-      if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON') { rec.icon.hass = h; rec.icon.stateObj = st; }
-      const on = isOn(st);
+      if (isMotion(st)) {
+        // fades from the accent colour back to grey over a few minutes after the last movement
+        const f = motionFade(st, this._s);
+        rec.el.classList.toggle('recent', f > 0);
+        rec.el.style.setProperty('--pf', f);
+        if (f > 0) this._fading = true;
+      }
+      // a lamp powered through a smart switch: the switch decides whether it is on at all
+      const vs = rec.it.via ? h.states[rec.it.via] : null;
+      if (!force && st === rec.st && vs === rec.vs) continue;
+      rec.st = st; rec.vs = vs;
+      if (!st && !vs) continue;
+      if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON' && st) { rec.icon.hass = h; rec.icon.stateObj = st; }
+      if (vs) rec.el.style.opacity = '';
+      const on = vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
+      if (!st) { rec.el.classList.toggle('on', on); rec.el.querySelector('.tag').textContent = ''; continue; }
       rec.el.classList.toggle('on', on);
       if (rec.kind === 'lamp') {
         // a fixed colour from the editor wins (e.g. a smart plug with a purple lamp in it)
@@ -575,6 +592,7 @@ class FloorplanStudioCard extends HTMLElement {
       }
     }
     for (const room of this._plan.rooms) this._updateRoom(room);
+    this._updateRadars();
     // doors and windows with a sensor: orange and dashed while open
     this.shadowRoot.querySelectorAll('.opening[data-entity]').forEach((g) => g.classList.toggle('isopen', ['on', 'open', 'opening'].includes(h.states[g.dataset.entity]?.state)));
     if (this._compact) this._compactUpdate();
@@ -597,6 +615,40 @@ class FloorplanStudioCard extends HTMLElement {
     }
   }
 
+  /** mmWave radars: a dashed circle for the range, a ring at the distance (or a dot per person). */
+  _updateRadars() {
+    const layer = this.shadowRoot.querySelector('svg.plan .radars');
+    if (!layer) return;
+    const scale = planScale(this._plan), ns = 'http://www.w3.org/2000/svg';
+    this._radar = this._radar || new Map();
+    for (const it of this._plan.items || []) {
+      if (!it.radar) continue;
+      const r = radarState(this._hass, it, scale);
+      let el = this._radar.get(it.entity_id);
+      if (!el || !layer.contains(el.g)) {
+        const g = document.createElementNS(ns, 'g');
+        const mk = (cls) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', cls); g.appendChild(c); return c; };
+        el = { g, range: mk('radar-range'), ring: mk('radar-ring'), dots: [] };
+        // the radar only "sees" inside its own room
+        const room = roomAt(this._plan.rooms, it.x, it.y);
+        if (room) g.setAttribute('clip-path', `url(#c-${safeSvgId(room.id)})`);
+        layer.appendChild(g); this._radar.set(it.entity_id, el);
+      }
+      const show = !!r && this._visible(it.entity_id, it);
+      el.g.style.display = show ? '' : 'none';
+      if (!show) continue;
+      for (const c of [el.range, el.ring]) { c.setAttribute('cx', r.x); c.setAttribute('cy', r.y); }
+      el.range.setAttribute('r', r.range); el.range.style.display = r.range ? '' : 'none';
+      el.ring.style.r = `${r.ring || 1}px`; el.ring.style.display = r.ring ? '' : 'none';
+      while (el.dots.length < r.dots.length) { const c = document.createElementNS(ns, 'circle'); c.setAttribute('class', 'radar-dot'); c.setAttribute('r', 9); el.g.appendChild(c); el.dots.push(c); }
+      el.dots.forEach((c, i) => {
+        const d = r.dots[i];
+        c.style.display = d ? '' : 'none';
+        if (d) { c.style.cx = `${d[0]}px`; c.style.cy = `${d[1]}px`; }
+      });
+    }
+  }
+
   _updateRoom(room) {
     const h = this._hass, s = roomSummary(h, room), S = this._s;
     const pres = S.presence ? roomPresence(h, room, S) : { occupied: false, by: [], people: [] };
@@ -605,7 +657,8 @@ class FloorplanStudioCard extends HTMLElement {
     this._roomState.set(room.id, { pres, al });
     const tempOn = this._tempOn;
     const info = roomInfo(h, room, S);
-    const key = [JSON.stringify(info), s.lit.join(), s.colors.join('|'), pres.by.join(), pres.people.join(), al.items.map((a) => a.id).join(), tempOn, S.glow_style].join('/');
+    if (pres.fade > 0) this._fading = true;
+    const key = [JSON.stringify(info), s.lit.join(), s.colors.join('|'), pres.by.join(), pres.people.join(), pres.fade, al.items.map((a) => a.id).join(), tempOn, S.glow_style].join('/');
     if (this._last.get(room.id) === key) return;
     this._last.set(room.id, key);
     const root = this.shadowRoot;
@@ -629,6 +682,8 @@ class FloorplanStudioCard extends HTMLElement {
     if (!box) return;
     box.classList.toggle('on', s.lit.length > 0);
     box.classList.toggle('present', pres.occupied);
+    box.classList.toggle('recent', pres.fade > 0);
+    box.style.setProperty('--pf', pres.fade || 0);
     box.querySelector('.rh').textContent = info.headline;
     const rows = box.querySelector('.rrows');
     rows.innerHTML = '';
@@ -1527,6 +1582,14 @@ class FloorplanStudioCard extends HTMLElement {
 
   _tap(entityId) {
     const h = this._hass, st = h.states[entityId], d = entityId.split('.')[0];
+    const via = this._items?.get(entityId)?.it.via;
+    if (via && h.states[via]) {
+      // lamp on a smart switch: the switch gives and cuts the power
+      const powered = h.states[via].state === 'on' && st && !['unavailable', 'unknown'].includes(st.state);
+      h.callService('homeassistant', powered && isOn(st) ? 'turn_off' : 'turn_on', { entity_id: powered && !isOn(st) ? entityId : via });
+      if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) { /* ignore */ }
+      return;
+    }
     if (!st) return;
     if (['light', 'switch', 'fan', 'input_boolean', 'humidifier', 'siren'].includes(d)) h.callService(d, 'toggle', { entity_id: entityId });
     else if (d === 'cover' || d === 'valve') h.callService(d, 'toggle', { entity_id: entityId });

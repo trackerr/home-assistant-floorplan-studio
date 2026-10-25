@@ -356,7 +356,8 @@
   {
    "entity_id": "light.nachtlampje",
    "x": 450,
-   "y": 600
+   "y": 600,
+   "via": "switch.stekker_kinderkamer"
   },
   {
    "entity_id": "camera.tuin",
@@ -367,11 +368,163 @@
    "entity_id": "media_player.keuken_speaker",
    "x": 570,
    "y": 225
+  },
+  {
+   "entity_id": "binary_sensor.radar_keuken",
+   "x": 720,
+   "y": 110,
+   "icon_only": true,
+   "icon": "mdi:radar",
+   "radar": {
+    "distance": "sensor.radar_keuken_target_distance",
+    "range": "number.radar_keuken_detection_range",
+    "xy": [],
+    "angle": 0
+   }
+  },
+  {
+   "entity_id": "binary_sensor.radar_woonkamer",
+   "x": 52,
+   "y": 200,
+   "icon_only": true,
+   "icon": "mdi:radar",
+   "radar": {
+    "distance": "",
+    "range": "number.radar_woonkamer_max_distance",
+    "xy": [
+     [
+      "sensor.radar_woonkamer_target_1_x",
+      "sensor.radar_woonkamer_target_1_y"
+     ],
+     [
+      "sensor.radar_woonkamer_target_2_x",
+      "sensor.radar_woonkamer_target_2_y"
+     ]
+    ],
+    "angle": 270
+   }
+  },
+  {
+   "entity_id": "binary_sensor.beweging_hal",
+   "x": 560,
+   "y": 300,
+   "icon_only": true
   }
  ],
  "settings": {
   "theme": "warm",
   "default_mode": "all",
   "usage_days": 14
- }
+ },
+ "scale": 80,
+ "furniture": [
+  {
+   "id": "f1",
+   "type": "sofa",
+   "x": 230,
+   "y": 255,
+   "w": 160,
+   "h": 70,
+   "rot": 0
+  },
+  {
+   "id": "f2",
+   "type": "tv",
+   "x": 470,
+   "y": 49,
+   "w": 112,
+   "h": 10,
+   "rot": 0
+  },
+  {
+   "id": "f3",
+   "type": "plant",
+   "x": 66,
+   "y": 66,
+   "w": 36,
+   "h": 36,
+   "rot": 0
+  },
+  {
+   "id": "f4",
+   "type": "counter",
+   "x": 640,
+   "y": 63,
+   "w": 192,
+   "h": 44,
+   "rot": 0
+  },
+  {
+   "id": "f5",
+   "type": "round",
+   "x": 610,
+   "y": 170,
+   "w": 80,
+   "h": 80,
+   "rot": 0
+  },
+  {
+   "id": "f6",
+   "type": "bed",
+   "x": 780,
+   "y": 565,
+   "w": 128,
+   "h": 150,
+   "rot": 0
+  },
+  {
+   "id": "f7",
+   "type": "bath",
+   "x": 800,
+   "y": 292,
+   "w": 136,
+   "h": 60,
+   "rot": 0
+  },
+  {
+   "id": "f8",
+   "type": "shower",
+   "x": 760,
+   "y": 420,
+   "w": 70,
+   "h": 70,
+   "rot": 0
+  },
+  {
+   "id": "f9",
+   "type": "toilet",
+   "x": 680,
+   "y": 290,
+   "w": 32,
+   "h": 52,
+   "rot": 0
+  },
+  {
+   "id": "f10",
+   "type": "desk",
+   "x": 150,
+   "y": 418,
+   "w": 112,
+   "h": 56,
+   "rot": 0
+  },
+  {
+   "id": "f11",
+   "type": "bed",
+   "x": 345,
+   "y": 470,
+   "w": 72,
+   "h": 150,
+   "rot": 0
+  },
+  {
+   "id": "f12",
+   "type": "stairs",
+   "x": 614,
+   "y": 400,
+   "w": 46,
+   "h": 140,
+   "rot": 0
+  }
+ ]
 }
