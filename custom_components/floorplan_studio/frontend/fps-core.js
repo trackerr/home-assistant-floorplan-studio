@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b29';
+export const VERSION = '1.4.0b30';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -441,6 +441,23 @@ export const FURN_TYPES = {
   tv: { icon: 'mdi:television', w: 140, h: 12 },
   plant: { icon: 'mdi:flower-outline', w: 45, h: 45 },
 };
+/**
+ * Where the chairs of a table go: f.chairs (or as many as fit), on the long sides and, when the number is odd
+ * or there are many, at the ends. Returns [{cx, cy, side}] in the table's own frame (centre 0,0; side = 'n','s','w','e').
+ */
+export function tableChairs(f) {
+  const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60));
+  const fit = Math.max(1, Math.floor(w / 60));
+  const n = f.chairs != null && f.chairs !== '' && Number.isFinite(+f.chairs) ? Math.max(0, Math.min(20, Math.round(+f.chairs))) : fit * 2;
+  const ends = n >= 8 && n % 2 === 0 && n / 2 > fit + 1 ? 2 : n % 2, side = (n - ends) / 2, out = [];
+  for (let i = 0; i < side; i++) { const cx = -w / 2 + ((i + 0.5) * w) / side; out.push({ cx, cy: -h / 2, side: 'n' }, { cx, cy: h / 2, side: 's' }); }
+  if (ends >= 1) out.push({ cx: w / 2, cy: 0, side: 'e' });
+  if (ends >= 2) out.push({ cx: -w / 2, cy: 0, side: 'w' });
+  return out;
+}
+/** Chairs around a round table: f.chairs (default 4), evenly round (angles). */
+export const roundChairs = (f) => { const n = f.chairs != null && f.chairs !== '' && Number.isFinite(+f.chairs) ? Math.max(0, Math.min(16, Math.round(+f.chairs))) : 4; return Array.from({ length: n }, (_, i) => (i * 2 * Math.PI) / Math.max(1, n) + Math.PI / 4); };
+
 /** One piece of furniture as SVG: f = {id, type, x, y (centre), w, h, rot (degrees)}. */
 export function furnSVG(f, extra = '') {
   const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x = -w / 2, y = -h / 2;
@@ -459,12 +476,9 @@ export function furnSVG(f, extra = '') {
       break;
     }
     case 'table': {
-      const cw = Math.min(34, w / 4), cs = 14;
-      const chairs = [];
-      for (let i = 0; i < Math.max(1, Math.floor(w / 60)); i++) {
-        const cx = x + ((i + 0.5) * w) / Math.max(1, Math.floor(w / 60)) - cw / 2;
-        chairs.push(R(cx, y - cs - 4, cw, cs, 4, 'soft'), R(cx, y + h + 4, cw, cs, 4, 'soft'));
-      }
+      const list = tableChairs(f), side = list.filter((c) => c.side === 'n').length || 1, cw = Math.min(34, w / side - 6, 40), cs = 14, ew = Math.min(cw, h - 8);
+      const chairs = list.map((c) => (c.side === 'n' ? R(c.cx - cw / 2, y - cs - 4, cw, cs, 4, 'soft') : c.side === 's' ? R(c.cx - cw / 2, y + h + 4, cw, cs, 4, 'soft')
+        : c.side === 'e' ? R(x + w + 4, -ew / 2, cs, ew, 4, 'soft') : R(x - cs - 4, -ew / 2, cs, ew, 4, 'soft')));
       body = chairs.join('') + R(x, y, w, h, 6);
       break;
     }
@@ -472,7 +486,7 @@ export function furnSVG(f, extra = '') {
       body = R(x, y, w, h, Math.min(w, h) * 0.18) + `<rect class="soft" x="${x + w * 0.12}" y="${y + h * 0.2}" width="${w * 0.76}" height="${h * 0.6}" rx="${Math.min(w, h) * 0.1}" fill-opacity=".35"/>`;
       break;
     case 'round':
-      body = [0, 1, 2, 3].map((i) => { const a = (i * Math.PI) / 2 + Math.PI / 4; return `<circle class="soft" cx="${Math.cos(a) * (w / 2 + 10)}" cy="${Math.sin(a) * (h / 2 + 10)}" r="11"/>`; }).join('') + `<ellipse cx="0" cy="0" rx="${w / 2}" ry="${h / 2}"/>`;
+      body = roundChairs(f).map((a) => { return `<circle class="soft" cx="${Math.cos(a) * (w / 2 + 10)}" cy="${Math.sin(a) * (h / 2 + 10)}" r="11"/>`; }).join('') + `<ellipse cx="0" cy="0" rx="${w / 2}" ry="${h / 2}"/>`;
       break;
     case 'desk':
       body = R(x, y, w, h, 4) + `<circle class="soft" cx="0" cy="${y + h + 18}" r="15"/>`;
@@ -801,21 +815,26 @@ export function pathMid(path) {
  * style: 'split' (two panels meeting in the middle), 'left' / 'right' (one panel), 'roller' (from the top down).
  */
 const CURTAIN_RE = /gordijn|curtain|rolluik|rolgordijn|blind|jaloezie|vitrage|shade|shutter|screen/i;
+const SCREEN_RE = /beamer|projector|projectie|projection|leinwand/i;
 export function curtainFor(plan, it, st) {
   if (it.curtain === false) return null;
   const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
   const set = it.curtain && typeof it.curtain === 'object' ? it.curtain : null;
   if (!set) {
     if (d !== 'cover') return null;
-    if (!(['curtain', 'blind', 'shade', 'shutter'].includes(dc) || CURTAIN_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`))) return null;
+    const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+    if (!(['curtain', 'blind', 'shade', 'shutter'].includes(dc) || CURTAIN_RE.test(label))) return null;
+    if (SCREEN_RE.test(label)) return null;   // a projection screen is not a curtain
   }
   const wins = (plan.openings || []).filter((o) => o.type === 'window');
   let o = set?.window && set.window !== 'auto' ? wins.find((w) => w.id === set.window) : null;
   if (!o) {
-    const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.2 * (planScale(plan) || 70);
+    const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.2 * (planScale(plan) || 70), own = roomAt(plan.rooms, x, y);
     let bd = Infinity;
     for (const w of wins) {
       const ax = safeNumber(w.x1), ay = safeNumber(w.y1), bx = safeNumber(w.x2), by = safeNumber(w.y2), L2 = (bx - ax) ** 2 + (by - ay) ** 2 || 1;
+      // only a window of its own room (a cover in the room next door is not this window's curtain)
+      if (own) { const L = Math.sqrt(L2), nx = -(by - ay) / L, ny = (bx - ax) / L, mx = (ax + bx) / 2, my = (ay + by) / 2; if (![roomAt(plan.rooms, mx + nx * 8, my + ny * 8), roomAt(plan.rooms, mx - nx * 8, my - ny * 8)].includes(own)) continue; }
       const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / L2)), dd = Math.hypot(x - (ax + (bx - ax) * t), y - (ay + (by - ay) * t));
       if (dd < bd) { bd = dd; o = w; }
     }
@@ -991,7 +1010,7 @@ export function isCeilingLamp(it, st) {
   if (it.ceiling === true || it.ceiling === false) return it.ceiling;
   const d = it.entity_id.split('.')[0];
   if (!(d === 'light' || it.kind === 'lamp')) return false;
-  if (/ceiling/.test(it.icon || st?.attributes?.icon || '')) return true;
+  if (/ceiling|chandelier|light-recessed/.test(lampIcon(it, st))) return true;
   return CEIL_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
 }
 /** A ceiling lamp hanging on a cord (its own height) or flat against the ceiling: 'hanging', 'flush' or null. */
@@ -1000,7 +1019,7 @@ export function ceilingMount(it, st) {
   if (it.ceiling === 'hanging') return 'hanging';
   if (!isCeilingLamp(it, st)) return null;
   if (it.ceiling === true) return 'flush';
-  return HANG_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`) ? 'hanging' : 'flush';
+  return HANG_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`) || /chandelier/.test(lampIcon(it, st)) ? 'hanging' : 'flush';
 }
 /**
  * How high a device sits, in metres, for the 2.5D view: its own height (step 4) or a sensible one
@@ -1026,7 +1045,7 @@ export const WALL_H = 2.6;
 const SPOT_RE = /\bspot|spotje|spotlight|richtspot/i;
 export function isSpot(it, st) {
   if (it.spot === false) return false;
-  return it.spot === true || !!it.aim || SPOT_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
+  return it.spot === true || !!it.aim || SPOT_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`) || /spotlight|track-light/.test(lampIcon(it, st));
 }
 /** Where a spot shines: a unit vector in metres (x right, y up, z down the plan); straight down when not aimed. */
 export function spotDir(plan, it, h) {
@@ -1037,6 +1056,39 @@ export function spotDir(plan, it, h) {
   return [dx / L, dy / L, dz / L];
 }
 const FLOORLAMP_RE = /vloer|staand|floor|standing|stalamp/i, TABLELAMP_RE = /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i;
+/** The icon a lamp shows (yours, else the one Home Assistant gives it), e.g. 'mdi:desk-lamp'. */
+export const lampIcon = (it, st) => `${it.icon || st?.attributes?.icon || ''}`;
+const WALLLAMP_RE = /wandlamp|wall ?lamp|sconce|spiegel|mirror|buitenlamp|lantaarn|lantern/i;
+/**
+ * The exact model of a lamp, so it looks like its icon (and name): within its kind (lampStyle) for example
+ * 'desk' (bureaulamp), 'lava', 'torchiere', 'chandelier', 'downlight', 'sconce', 'flat' (flat wall light),
+ * 'mirror' (light above a mirror), 'lantern', 'fireplace', 'matrix' (LED matrix/pixel display), 'panel'
+ * (a lit panel, e.g. stained glass), 'bar' (a short LED bar) or 'bulb'. it.model overrides it.
+ */
+export function lampShape(plan, it, st, hass = null) {
+  if (it.model) return it.model;
+  const style = lampStyle(plan, it, st), ic = lampIcon(it, st), label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+  const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null, make = `${dev?.manufacturer || ''} ${dev?.model || ''}`;
+  if (style === 'strip' || style === 'spot') return style;
+  if (style === 'pendant') return /chandelier/.test(ic) || /kroonluchter|chandelier/i.test(label) ? 'chandelier' : 'pendant';
+  if (style === 'ceiling') return /light-recessed/.test(ic) || /inbouw|downlight|recessed/i.test(label) ? 'downlight' : 'ceiling';
+  if (style === 'floor') return /torchiere/.test(ic) || /uplight|torchiere|deckenfluter/i.test(label) ? 'torchiere' : 'floor';
+  // the icon decides first (that is what you see on the map), then the name and make
+  const byIcon = [[/fireplace/, 'fireplace'], [/matrix|pixel/, 'matrix'], [/lava-lamp/, 'lava'], [/desk-lamp/, 'desk'], [/^mdi:lamp(-outline)?$/, 'table'],
+    [/mirror|vanity/, 'mirror'], [/coach-lamp|outdoor-lamp|lantern/, 'lantern'], [/wall-sconce-flat/, 'flat'], [/wall-sconce/, 'sconce'],
+    [/window|stained|glass/, 'panel'], [/led-strip|string-lights/, 'bar']].find(([re]) => re.test(ic));
+  if (byIcon) return byIcon[1];
+  if (/openhaard|haard|fireplace|kachel/i.test(label)) return 'fireplace';
+  if (/matrix|pixoo|pixel|divoom/i.test(`${label} ${make}`)) return 'matrix';
+  if (/lava/i.test(label)) return 'lava';
+  if (/bureaulamp|desk ?lamp/i.test(label)) return 'desk';
+  if (style === 'table') return 'table';
+  if (/spiegel|mirror/i.test(label)) return 'mirror';
+  if (/buitenlamp|lantaarn|lantern/i.test(label)) return 'lantern';
+  if (WALLLAMP_RE.test(label)) return 'sconce';
+  if (/glas in lood|glas-in-lood|stained|lichtbak|lightbox/i.test(label)) return 'panel';
+  return 'bulb';
+}
 export function lampStyle(plan, it, st) {
   const d = it.entity_id.split('.')[0];
   if (it.kind === 'device' || !(d === 'light' || it.kind === 'lamp')) return null;
@@ -1047,8 +1099,10 @@ export function lampStyle(plan, it, st) {
   if (mount === 'hanging') return 'pendant';
   // a lamp against the ceiling that you gave a lower height hangs on a cord
   if (mount === 'flush') return own && ownHeight(it) < WALL_H - 0.25 ? 'pendant' : 'ceiling';
-  const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
-  if (FLOORLAMP_RE.test(label)) return 'floor';
+  const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`, ic = lampIcon(it, st);
+  if (/floor-lamp/.test(ic) || FLOORLAMP_RE.test(label)) return 'floor';
+  if (/desk-lamp|^mdi:lamp(-outline)?$|lava-lamp/.test(ic)) return 'table';
+  if (/wall-sconce|mirror|vanity|coach-lamp|outdoor-lamp/.test(ic) || WALLLAMP_RE.test(label)) return 'wall';
   const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y));
   if (under && !own && ['table', 'round', 'island'].includes(under.type)) return 'pendant';
   if (TABLELAMP_RE.test(label) || (under && !own)) return 'table';
@@ -1076,6 +1130,7 @@ export function deviceHeight(plan, it, st, hass = null) {
     else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;
     else if (style === 'floor') h = 1.5;
     else if (style === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
+    else if (style === 'wall') h = /mirror|vanity/.test(lampIcon(it, st)) || /spiegel|mirror/i.test(`${it.name || ''} ${st?.attributes?.friendly_name || ''}`) ? 1.95 : 1.8;
     else h = under ? furnHeight(under) + 0.35 : itemHeight(it, st);
   }
   return Math.min(Math.max(h, 0), WALL_H - 0.05);
@@ -1145,13 +1200,21 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
         ...(w > 120 ? [R(10, 10, 10 + pw, 10 + ph, 0.42, 0.54, 'soft'), R(20 + pw, 10, 20 + 2 * pw, 10 + ph, 0.42, 0.54, 'soft')] : [R(10, 10, 10 + pw, 10 + ph, 0.42, 0.54, 'soft')])];
     }
     case 'table': {
-      const cw = Math.min(34, w / 4), cs = 14, n = Math.max(1, Math.floor(w / 60)), out = [...legs(0.7), R(0, 0, w, h, 0.7, 0.76)];
-      for (let i = 0; i < n; i++) { const cx = x0 + ((i + 0.5) * w) / n; out.push(...chair(cx, y0 - cs / 2 - 4, cw, cs, false), ...chair(cx, -y0 + cs / 2 + 4, cw, cs, true)); }
+      const list = tableChairs(f), side = list.filter((c) => c.side === 'n').length || 1, cw = Math.min(34, w / side - 6, 40), cs = 14, out = [...legs(0.7), R(0, 0, w, h, 0.7, 0.76)];
+      for (const c of list) {
+        if (c.side === 'n') out.push(...chair(c.cx, y0 - cs / 2 - 4, cw, cs, false));
+        else if (c.side === 's') out.push(...chair(c.cx, -y0 + cs / 2 + 4, cw, cs, true));
+        else {
+          // a chair at the end: its seat, with the back on the outside
+          const ex = c.side === 'e' ? w / 2 + cs / 2 + 4 : -w / 2 - cs / 2 - 4, ew = Math.min(cw, h - 8), bx = c.side === 'e' ? ex + cs / 2 - 3 : ex - cs / 2;
+          out.push(R(ex - x0 - cs / 2, -ew / 2 - y0, ex - x0 + cs / 2, ew / 2 - y0, 0, 0.46, 'soft'), R(bx - x0, -ew / 2 - y0, bx - x0 + 3, ew / 2 - y0, 0.46, 0.9, 'soft'));
+        }
+      }
       return out;
     }
     case 'round': {
       const out = [C(0, 0, 5, 5, 0, 0.7), C(0, 0, w / 2, h / 2, 0.7, 0.76)];
-      for (let i = 0; i < 4; i++) { const ang = (i * Math.PI) / 2 + Math.PI / 4; out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
+      for (const ang of roundChairs(f)) { out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
       return out;
     }
     case 'coffee': return [...legs(0.36, Math.min(5, Math.min(w, h) * 0.08)), R(0, 0, w, h, 0.36, 0.42), R(5, 5, w - 5, h - 5, 0.08, 0.11)];

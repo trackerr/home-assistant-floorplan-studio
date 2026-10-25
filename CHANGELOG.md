@@ -1,6 +1,9 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Lampen zoals hun icoon**: soort, hoogte en model in de wandeling volgen het icoon (en de naam): bureaulamp, tafellamp, lavalamp, staande lamp, uplighter, kroonluchter, inbouwspot, wandlamp, platte wandlamp, spiegellamp, buitenlantaarn, openhaard, ledmatrix/pixelscherm (op ware grootte), lichtpaneel (glas-in-lood), ledbalk en peertje. Een lamp die nergens op staat krijgt een bijzettafeltje. Een spot-icoon maakt er een richtbare spot van.
+- **Stoelen per tafel** instelbaar (editor en wandeling); bij een oneven aantal of veel stoelen ook aan de kopse kanten. Ronde tafel ook.
+- Gordijnen: een cover hoort alleen bij een raam in zijn eigen ruimte, en een projectiescherm (beamer) is nooit een gordijn.
 - Wandeling, bewerken: een apparaat aan de muur schuift bij opzij slepen langs die muur, ook als je schuin naar de muur kijkt; het verdwijnt niet meer achter de muur. Slepen blijft binnen de eigen ruimte.
 - **Weergave "Geen"** naast Eenvoudig en Alles: geen iconen, een rustige kaart. Ruimtes en meubels blijven aantikbaar, en wat als zichzelf getekend is laat zien wat het doet (ledstrips, gordijnen, tv-gloed, spotbundels, WLED-klok). Ook als standaard te kiezen.
 - **Salontafel** als meubel (laag, met plank), ook voor de AI: "zet de lamp op de salontafel".
