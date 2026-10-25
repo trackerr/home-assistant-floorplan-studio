@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b25';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b25';
+} from './fps-core.js?v=1.4.0b26';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b26';
 
 
 const CSS = `
@@ -658,7 +658,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b25');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b26');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -719,7 +719,7 @@ class FloorplanStudioCard extends HTMLElement {
           } else {
             // 2.5D: a hanging panel (rail just under the ceiling to the floor); a blind rolls down over the glass
             const k = p.sc * p.lift, roller = rec.info.style === 'roller';
-            const zt = (roller ? 2.15 : 2.4) * k, zb = roller ? (2.15 - rec.c * 1.25) * k : 0.04 * k;
+            const zt = (roller ? 2.15 : 2.4) * k, zb = roller ? (2.15 - rec.c * (2.15 - Math.max(rec.info.bottom, 0.88))) * k : rec.info.bottom * k;
             if (zt - zb < 0.5) continue;
             const P = (s, z) => p.P(...at(s, off), z);
             const q = [P(pn.a0, zb), P(pn.a1, zb), P(pn.a1, zt), P(pn.a0, zt)];

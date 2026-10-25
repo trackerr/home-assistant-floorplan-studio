@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON,
-} from './fps-core.js?v=1.4.0b25';
+} from './fps-core.js?v=1.4.0b26';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -726,7 +726,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const roller = r.info.style === 'roller', d0 = roller ? 0.135 : 0.16, d1 = d0 + 0.03;
       const at = (sv, dv) => [M(a[0] + u[0] * sv) + n[0] * dv, M(a[1] + u[1] * sv) + n[1] * dv];
       for (const pn of panels) {
-        const y0 = roller ? 2.15 - r.c * 1.25 : 0.03, y1 = roller ? 2.15 : 2.42;
+        const y0 = roller ? 2.15 - r.c * (2.15 - Math.max(r.info.bottom, 0.88)) : r.info.bottom, y1 = roller ? 2.15 : 2.42;
         if (y1 - y0 < 0.02) continue;
         if (roller) { m.prism([at(pn.a0, d0), at(pn.a1, d0), at(pn.a1, d1), at(pn.a0, d1)], y0, y1, fabric); continue; }
         // pleats: the panel as narrow strips that go in and out a little

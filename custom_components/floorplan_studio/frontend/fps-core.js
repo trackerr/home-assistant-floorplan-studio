@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b25';
+export const VERSION = '1.4.0b26';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -790,7 +790,9 @@ export function curtainFor(plan, it, st) {
   const style = set?.style || (['blind', 'shade', 'shutter'].includes(dc) ? 'roller' : 'split');
   const pos = st?.attributes?.current_position;
   const closed = pos != null && Number.isFinite(+pos) ? 1 - +pos / 100 : st?.state === 'closed' ? 1 : st?.state === 'closing' ? 0.8 : st?.state === 'opening' ? 0.2 : 0;
-  return { o, style, closed: Math.max(0, Math.min(1, closed)) };
+  // how far down it hangs: to the floor, to the windowsill, or your own height (metres)
+  const b = set?.bottom, bottom = b === 'sill' ? 0.88 : Number.isFinite(+b) && b !== '' && b != null ? Math.max(0, +b) : 0.03;
+  return { o, style, closed: Math.max(0, Math.min(1, closed)), bottom };
 }
 /**
  * The pieces of a curtain to draw, in plan units along the window: [{a0, a1}] (from the window's first end),
