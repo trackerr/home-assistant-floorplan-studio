@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b34';
+} from './fps-core.js?v=1.4.0b35';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -536,7 +536,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         if (!best || d < best.d) best = { d, ux, uz, nx, nz, cx: Math.max(x0, Math.min(x1, cx)), cz: Math.max(z0, Math.min(z1, cz)) };
       }
     }
-    return best && best.d < 0.9 ? best : { d: 0, ux: 1, uz: 0, nx: 0, nz: 1, cx: x, cz: z, free: true };
+    if (!best || best.d >= 0.9) return { d: 0, ux: 1, uz: 0, nx: 0, nz: 1, cx: x, cz: z, free: true };
+    // the wall's surface, not its middle line: half an outer wall (24 cm) or inner wall (12 cm) into the room
+    const ht = roomAt(plan.rooms, (best.cx - best.nx * 0.1) * S, (best.cz - best.nz * 0.1) * S) ? 0.06 : 0.12;
+    return { ...best, cx: best.cx + best.nx * ht, cz: best.cz + best.nz * ht, ht };
   }
   /** The nearest point inside a room, at least `inset` metres from its walls. */
   function insideRoom(room, x, z, inset) {
@@ -884,7 +887,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       }
       if (isAircon(it, st)) {
         // an air conditioner: a white unit on the wall; its air slot glows blue (cooling) or orange (heating)
-        const fr = wallFrame(room, px, pz), cx = fr.cx + fr.nx * 0.24, cz = fr.cz + fr.nz * 0.24, hw = 0.42, hd = 0.11;
+        const fr = wallFrame(room, px, pz), cx = fr.cx + fr.nx * 0.12, cz = fr.cz + fr.nz * 0.12, hw = 0.42, hd = 0.11;
         const box = (a, b, y0, y1, d0, d1) => [[cx + fr.ux * a + fr.nx * d0, cz + fr.uz * a + fr.nz * d0], [cx + fr.ux * b + fr.nx * d0, cz + fr.uz * b + fr.nz * d0], [cx + fr.ux * b + fr.nx * d1, cz + fr.uz * b + fr.nz * d1], [cx + fr.ux * a + fr.nx * d1, cz + fr.uz * a + fr.nz * d1]];
         fixtures.prism(box(-hw, hw, h - 0.14, h + 0.14, -hd, hd), h - 0.14, h + 0.14, [0.95, 0.95, 0.94]);
         const start = markers.v.length / 10;
@@ -991,7 +994,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         }
       }
       const ringN = ringClock(it, hass);
-      if (ringN) { const fr = wallFrame(room, px, pz); hit = { c: [fr.cx + fr.nx * 0.14, h, fr.cz + fr.nz * 0.14], r: 0.2 }; clocks.push({ it, n: ringN, h, fr: { ...fr, cx: fr.cx + fr.nx * 0.14, cz: fr.cz + fr.nz * 0.14 } }); P = [fr.cx + fr.nx * 0.14, h - 0.28, fr.cz + fr.nz * 0.14]; }
+      if (ringN) { const fr = wallFrame(room, px, pz), off = fr.free ? 0 : 0.03; hit = { c: [fr.cx + fr.nx * off, h, fr.cz + fr.nz * off], r: 0.2 }; clocks.push({ it, n: ringN, h, fr: { ...fr, cx: fr.cx + fr.nx * off, cz: fr.cz + fr.nz * off } }); P = [fr.cx + fr.nx * off, h - 0.28, fr.cz + fr.nz * off]; }
       // the icon you can tap
       const el = document.createElement('div');
       el.className = 'wi';
@@ -1045,7 +1048,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         let r = 0, g = 0, b = 0;
         for (const hx of leds) { const v = parseInt(hx, 16); r += (v >> 16) & 255; g += (v >> 8) & 255; b += v & 255; }
         const n = leds.length || 1, L = lamps.find((l) => l.it.entity_id === id && l.pieces);
-        if (L && L.on) { const mx = Math.max(r, g, b) / n || 1; L.col = [r / n / mx, g / n / mx, b / n / mx]; }
+        if (L) { const mx = Math.max(r, g, b) / n; L.liveCol = mx > 2 ? [r / n / mx, g / n / mx, b / n / mx] : null; L.liveK = Math.min(1, mx / 160); L.liveT = Date.now(); if (L.on && L.liveCol) L.col = L.liveCol; }
       }
     });
   }
@@ -1110,6 +1113,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       L.on = on; L.col = rgb(c); L.k = on ? (br != null ? Math.max(0.15, br / 255) : 1) : 0;
       if (L.tv) { L.on = !!st && ['on', 'playing', 'paused', 'idle', 'buffering'].includes(st.state); L.col = [0.35, 0.55, 1]; L.k = L.on ? 0.7 : 0; }
       if (L.media) { L.on = !!st && ['playing', 'on', 'buffering'].includes(st.state) && (L.media !== 'hub' || st.state !== 'off'); L.col = L.media === 'hub' ? [0.55, 0.7, 1] : [0.9, 0.95, 1]; L.k = L.on ? (L.media === 'hub' ? 0.25 : 0.12) : 0; }
+      if (L.pieces && L.liveCol && Date.now() - (L.liveT || 0) < 5000) L.col = L.liveCol;   // a WLED showing live colours: its light is those colours
       if (L.rad) { L.on = isHeating(st); L.col = [1, 0.5, 0.2]; L.k = L.on ? 0.25 : 0; }
       if (L.ac) { const m = airconMode(st); L.on = !!m; L.col = m === 'cool' ? [0.4, 0.7, 1] : m === 'heat' ? [1, 0.55, 0.25] : [0.85, 0.9, 0.95]; L.k = L.on ? 0.35 : 0; }
     }
@@ -1913,7 +1917,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
             if (pc.cell) { const [c0, r0, n0] = pc.cell, w0 = lv.w || n0, h0 = lv.h || n0; hx = lv.leds[Math.floor((r0 * h0) / n0) * w0 + Math.floor((c0 * w0) / n0)]; }
             else hx = lv.leds[Math.min(lv.leds.length - 1, Math.floor(pc.f * lv.leds.length))];
             const v = parseInt(hx || '000000', 16), col = [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
-            gl.uniform3fv(U.uTint, col.map((c) => 0.04 + 0.96 * c)); gl.drawArrays(gl.TRIANGLES, pc.start, pc.count);
+            gl.uniform3fv(U.uTint, col.map((c) => (pc.cell ? 0.1 : 0.04) + (pc.cell ? 0.9 : 0.96) * c)); gl.drawArrays(gl.TRIANGLES, pc.start, pc.count);   // a matrix shows its unlit LEDs as a faint grid
           }
           continue;
         }

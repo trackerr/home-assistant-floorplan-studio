@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: alles aan de muur (matrix, thermostaat, wandlampen, deurbel, klok, airco…) hangt nu op het muuroppervlak in plaats van in een dikke buitenmuur. Een WLED-matrix toont zijn pixels (uit = een zacht raster); het licht van een live WLED knippert niet meer tussen zijn ingestelde kleur en de live kleur.
 - **Apparatenoverzicht** (stap 4): elk apparaat in Home Assistant en wat Floorplan Studio ervan maakt — op de kaart en herkend, op de kaart met alleen een icoon, of nog niet op de kaart (tik = in zijn eigen ruimte zetten). Telefoons, diensten en losse data (weer, prijzen, templates) laat hij weg; hetzelfde apparaat via een tweede integratie telt niet dubbel.
 - **WLED live**: getekende WLED-ledstrips en een WLED-matrix tonen hun echte leds live (kleuren en effecten, per segment), op de kaart, in 2.5D en in de wandeling. De integratie haalt ze zelf op via de live-weergave van WLED (websocket, of `/json/live` bij oudere versies), dus het werkt ook via https/Nabu Casa.
 - **Radiatoren** als meubel; gekoppeld aan de radiatorknop of verwarmingszone van die ruimte (Tado, Netatmo, Eurotronic, Danfoss, Aqara, Fritz!DECT, Homematic, Wiser…), ook als die niet op de kaart staat; zonder radiatorknop de thermostaat van die ruimte. Gloeit warm als hij verwarmt; tik voor temperatuur en knoppen.
