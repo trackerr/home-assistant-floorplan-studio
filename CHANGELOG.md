@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Gordijnen** bij hun raam, geanimeerd open/dicht op de kaart, in 2.5D en in de wandeling (stand uit Home Assistant). Automatisch gekoppeld, instelbaar bij stap 4 (raam en soort: midden, links, rechts, rolgordijn).
 - Plaatsen kent ramen: "op de vensterbank" / "bij het raam" (ook voor ledstrips, langs het raam). AI-hulp: kies eerst een apparaat, dan gaat de vraag daarover.
 - Plaatsen (AI of actie): alleen een nieuwe hoogte laat het apparaat staan waar het staat; een ledstrip verschuift als geheel (lijn en icoon samen) en de AI verplaatst strips alleen als je daar echt om vraagt.
 - Wandeling: tijdens het lopen stopt een klik je meteen; stilstaand loop je met een klik op de vloer daarheen.

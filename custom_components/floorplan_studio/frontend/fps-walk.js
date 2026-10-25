@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b18';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels,
+} from './fps-core.js?v=1.4.0b19';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -635,7 +635,46 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     const st = hass.states[it.entity_id], vs = it.via ? hass.states[it.via] : null;
     return vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
   };
+  /* curtains and blinds: they slide (or roll) to their real position */
+  const curt = new Map();
+  let curtDirty = true;
+  function refreshCurtains() {
+    const seen = new Set();
+    for (const it of plan.items || []) {
+      const info = curtainFor(plan, it, hass.states[it.entity_id]);
+      if (!info) continue;
+      seen.add(it.entity_id);
+      const r = curt.get(it.entity_id) || { c: info.closed };
+      r.it = it; r.info = info; r.target = info.closed;
+      curt.set(it.entity_id, r);
+    }
+    for (const id of [...curt.keys()]) if (!seen.has(id)) curt.delete(id);
+    curtDirty = true;
+  }
+  function buildCurtains() {
+    const m = new Mesh(), fabric = [0.84, 0.78, 0.68], fold = [0.74, 0.68, 0.58];
+    for (const r of curt.values()) {
+      const { panels, a, u, n } = curtainPanels(plan, r.it, r.info, r.c);
+      const roller = r.info.style === 'roller', d0 = roller ? 0.135 : 0.16, d1 = d0 + 0.03;
+      const at = (sv, dv) => [M(a[0] + u[0] * sv) + n[0] * dv, M(a[1] + u[1] * sv) + n[1] * dv];
+      for (const pn of panels) {
+        const y0 = roller ? 2.15 - r.c * 1.25 : 0.03, y1 = roller ? 2.15 : 2.42;
+        if (y1 - y0 < 0.02) continue;
+        if (roller) { m.prism([at(pn.a0, d0), at(pn.a1, d0), at(pn.a1, d1), at(pn.a0, d1)], y0, y1, fabric); continue; }
+        // pleats: the panel as narrow strips that go in and out a little
+        const k = Math.max(2, Math.round(M(pn.a1 - pn.a0) / 0.07));
+        for (let i = 0; i < k; i++) {
+          const s0 = pn.a0 + ((pn.a1 - pn.a0) * i) / k, s1 = pn.a0 + ((pn.a1 - pn.a0) * (i + 1)) / k, dd = i % 2 ? 0.025 : 0;
+          m.prism([at(s0, d0 + dd), at(s1, d0 + dd), at(s1, d1 + dd), at(s0, d1 + dd)], y0, y1, i % 2 ? fold : fabric);
+        }
+      }
+    }
+    if (buf.curtains) gl.deleteBuffer(buf.curtains.b);
+    buf.curtains = m.v.length ? upload(m) : null;
+    curtDirty = false;
+  }
   function refreshStates() {
+    refreshCurtains();
     for (const L of lamps) {
       const st = hass.states[L.it.entity_id], on = lampOn(L.it);
       const fixed = L.it.color && /^#[0-9a-f]{6}$/i.test(L.it.color) ? [1, 3, 5].map((i) => parseInt(L.it.color.slice(i, i + 2), 16)).join(',') : null;
@@ -1136,6 +1175,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (worldDirty) rebuildWorld();
+    for (const r of curt.values()) { const dd = r.target - r.c; if (Math.abs(dd) > 0.002) { r.c += Math.sign(dd) * Math.min(Math.abs(dd), dt * 0.7); curtDirty = true; } }
+    if (curtDirty) buildCurtains();
     step(dt);
     const w = canvas.width, h = canvas.height;
     gl.viewport(0, 0, w, h);
@@ -1157,6 +1198,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     gl.disable(gl.BLEND); gl.depthMask(true);
     if (buf.solid) { bind(buf.solid); gl.drawArrays(gl.TRIANGLES, 0, buf.solid.n); }
     if (buf.fixtures) { bind(buf.fixtures); gl.drawArrays(gl.TRIANGLES, 0, buf.fixtures.n); }
+    if (buf.curtains) { bind(buf.curtains); gl.drawArrays(gl.TRIANGLES, 0, buf.curtains.n); }
     if (buf.markers) {
       bind(buf.markers); gl.uniform1f(U.uEmis, 1);
       for (const l of lamps) { if (!l.count) continue; gl.uniform3fv(U.uTint, l.on ? l.col.map((v) => 0.55 + 0.45 * v) : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }

@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b18';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b18';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b19';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b19';
 
 
 const CSS = `
@@ -635,7 +635,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b18');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b19');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -655,6 +655,77 @@ class FloorplanStudioCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('.rinfo').forEach((d) => { if (d._fx != null) [d.style.left, d.style.top] = this._at(d._fx, d._fy); });
     this._update(true);
   }
+  /**
+   * Curtains and blinds at their window, as far open as they really are; they slide (or roll) to a new position.
+   * 2D: panels along the window. 2.5D: hanging panels from the rail to the floor (a blind: from the top of the window).
+   */
+  _curtainsUpdate() {
+    const svg = this.shadowRoot.querySelector('svg.plan'), plan = this._plan, h = this._hass;
+    if (!svg || !plan) return;
+    this._curt = this._curt || new Map();
+    const seen = new Set();
+    for (const it of plan.items || []) {
+      const st = h.states[it.entity_id], info = curtainFor(plan, it, st);
+      if (!info) continue;
+      seen.add(it.entity_id);
+      const rec = this._curt.get(it.entity_id) || { c: info.closed };
+      rec.it = it; rec.info = info; rec.target = info.closed;
+      this._curt.set(it.entity_id, rec);
+    }
+    for (const id of [...this._curt.keys()]) if (!seen.has(id)) this._curt.delete(id);
+    let g = svg.querySelector('g.curtains');
+    if (!this._curt.size) { g?.remove(); return; }
+    if (!g) { g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', 'curtains'); const before = svg.querySelector('.stalks') || svg.querySelector('.d-scan'); svg.insertBefore(g, before); }
+    const draw = () => {
+      const p = this._proj, out = [];
+      for (const rec of this._curt.values()) {
+        const { panels, a, u, n } = curtainPanels(plan, rec.it, rec.info, rec.c);
+        const off = 6, th = 9, at = (s, d) => [a[0] + u[0] * s + n[0] * d, a[1] + u[1] * s + n[1] * d];
+        for (const pn of panels) {
+          if (!p) {
+            // 2D: the fabric along the window, a little into the room, with a few folds
+            if (rec.info.style === 'roller') {
+              const q = [at(pn.a0, off), at(pn.a1, off), at(pn.a1, off + th), at(pn.a0, off + th)];
+              out.push(`<polygon class="roller" style="opacity:${(0.15 + 0.85 * rec.c).toFixed(2)}" points="${q.map((v) => v.map((w) => w.toFixed(1)).join(',')).join(' ')}"/>`);
+              continue;
+            }
+            const q = [at(pn.a0, off), at(pn.a1, off), at(pn.a1, off + th), at(pn.a0, off + th)];
+            out.push(`<polygon points="${q.map((v) => v.map((w) => w.toFixed(1)).join(',')).join(' ')}"/>`);
+            const folds = Math.max(1, Math.round((pn.a1 - pn.a0) / 9));
+            for (let k = 1; k < folds; k++) { const sa = pn.a0 + ((pn.a1 - pn.a0) * k) / folds, f1 = at(sa, off), f2 = at(sa, off + th); out.push(`<line x1="${f1[0].toFixed(1)}" y1="${f1[1].toFixed(1)}" x2="${f2[0].toFixed(1)}" y2="${f2[1].toFixed(1)}"/>`); }
+          } else {
+            // 2.5D: a hanging panel (rail just under the ceiling to the floor); a blind rolls down over the glass
+            const k = p.sc * p.lift, roller = rec.info.style === 'roller';
+            const zt = (roller ? 2.15 : 2.4) * k, zb = roller ? (2.15 - rec.c * 1.25) * k : 0.04 * k;
+            if (zt - zb < 0.5) continue;
+            const P = (s, z) => p.P(...at(s, off), z);
+            const q = [P(pn.a0, zb), P(pn.a1, zb), P(pn.a1, zt), P(pn.a0, zt)];
+            out.push(`<polygon ${roller ? 'class="roller"' : ''} points="${q.map((v) => v.map((w) => w.toFixed(1)).join(',')).join(' ')}"/>`);
+            if (!roller) {
+              const folds = Math.max(1, Math.round((pn.a1 - pn.a0) / 9));
+              for (let f = 1; f < folds; f++) { const sa = pn.a0 + ((pn.a1 - pn.a0) * f) / folds, f1 = P(sa, zb), f2 = P(sa, zt); out.push(`<line x1="${f1[0].toFixed(1)}" y1="${f1[1].toFixed(1)}" x2="${f2[0].toFixed(1)}" y2="${f2[1].toFixed(1)}"/>`); }
+            }
+          }
+        }
+      }
+      g.innerHTML = out.join('');
+    };
+    // slide towards the real position (about 1.5 s for fully open to closed)
+    const step = (t) => {
+      const dt = this._curtT ? Math.min(0.1, (t - this._curtT) / 1000) : 0.016;
+      this._curtT = t;
+      let moving = false;
+      for (const rec of this._curt.values()) {
+        const d = rec.target - rec.c;
+        if (Math.abs(d) > 0.002) { rec.c += Math.sign(d) * Math.min(Math.abs(d), dt * 0.7); moving = true; } else rec.c = rec.target;
+      }
+      draw();
+      this._curtRaf = moving ? requestAnimationFrame(step) : 0;
+      if (!moving) this._curtT = 0;
+    };
+    if (!this._curtRaf) this._curtRaf = requestAnimationFrame(step);
+  }
+
   _turnTo(rot, tilt) {
     this._turn = { rot: ((rot % 360) + 360) % 360, tilt: Math.max(20, Math.min(80, tilt)) };
     clearTimeout(this._turnGhostT);
@@ -686,6 +757,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._themeTick();
     if (this._config.home) { this._updateHome(force); return; }
     this._fading = false;
+    this._curtainsUpdate();
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       const vis = this._visible(id, rec.it);

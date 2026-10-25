@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b18';
+export const VERSION = '1.4.0b19';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -760,6 +760,58 @@ export function pathMid(path) {
 }
 
 /**
+ * A curtain or blind that hangs at a window: the window, its style and how far it is closed (0 = open, 1 = closed).
+ * Linked in the editor (step 4), or found automatically: a cover that is a curtain/blind (or is called that) near a window.
+ * style: 'split' (two panels meeting in the middle), 'left' / 'right' (one panel), 'roller' (from the top down).
+ */
+const CURTAIN_RE = /gordijn|curtain|rolluik|rolgordijn|blind|jaloezie|vitrage|shade|shutter|screen/i;
+export function curtainFor(plan, it, st) {
+  if (it.curtain === false) return null;
+  const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
+  const set = it.curtain && typeof it.curtain === 'object' ? it.curtain : null;
+  if (!set) {
+    if (d !== 'cover') return null;
+    if (!(['curtain', 'blind', 'shade', 'shutter'].includes(dc) || CURTAIN_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`))) return null;
+  }
+  const wins = (plan.openings || []).filter((o) => o.type === 'window');
+  let o = set?.window && set.window !== 'auto' ? wins.find((w) => w.id === set.window) : null;
+  if (!o) {
+    const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.2 * (planScale(plan) || 70);
+    let bd = Infinity;
+    for (const w of wins) {
+      const ax = safeNumber(w.x1), ay = safeNumber(w.y1), bx = safeNumber(w.x2), by = safeNumber(w.y2), L2 = (bx - ax) ** 2 + (by - ay) ** 2 || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / L2)), dd = Math.hypot(x - (ax + (bx - ax) * t), y - (ay + (by - ay) * t));
+      if (dd < bd) { bd = dd; o = w; }
+    }
+    if (bd > lim) o = null;
+  }
+  if (!o) return null;
+  const style = set?.style || (['blind', 'shade', 'shutter'].includes(dc) ? 'roller' : 'split');
+  const pos = st?.attributes?.current_position;
+  const closed = pos != null && Number.isFinite(+pos) ? 1 - +pos / 100 : st?.state === 'closed' ? 1 : st?.state === 'closing' ? 0.8 : st?.state === 'opening' ? 0.2 : 0;
+  return { o, style, closed: Math.max(0, Math.min(1, closed)) };
+}
+/**
+ * The pieces of a curtain to draw, in plan units along the window: [{a0, a1}] (from the window's first end),
+ * plus the window's direction u, the way into the room n, and its length L. Open curtains stay bunched at the sides.
+ */
+export function curtainPanels(plan, it, info, c) {
+  const o = info.o, ax = safeNumber(o.x1), ay = safeNumber(o.y1), bx = safeNumber(o.x2), by = safeNumber(o.y2);
+  const L = Math.hypot(bx - ax, by - ay) || 1, u = [(bx - ax) / L, (by - ay) / L];
+  let n = [-u[1], u[0]];
+  const mx = (ax + bx) / 2, my = (ay + by) / 2, sx = safeNumber(it.x) - mx, sy = safeNumber(it.y) - my;
+  if (Math.abs(sx * n[0] + sy * n[1]) > 2) { if (sx * n[0] + sy * n[1] < 0) n = [-n[0], -n[1]]; }
+  else if (!roomAt(plan.rooms, mx + n[0] * 8, my + n[1] * 8)) n = [-n[0], -n[1]];
+  const bunch = 0.12 * (planScale(plan) || 70);
+  let panels;
+  if (info.style === 'roller') panels = [{ a0: 0, a1: L }];
+  else if (info.style === 'left') panels = [{ a0: 0, a1: Math.max(bunch, c * L) }];
+  else if (info.style === 'right') panels = [{ a0: L - Math.max(bunch, c * L), a1: L }];
+  else panels = [{ a0: 0, a1: Math.max(bunch, (c * L) / 2) }, { a0: L - Math.max(bunch, (c * L) / 2), a1: L }];
+  return { panels, a: [ax, ay], u, n, L };
+}
+
+/**
  * Is this a ceiling lamp? Your own choice in step 4 wins; otherwise the name or Home Assistant's icon
  * gives it away (plafond, ceiling, spot, hanglamp, pendant, downlight, kroonluchter ...).
  */
@@ -1193,6 +1245,9 @@ export const PLAN_CSS = `
   .stalks .cord { stroke: var(--fps-fg); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: none; }
   .stalks .rose { fill: var(--fps-wall); fill-opacity: 1; stroke: var(--fps-fg); stroke-opacity: .6; stroke-width: 1.2; }
   .stalks .on .rose { stroke: var(--fps-accent); stroke-opacity: .9; }
+  .curtains polygon { fill: var(--fps-curtain, rgba(214, 196, 168, .92)); stroke: rgba(0, 0, 0, .35); stroke-width: .8; pointer-events: none; }
+  .curtains line { stroke: rgba(0, 0, 0, .22); stroke-width: .8; pointer-events: none; }
+  .curtains .roller { fill: var(--fps-curtain, rgba(214, 196, 168, .92)); }
   .strip polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
   .strip .sglow { stroke: rgb(var(--c, var(--fps-accent-rgb))); opacity: 0; filter: url(#fps-stripblur); transition: opacity .3s; }
   .strip.on .sglow { opacity: calc(.75 * var(--b, 1) * var(--fps-glow, 1)); }
