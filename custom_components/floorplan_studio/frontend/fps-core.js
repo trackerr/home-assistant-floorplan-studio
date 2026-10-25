@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b30';
+export const VERSION = '1.3.0b31';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -735,6 +735,18 @@ export function furnAt(plan, x, y) {
   return null;
 }
 /**
+ * Is this a ceiling lamp? Your own choice in step 4 wins; otherwise the name or Home Assistant's icon
+ * gives it away (plafond, ceiling, spot, hanglamp, pendant, downlight, kroonluchter ...).
+ */
+const CEIL_RE = /plafond|ceiling|hanglamp|hanglight|pendant|spot|downlight|inbouw|kroonluchter|chandelier|lustre|deckenl|plafonnier/i;
+export function isCeilingLamp(it, st) {
+  if (it.ceiling === true || it.ceiling === false) return it.ceiling;
+  const d = it.entity_id.split('.')[0];
+  if (!(d === 'light' || it.kind === 'lamp')) return false;
+  if (/ceiling/.test(it.icon || st?.attributes?.icon || '')) return true;
+  return CEIL_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
+}
+/**
  * How high a device sits, in metres, for the 2.5D view: its own height (step 4) or a sensible one
  * for its kind (ceiling lamp high, thermostat at chest height, vacuum on the floor).
  */
@@ -1084,6 +1096,11 @@ export const PLAN_CSS = `
   .f3.pot .f3top, .f3.pot .f3side { fill: rgba(160, 100, 70, .7); }
   .stalks line { stroke: var(--fps-fg); stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
   .stalks ellipse { fill: var(--fps-fg); fill-opacity: .3; pointer-events: none; }
+  .stalks .cord { stroke: var(--fps-fg); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: none; }
+  .stalks .rose { fill: var(--fps-wall); fill-opacity: 1; stroke: var(--fps-fg); stroke-opacity: .6; stroke-width: 1.2; }
+  .stalks .on .rose { stroke: var(--fps-accent); stroke-opacity: .9; }
+  .stalks .cone { display: none; pointer-events: none; } .stalks .on .cone { display: inline; }
+  .stalks .c0 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: calc(.32 * var(--b, 1) * var(--fps-glow, 1)); } .stalks .c1 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: 0; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
   .furn .soft { stroke-opacity: .35; } .furn .hang { stroke-dasharray: 4 3; } .furn .arrow { fill: none; stroke-linecap: round; }
   .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }

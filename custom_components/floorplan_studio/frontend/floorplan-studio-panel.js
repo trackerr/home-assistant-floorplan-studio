@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b30';
+import './floorplan-studio-card.js?v=1.3.0b31';
 import {
-  VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
+  VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b30';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b30';
+} from './fps-core.js?v=1.3.0b31';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b31';
 
 const L = {
   en: {
@@ -61,7 +61,7 @@ const L = {
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
     f_hob: 'Hob (on a worktop)', f_sink: 'Sink', f_stove: 'Cooker', f_fridge: 'Fridge', f_island: 'Kitchen island', f_wallcab: 'Wall cupboard', lamp_size: 'Lamps (size in %)', device_size: 'Other devices (size in %)', f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_z: 'Height (cm, for the 2.5D view)', f_turn: 'Turn 90°',
     more_options_room: 'More options (sensors, text, floor…)', more_options: 'More options (icon, colour, height…)', kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
-    i_height: 'Height in metres (for the 2.5D view, empty = usual)',
+    i_height: 'Height in metres (for the 2.5D view, empty = usual)', ceil_q: 'Ceiling lamp?', yes: 'yes', no: 'no', ceil_auto: 'Automatic (from the name)', ceil_yes: 'Yes, on the ceiling', ceil_no: 'No (floor, table, wall or strip)',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
     radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
     motion_fade: 'Motion icon fades out over … minutes (0 = straight away)', height_25d: 'Height of walls and icons in the 2.5D view', perspective: 'Perspective in 2.5D (nearer looks a little bigger)', show_stalks: 'Thin lines from the floor to the icons (2.5D)', turn_hint: 'Turning in 2.5D: right mouse button (or Shift) and drag; on a phone or tablet twist two fingers. Up/down tilts.', h25_real: 'real size', h25_custom: 'own value (% of real)',
@@ -119,7 +119,7 @@ const L = {
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht (blad)', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
     f_hob: 'Kookplaat (op het aanrecht)', f_sink: 'Gootsteen', f_stove: 'Fornuis', f_fridge: 'Koelkast', f_island: 'Kookeiland', f_wallcab: 'Bovenkast', lamp_size: 'Lampen (grootte in %)', device_size: 'Andere apparaten (grootte in %)', f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_z: 'Hoogte (cm, voor de 2.5D-weergave)', f_turn: 'Kwartslag draaien',
     more_options_room: 'Meer opties (sensoren, tekst, vloer…)', more_options: 'Meer opties (icoon, kleur, hoogte…)', kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
-    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)',
+    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)', ceil_q: 'Plafondlamp?', yes: 'ja', no: 'nee', ceil_auto: 'Automatisch (uit de naam)', ceil_yes: 'Ja, aan het plafond', ceil_no: 'Nee (staand, tafel, wand of strip)',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
     radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
     motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)', height_25d: 'Hoogte van muren en iconen in de 2.5D-weergave', perspective: 'Perspectief in 2.5D (dichterbij is iets groter)', show_stalks: 'Hulplijntjes van de vloer naar de iconen (2.5D)', turn_hint: 'Draaien in 2.5D: rechtermuisknop (of Shift) ingedrukt en slepen; op telefoon of tablet twee vingers draaien. Omhoog/omlaag kantelt.', h25_real: 'echte maat', h25_custom: 'eigen waarde (% van echt)',
@@ -403,7 +403,7 @@ class FloorplanStudioPanel extends HTMLElement {
     for (const it of p.items) {
       const d = it.entity_id.split('.')[0];
       const dev = it.kind === 'device' || (it.kind !== 'lamp' && !['light', 'switch', 'input_boolean', 'fan'].includes(d));
-      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${esc(it.entity_id)}" style="left:${((safeNumber(it.x) - vx) / vw) * 100}%;top:${((safeNumber(it.y) - vy) / vh) * 100}%">${it.icon ? `<ha-icon icon="${esc(it.icon)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
+      out.push(`<div class="it ${dev ? 'dev' : ''} ${this.sel?.type === 'item' && this.sel.id === it.entity_id ? 'sel' : ''}" data-item="${esc(it.entity_id)}" style="left:${((safeNumber(it.x) - vx) / vw) * 100}%;top:${((safeNumber(it.y) - vy) / vh) * 100}%">${(() => { const st = this._hass?.states[it.entity_id], ic = it.icon || (!st?.attributes?.icon && (it.entity_id.startsWith('light.') || it.kind === 'lamp') && isCeilingLamp(it, st) ? 'mdi:ceiling-light' : ''); return ic ? `<ha-icon icon="${esc(ic)}"></ha-icon>` : '<ha-state-icon></ha-state-icon>'; })()}<span class="tip">${esc(it.name || friendly(this._hass, it.entity_id))}</span></div>`);
     }
     out.push('</div></div>');
     return out.join('');
@@ -533,6 +533,8 @@ class FloorplanStudioPanel extends HTMLElement {
         <label class="row" style="font-size:13px"><input type="checkbox" id="ipin" ${it.pin ? 'checked' : ''} style="flex:none">${l.show_always}</label>
         ${['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) ? `<div class="field" style="margin-top:8px"><span>${l.kind_q}</span><select id="ikind">
           <option value="" ${!it.kind ? 'selected' : ''}>${l.kind_auto}</option><option value="lamp" ${it.kind === 'lamp' ? 'selected' : ''}>${l.kind_lamp}</option><option value="device" ${it.kind === 'device' ? 'selected' : ''}>${l.kind_device}</option></select></div>` : ''}
+        ${it.entity_id.startsWith('light.') || it.kind === 'lamp' ? `<div class="field" style="margin-top:8px"><span>${l.ceil_q}</span><select id="iceil">
+          <option value="" ${it.ceiling == null ? 'selected' : ''}>${l.ceil_auto}${it.ceiling == null ? ` — ${isCeilingLamp(it, h.states[it.entity_id]) ? l.yes : l.no}` : ''}</option><option value="1" ${it.ceiling === true ? 'selected' : ''}>${l.ceil_yes}</option><option value="0" ${it.ceiling === false ? 'selected' : ''}>${l.ceil_no}</option></select></div>` : ''}
         <details class="sec sub" data-sec="itemmore" ${this._secOpen?.itemmore ? 'open' : ''}><summary>${l.more_options}</summary><div class="secb">
         <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
         ${it.entity_id.startsWith('light.') || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) && it.kind !== 'device' ? `<div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>` : ''}
@@ -1018,6 +1020,7 @@ class FloorplanStudioPanel extends HTMLElement {
     $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen = this._secOpen || {}; this._secOpen[d.dataset.sec] = d.open; }));
     $('#ivia')?.addEventListener('change', (ev) => this.mut(() => { it.via = ev.target.value || undefined; }));
     $('#ikind')?.addEventListener('change', (ev) => this.mut(() => { it.kind = ev.target.value || undefined; }));
+    $('#iceil')?.addEventListener('change', (ev) => this.mut(() => { const v = ev.target.value; if (v === '') delete it.ceiling; else it.ceiling = v === '1'; }));
     $('#iradar')?.addEventListener('change', (ev) => this.mut(() => {
       if (!ev.target.checked) { delete it.radar; return; }
       const r = radarEntities(h, it.entity_id) || {};

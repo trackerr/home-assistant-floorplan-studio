@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b30';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b30';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.3.0b31';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b31';
 
 
 const CSS = `
@@ -569,11 +569,14 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
+    const ceil = kind === 'lamp' && isCeilingLamp(it, st);
+    if (ceil) el.classList.add('ceil');
     this._place(el, it, st);
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
     if (kind !== 'sensor') {
-      const ic = it.icon || (it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      // a ceiling lamp gets the ceiling-lamp icon, unless you or Home Assistant chose another one
+      const ic = it.icon || (ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
       const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
       if (ic) icon.icon = ic;
       bub.appendChild(icon);
@@ -599,6 +602,21 @@ class FloorplanStudioCard extends HTMLElement {
     const base = under ? Math.min(hm, furnHeight(under)) * p.sc * p.lift : 0, z = hm * p.sc * p.lift;
     const [fx, fy] = p.P(it.x, it.y, base), [, ty] = p.P(it.x, it.y, z);
     el.style.zIndex = String(10 + Math.round((fy / this._plan.height) * 100));
+    // a ceiling lamp hangs from a small rose on the ceiling and, when on, shines a soft cone down to the floor
+    if (el.classList.contains('ceil')) {
+      const g = this.shadowRoot.querySelector('svg.plan .stalks'), top = Math.max(p.wallH, z), [cx, cy] = p.P(it.x, it.y, top);
+      if (g) {
+        const cosT = Math.max(0.25, Math.cos((p.tilt * Math.PI) / 180)), r = 8 * p.s, R = 0.9 * p.sc;
+        const [gx, gy] = p.P(it.x, it.y, base), [hx] = p.P(it.x + R * p.co, it.y - R * p.si, base), rx = Math.abs(hx - gx), ry = rx * cosT;
+        const [lx] = p.P(it.x, it.y, z), tw = 3 * p.s, n = (this._coneN = (this._coneN || 0) + 1), f = (v) => v.toFixed(1);
+        const cone = gy - ty > 4 ? `<linearGradient id="fps-cone-${n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="c0"/><stop offset="1" class="c1"/></linearGradient>`
+          + `<path class="cone" fill="url(#fps-cone-${n})" d="M${f(lx - tw)},${f(ty)} L${f(gx - rx)},${f(gy)} A${f(rx)},${f(ry)} 0 0 0 ${f(gx + rx)},${f(gy)} L${f(lx + tw)},${f(ty)} Z"/>` : '';
+        const cord = top > z ? `<line class="cord" x1="${f(cx)}" y1="${f(cy)}" x2="${f(lx)}" y2="${f(ty)}"/><ellipse class="rose" cx="${f(cx)}" cy="${f(cy)}" rx="${f(r)}" ry="${f(r * cosT)}"/>` : '';
+        const rec = this._items?.get(it.entity_id), css = rec?.el?.style;
+        g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}" class="${el.classList.contains('on') ? 'on' : ''}" style="${el.classList.contains('hidden') ? 'display:none;' : ''}${css?.getPropertyValue('--c') ? `--c:${css.getPropertyValue('--c')};` : ''}${css?.getPropertyValue('--b') ? `--b:${css.getPropertyValue('--b')};` : ''}">${cone}${cord}</g>`);
+      }
+      return;
+    }
     // optional thin line from the floor up to the icon
     const g = this._s.show_stalks && this.shadowRoot.querySelector('svg.plan .stalks');
     if (g && z - base > 1) {
@@ -670,14 +688,17 @@ class FloorplanStudioCard extends HTMLElement {
       const on = vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
       if (!st) { rec.el.classList.toggle('on', on); rec.el.querySelector('.tag').textContent = ''; continue; }
       rec.el.classList.toggle('on', on);
+      rec.stalk?.classList.toggle('on', on);
       if (rec.kind === 'lamp') {
         // a fixed colour from the editor wins (e.g. a smart plug with a purple lamp in it)
         const fixed = rec.it.color && /^#[0-9a-f]{6}$/i.test(rec.it.color) ? [1, 3, 5].map((i) => parseInt(rec.it.color.slice(i, i + 2), 16)).join(',') : null;
         const c = fixed || lightColor(st);
         if (c) rec.el.style.setProperty('--c', c); else rec.el.style.removeProperty('--c');
+        if (rec.stalk) { if (c) rec.stalk.style.setProperty('--c', c); else rec.stalk.style.removeProperty('--c'); }
         // brightness: a dimmed lamp gets a softer button and glow, and its level as a small tag
         const br = st.attributes.brightness, lvl = on && br != null ? Math.max(1, Math.round(br / 2.55)) : null;
         rec.el.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
+        rec.stalk?.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
         // lamp_level: fixed = always a small tag, hover = only in the name when you point at the lamp, off = nothing
         const lm = levelMode(this._s);
         rec.el.querySelector('.tag').textContent = lvl != null && lm === 'fixed' ? `${lvl}%` : '';

@@ -17,6 +17,7 @@
 **Sensoren en apparaten**
 - **Ramen** tekenen; **deuren en ramen koppelen aan hun sensor**: open = oranje en gestippeld.
 - **mmWave-radar**: ring op de gemeten afstand (Tuya 24G, LD2410) of een stip per persoon (LD2450), met plafondhoogte.
+- **Plafondlampen herkenbaar**: plafondlamp-icoon, in 2.5D een rozet aan het plafond met snoer en een lichtbundel naar de vloer als hij aan is. Automatisch herkend aan de naam, of zelf kiezen bij stap 4.
 - **Beweging dooft uit**: het icoontje kleurt na de laatste beweging langzaam terug naar grijs.
 - **Wat zit eraan?** bij stekkers en schakelaars: een lamp of een apparaat. **Stroom via een slimme schakelaar** voor een slimme lamp aan een slimme schakelaar.
 - Aanwijzen toont naam en status; een tv die aan staat gloeit blauw, een speaker die speelt zendt golfjes uit.

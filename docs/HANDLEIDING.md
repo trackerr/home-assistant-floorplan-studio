@@ -134,6 +134,8 @@ Klik **Volgende**.
    - bij een stekker of schakelaar te kiezen **wat eraan zit**: *een lamp* (lampicoon en gloed, voor een gewone lamp aan een slimme stekker) of *een apparaat, geen licht* (geen gloed, bijv. de vaatwasser);
    - het van de kaart te halen.
 
+   Bij een lamp: **Plafondlamp?** Automatisch herkent hij een plafondlamp aan de naam (plafond, spot, hanglamp, pendant, downlight ...). Klopt dat niet, kies dan *Ja* of *Nee*. Een plafondlamp krijgt een plafondlamp-icoon, en in 2.5D hangt hij aan een rozet aan het plafond en schijnt hij een lichtbundel naar de vloer als hij aan is. Een hanglamp boven de eettafel: kies *Ja*, dan hangt hij aan een lang snoer boven de tafel.
+
    Onder **Meer opties**:
    - een eigen **icoon**;
    - een vaste **gloedkleur** (voor een stekker met een gekleurde lamp erin);
