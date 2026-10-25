@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0b1';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -13,7 +13,7 @@ const STR = {
     clean_failed: 'The vacuum could not start: {e}', live_map: 'Live vacuum map',
     a_smoke: 'Smoke', a_gas: 'Gas', a_carbon_monoxide: 'Carbon monoxide', a_moisture: 'Water leak', a_heat: 'Heat', a_safety: 'Unsafe',
     e_solar: 'Solar', e_grid: 'Grid', e_price: 'Price',
-    zoom_hint: 'Ctrl + scroll wheel to zoom', zoom_hint_mac: '⌘ + scroll to zoom', rotate: 'Turn', panel_min: 'Make small', panel_open: 'Show the room panel', lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
+    zoom_hint: 'Ctrl + scroll wheel to zoom', zoom_hint_mac: '⌘ + scroll to zoom', rotate: 'Turn', walk: 'Walk through your home', panel_min: 'Make small', panel_open: 'Show the room panel', lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
@@ -25,7 +25,7 @@ const STR = {
     clean_failed: 'De stofzuiger kon niet starten: {e}', live_map: 'Live stofzuigerkaart',
     a_smoke: 'Rook', a_gas: 'Gas', a_carbon_monoxide: 'Koolmonoxide', a_moisture: 'Lekkage', a_heat: 'Hitte', a_safety: 'Onveilig',
     e_solar: 'Zon', e_grid: 'Net', e_price: 'Prijs',
-    zoom_hint: 'Ctrl + scrollwiel om te zoomen', zoom_hint_mac: '⌘ + scrollen om te zoomen', rotate: 'Draaien', panel_min: 'Kleiner maken', panel_open: 'Paneel weer openen', lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
+    zoom_hint: 'Ctrl + scrollwiel om te zoomen', zoom_hint_mac: '⌘ + scrollen om te zoomen', rotate: 'Draaien', walk: 'Door je huis lopen', panel_min: 'Kleiner maken', panel_open: 'Paneel weer openen', lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
     a_door: 'Deur open', a_window: 'Raam open', a_garage_door: 'Garagedeur open', a_opening: 'Open',
   },
 };
@@ -805,7 +805,7 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true 
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
 /** Furniture as a few solid pieces for 2.5D (local units around its centre; z in metres). */
-function furnModel(f, spin = 0, onTop = false) {
+export function furnModel(f, spin = 0, onTop = false) {
   const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x0 = -w / 2, y0 = -h / 2;
   const R = (a, b, c, d, z0, z1, cls) => ({ poly: [[x0 + a, y0 + b], [x0 + c, y0 + b], [x0 + c, y0 + d], [x0 + a, y0 + d]], z0, z1, cls });
   // round shapes: smooth, with their corners kept still towards the viewer (spin), so turning the house doesn't make them twirl

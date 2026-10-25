@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0';
+} from './fps-core.js?v=1.4.0b1';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b1';
 
 
 const CSS = `
@@ -334,6 +334,7 @@ class FloorplanStudioCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
+    this._walk?.setHass(hass);
     if (first) this._load();
     else this._update();
   }
@@ -467,6 +468,7 @@ class FloorplanStudioCard extends HTMLElement {
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
         <button class="btn icon view3 ${this._proj ? 'active' : ''}" id="view3" title="${this._proj ? '2D' : '2.5D'}">2.5D</button>
         ${this._proj ? `<button class="btn icon" id="rot" title="${t(h, 'rotate')}"><ha-icon icon="mdi:rotate-right"></ha-icon></button>` : ''}
+        ${plan.rooms?.length ? `<button class="btn icon" id="walk" title="${t(h, 'walk')}"><ha-icon icon="mdi:walk"></ha-icon></button>` : ''}
         ${this._compactButton ? `<button class="btn icon ${this._compact ? 'active' : ''}" id="cmp" title="${t(h, this._compact ? 'whole_plan' : 'by_room')}"><ha-icon icon="${this._compact ? 'mdi:floor-plan' : 'mdi:view-carousel-outline'}"></ha-icon></button>` : ''}
         <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
         ${this._isAdmin ? `<button class="btn ${this._moving ? 'active' : ''}" id="move"><ha-icon icon="mdi:cursor-move"></ha-icon><span class="lbl">${t(h, this._moving ? 'done' : 'move')}</span></button>` : ''}
@@ -515,6 +517,7 @@ class FloorplanStudioCard extends HTMLElement {
     root.querySelector('#view3')?.addEventListener('click', () => { this._setPref('view', this._view25 ? '2d' : '2.5d'); this._zoomRoom = null; this._build(); });
     root.querySelector('#rot')?.addEventListener('click', () => { this._setPref('rot', String(((Math.floor(this._rot / 45 + 0.01) + 1) * 45) % 360)); this._zoomRoom = null; this._build(); });
     root.querySelector('#move')?.addEventListener('click', () => this._toggleMove());
+    root.querySelector('#walk')?.addEventListener('click', () => this._openWalk());
     root.querySelectorAll('[data-floor]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); this._setFloor(b.dataset.floor); }));
     root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
     const fs = () => toggleFull();
@@ -624,6 +627,16 @@ class FloorplanStudioCard extends HTMLElement {
     if (g && z - base > 1) {
       g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}" style="${el.classList.contains('hidden') ? 'display:none' : ''}"><ellipse cx="${fx.toFixed(1)}" cy="${fy.toFixed(1)}" rx="${(3.2 * p.s).toFixed(1)}" ry="${(3.2 * p.s * Math.cos((p.tilt * Math.PI) / 180)).toFixed(1)}"/><line x1="${fx.toFixed(1)}" y1="${fy.toFixed(1)}" x2="${fx.toFixed(1)}" y2="${ty.toFixed(1)}"/></g>`);
     }
+  }
+
+  /** Walk through the house in first person (loaded only when you ask for it). */
+  async _openWalk() {
+    if (this._walk) return;
+    this._walk = { setHass() {}, close() {} };
+    try {
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b1');
+      this._walk = openWalk(this, { plan: this._plan, hass: this._hass, onClose: () => { this._walk = null; } });
+    } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
 
   /** Turn or tilt the 2.5D view without rebuilding the card (used while dragging to turn it). */

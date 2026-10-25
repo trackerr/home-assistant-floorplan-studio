@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.0 (in ontwikkeling)
+- **Door je huis lopen** (wandelmannetje): door je eigen huis lopen met echte muren, deuren en ramen, meubels en lampen die hun ruimte verlichten. Met een rondleiding langs alle ruimtes, tikken op de vloer om te lopen, en lampen aan/uit.
+
 ## 1.3.0
 **2.5D en echte maten**
 - **2.5D-weergave** met echt perspectief: één knop kantelt de plattegrond. Muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte. Draaien per 45° of vrij (rechtermuisknop/Shift + slepen, of twee vingers draaien), kantelen en zoomen. Elk scherm onthoudt zijn eigen weergave; werkt ook ruimte per ruimte op de telefoon. Hoogte instelbaar (echte maat of eigen percentage).

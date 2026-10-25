@@ -99,6 +99,18 @@ export function makeHass(plan, { sun = 'day', set = {}, extraPlans = [] } = {}) 
     if (ex.ago) states[id].last_changed = new Date(now - ex.ago * 60e3).toISOString();
     entities[id] = { entity_id: id, area_id: area, device_id: ex.device || null, platform: 'demo', hidden: false, entity_category: null };
   }
+  // your own plan (?file=…): devices this fake house doesn't have get a made-up state, so lamps light up
+  let n = 0;
+  for (const p of plan ? [plan, ...extraPlans] : []) for (const it of p.items || []) {
+    const id = it.entity_id;
+    if (states[id]) continue;
+    const d = id.split('.')[0], name = id.split('.')[1].replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    if (d === 'light') states[id] = S(id, n++ % 3 === 2 ? 'off' : 'on', { friendly_name: name, brightness: 140 + ((n * 37) % 110), color_temp_kelvin: 2700, supported_color_modes: ['color_temp'] });
+    else if (d === 'sensor') states[id] = S(id, String(18 + ((n++ * 7) % 60) / 10), { friendly_name: name, unit_of_measurement: '°C', device_class: 'temperature' });
+    else if (d === 'binary_sensor') states[id] = S(id, 'off', { friendly_name: name });
+    else if (d === 'media_player') states[id] = S(id, 'off', { friendly_name: name });
+    else states[id] = S(id, 'off', { friendly_name: name });
+  }
   for (const [id, state] of Object.entries(set)) if (states[id]) states[id] = { ...states[id], state };
   states['sun.sun'] = S('sun.sun', sun === 'night' ? 'below_horizon' : 'above_horizon', { friendly_name: 'Zon', ...sunAttr });
 

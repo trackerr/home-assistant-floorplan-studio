@@ -298,6 +298,17 @@ Met de knop **2.5D** in de werkbalk kantelt de plattegrond. De muren komen omhoo
 - **Zoomen:** Ctrl + scrollwiel of knijpen, net als in 2D.
 - Elk scherm onthoudt zelf of het 2D of 2.5D gebruikt en onder welke hoek.
 - **Iconen verplaatsen** gebeurt in 2D (precies); daarna staat alles meteen goed in 2.5D.
+
+### Door je huis lopen
+
+Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je er echt bent. De muren, deuren en ramen staan op hun echte plek en maat (vul bij stap 2 de echte maat van een ruimte in), meubels staan erin, en lampen die aan zijn verlichten hun ruimte in hun eigen kleur. 's Avonds is het buiten donker en zie je vooral je lampen.
+
+- De **rondleiding** begint vanzelf: bij de voordeur naar binnen, dan ruimte voor ruimte, door de deuren, om meubels heen. In elke ruimte kijkt hij even rond. Bovenin zie je de naam van de ruimte met temperatuur, vocht en hoeveel lampen er aan zijn.
+- **Zelf rondkijken:** slepen. **Lopen:** tik op de vloer waar je heen wilt (hij loopt om muren en meubels heen), of gebruik de pijltjes of W A S D (Shift = sneller). Op een telefoon kun je ook de knoppen **Lopen** en terug ingedrukt houden. Tik op het kaartje rechtsboven om daarheen te lopen.
+- Zodra je zelf iets doet, pauzeert de rondleiding; met **Verder** gaat hij door waar hij was.
+- **Iconen** van de ruimte waar je bent (en wat dichtbij is) hangen op hun plek; tik op een lamp of schakelaar om hem aan of uit te zetten.
+- Een deur met een sensor staat open of dicht zoals hij echt is. Ramen zijn glas met een kozijn; je kijkt naar buiten.
+- Sluiten met het kruisje of Esc.
 - Hoe hoog muren en iconen zijn stel je in bij stap 5 → *Telefoon, tablet en 2.5D*: de **echte maat** of een eigen percentage.
 
 ![2.5D op de telefoon, ruimte per ruimte](img/telefoon-25d.png)
