@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b45';
+} from './fps-core.js?v=1.4.0b46';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -745,7 +745,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           // an LED strip: a thin glowing band along the drawn line, lighting the room at a few points along it
           // a strip drawn on a wall line runs just in front of that wall, inside its own room
           // (per point the nearest room: a strip along the wall of two rooms stays whole)
-          const pts = strip.map(([sx, sy]) => nearestInside(M(sx), M(sy), 0.13)), tw = 0.014;
+          let pts = strip.map(([sx, sy]) => nearestInside(M(sx), M(sy), 0.13));
+          const tw = 0.014;
+          // a frame: only its width counts (first to last point) - a U drawn on the plan for "left, top, right" gives the same frame
+          if (['frame', 'frame3'].includes(it.strip_dir) && pts.length > 2) pts = [pts[0], pts[pts.length - 1]];
           // the strip in 3D: lying along the line at its height, standing upright at each point, or a frame all round
           const dir = it.strip_dir, top = Math.max(h + 0.05, Math.min(H - 0.02, stripTop(it)));
           const segs3 = dir === 'up' ? pts.map(([x, z]) => [[x, h, z], [x, top, z]])

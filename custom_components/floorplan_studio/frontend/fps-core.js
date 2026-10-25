@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b45';
+export const VERSION = '1.4.0b46';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1643,12 +1643,12 @@ export function raisedSVG(plan, walls, proj) {
 function stripsSVG(plan, proj) {
   const out = [];
   for (const it of plan.items || []) {
-    const sp = stripPath(it);
+    let sp = stripPath(it);
     if (!sp) continue;
     let pts = sp, w = 1;
     if (proj) {
       const z = Math.min(ownHeight(it) ?? itemHeight(it, null), WALL_H - 0.05) * proj.sc * proj.lift, zt = stripTop(it) * proj.sc * proj.lift;
-      if (it.strip_dir === 'frame' || it.strip_dir === 'frame3') { const a = sp[0], b = sp[sp.length - 1]; pts = [proj.P(a[0], a[1], z), proj.P(a[0], a[1], zt), ...sp.map(([x, y]) => proj.P(x, y, zt)), proj.P(b[0], b[1], zt), proj.P(b[0], b[1], z), ...(it.strip_dir === 'frame' ? sp.slice().reverse().map(([x, y]) => proj.P(x, y, z)) : [])]; }
+      if (it.strip_dir === 'frame' || it.strip_dir === 'frame3') { const a = sp[0], b = sp[sp.length - 1]; sp = [a, b]; pts = [proj.P(a[0], a[1], z), proj.P(a[0], a[1], zt), ...sp.map(([x, y]) => proj.P(x, y, zt)), proj.P(b[0], b[1], zt), proj.P(b[0], b[1], z), ...(it.strip_dir === 'frame' ? sp.slice().reverse().map(([x, y]) => proj.P(x, y, z)) : [])]; }
       else if (it.strip_dir === 'up') {
         // standing strips: an upright line at every point (drawn as one line, there and back)
         pts = sp.flatMap(([x, y]) => [proj.P(x, y, z), proj.P(x, y, zt), proj.P(x, y, z)]);
