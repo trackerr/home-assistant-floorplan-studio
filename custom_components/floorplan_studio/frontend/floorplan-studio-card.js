@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b19';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b19';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b20';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b20';
 
 
 const CSS = `
@@ -58,6 +58,15 @@ const CSS = `
   .stage { isolation: isolate; }   /* icons stack among themselves; the quick window and menus always stay on top */
   .p25 .rinfo .rrows { display: none; }
   .p25 .rinfo { transform: translate(-50%, -50%); text-align: center; }
+  .item.onfurn .bub { opacity: 0; } .item.onfurn .tag { display: none; } .item.onfurn:hover .bub { opacity: .35; }
+  svg.plan .tvglows polygon { fill: rgba(80, 160, 255, .7); filter: url(#fps-stripblur); pointer-events: none; }
+  .item.ringclock .bub { padding: 0; } .item.ringclock .ring { width: 100%; height: 100%; display: block; }
+  .item.ringclock .ring circle { fill: currentColor; opacity: .25; } .item.ringclock.on .bub { background: rgba(10, 12, 16, .85); color: #ddd; }
+  .item.ringclock .ring circle.h { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.6px; } .item.ringclock .ring circle.m { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.25px; } .item.ringclock .ring circle.s { fill: #fff; opacity: .9; }
+  .item.aircon.ac-cool .bub { box-shadow: 0 0 0 2px rgba(90, 170, 255, .9), 0 0 14px rgba(90, 170, 255, .8); animation: fps-blow 2s ease-in-out infinite; }
+  .item.aircon.ac-heat .bub { box-shadow: 0 0 0 2px rgba(255, 140, 60, .9), 0 0 14px rgba(255, 140, 60, .8); animation: fps-blow 2s ease-in-out infinite; }
+  .item.aircon.ac-dry .bub, .item.aircon.ac-fan .bub { box-shadow: 0 0 0 2px rgba(220, 230, 240, .8); animation: fps-blow 2.4s ease-in-out infinite; }
+  @keyframes fps-blow { 50% { box-shadow: 0 0 0 5px rgba(150, 190, 255, .15), 0 0 22px rgba(150, 190, 255, .35); } }
   svg.plan .stalks { transition: opacity .2s; }
   .turning .item, .turning svg.plan .stalks { opacity: var(--fps-turn-op, .1) !important; }   /* 2.5D: only name and temperature, so it stays calm */
   .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
@@ -359,6 +368,7 @@ class FloorplanStudioCard extends HTMLElement {
     clearInterval(this._usageTimer);
     clearTimeout(this._liveTimer);
     clearInterval(this._clock);
+    clearInterval(this._clockTimer); this._clockTimer = 0;
     this._ro?.disconnect();
     clearTimeout(this._roT);
   }
@@ -500,6 +510,8 @@ class FloorplanStudioCard extends HTMLElement {
     this._freeWire(root);
     this._layer = root.querySelector('.items');
     this._items.clear();
+    this._tvl = tvLinks(plan, this._hass);   // TVs that are the TV furniture you drew
+    clearInterval(this._clockTimer); this._clockTimer = 0;
     for (const it of plan.items || []) this._addItem(it);
     this._buildLabels();
     this._glows = new Map();
@@ -579,9 +591,17 @@ class FloorplanStudioCard extends HTMLElement {
     this._place(el, it, st);
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
-    if (kind !== 'sensor') {
+    const ring = ringClock(it, this._hass), ac = isAircon(it, st);
+    if (ac) el.classList.add('aircon');
+    if (this._tvl?.has(it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV: no separate icon
+    if (ring) {
+      // a WLED ring clock: its ring of LEDs, showing the time
+      el.classList.add('ringclock');
+      bub.innerHTML = `<svg viewBox="-12 -12 24 24" class="ring">${Array.from({ length: ring }, (_, i) => { const a = (i / ring) * 2 * Math.PI; return `<circle cx="${(Math.sin(a) * 10).toFixed(2)}" cy="${(-Math.cos(a) * 10).toFixed(2)}" r="${ring > 60 ? 0.55 : 0.8}"/>`; }).join('')}</svg>`;
+      if (!this._clockTimer) this._clockTimer = setInterval(() => this._ringClocks(), 1000);
+    } else if (kind !== 'sensor') {
       // a ceiling lamp gets the ceiling-lamp icon, unless you or Home Assistant chose another one
-      const ic = it.icon || (ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      const ic = it.icon || (ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
       const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
       if (ic) icon.icon = ic;
       bub.appendChild(icon);
@@ -599,6 +619,8 @@ class FloorplanStudioCard extends HTMLElement {
    * dining table), otherwise at its own or its usual height; icons further back go behind the ones in front.
    */
   _place(el, it, st) {
+    const tvf = this._tvl?.get(it.entity_id);
+    if (tvf) it = { ...it, x: safeNumber(tvf.x), y: safeNumber(tvf.y), height: it.height ?? furnHeight(tvf) * 0.75 };   // on the TV furniture
     const p = this._proj, under = p ? furnAt(this._plan, it.x, it.y) : null, own = ownHeight(it) != null;
     // the same height as in the walk-through: your own, or what fits the kind of lamp or device
     const hm = !p ? 0 : deviceHeight(this._plan, it, st);
@@ -635,7 +657,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b19');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b20');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -726,6 +748,41 @@ class FloorplanStudioCard extends HTMLElement {
     if (!this._curtRaf) this._curtRaf = requestAnimationFrame(step);
   }
 
+  /** Air conditioners blow (blue when cooling, orange when heating); linked TVs light up their furniture. */
+  _tvGlow() {
+    const svg = this.shadowRoot.querySelector('svg.plan'), h = this._hass, plan = this._plan;
+    for (const [id, rec] of this._items) {
+      if (!rec.el.classList.contains('aircon')) continue;
+      const m = airconMode(h.states[id]);
+      for (const k of ['cool', 'heat', 'dry', 'fan']) rec.el.classList.toggle(`ac-${k}`, m === k);
+    }
+    if (!svg) return;
+    let g = svg.querySelector('g.tvglows');
+    if (!this._tvl?.size) { g?.remove(); return; }
+    if (!g) { g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', 'tvglows'); svg.insertBefore(g, svg.querySelector('.stalks') || svg.querySelector('.d-scan')); }
+    const out = [], p = this._proj;
+    for (const [id, f] of this._tvl) {
+      const st = h.states[id];
+      if (!st || !['on', 'playing', 'paused', 'idle', 'buffering'].includes(st.state)) continue;
+      const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 6, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 6, fx = safeNumber(f.x), fy = safeNumber(f.y);
+      const z = p ? furnHeight(f) * 0.7 * p.sc * p.lift : 0;
+      const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
+      out.push(`<polygon points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
+    }
+    g.innerHTML = out.join('');
+  }
+  /** WLED ring clocks: light up the LEDs for the hour, minute and second (in the lamp's colour when it is on). */
+  _ringClocks() {
+    const now = new Date();
+    for (const [id, rec] of this._items) {
+      if (!rec.el.classList.contains('ringclock')) continue;
+      const dots = rec.el.querySelectorAll('.ring circle'), n = dots.length, on = isOn(this._hass.states[id]);
+      if (!n) continue;
+      const { hour, minute, second } = ringClockLeds(n, now);
+      dots.forEach((c, i) => c.setAttribute('class', !on ? '' : i === hour ? 'h' : i === minute ? 'm' : i === second ? 's' : ''));
+    }
+  }
+
   _turnTo(rot, tilt) {
     this._turn = { rot: ((rot % 360) + 360) % 360, tilt: Math.max(20, Math.min(80, tilt)) };
     clearTimeout(this._turnGhostT);
@@ -758,6 +815,8 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._config.home) { this._updateHome(force); return; }
     this._fading = false;
     this._curtainsUpdate();
+    this._tvGlow();
+    this._ringClocks();
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       const vis = this._visible(id, rec.it);

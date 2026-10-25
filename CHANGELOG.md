@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Vanzelf herkend:** tv's worden de getekende tv (licht op, geen los icoon), airco's hangen hoog aan de muur en gloeien bij koelen/verwarmen, WLED-klokken tonen hun ledring met de tijd. Ook in de wandeling (scherm, unit, ring).
+- Wandeling: tik op een tv, speaker, airco of gordijn voor info en bediening.
 - **Gordijnen** bij hun raam, geanimeerd open/dicht op de kaart, in 2.5D en in de wandeling (stand uit Home Assistant). Automatisch gekoppeld, instelbaar bij stap 4 (raam en soort: midden, links, rechts, rolgordijn).
 - Plaatsen kent ramen: "op de vensterbank" / "bij het raam" (ook voor ledstrips, langs het raam). AI-hulp: kies eerst een apparaat, dan gaat de vraag daarover.
 - Plaatsen (AI of actie): alleen een nieuwe hoogte laat het apparaat staan waar het staat; een ledstrip verschuift als geheel (lijn en icoon samen) en de AI verplaatst strips alleen als je daar echt om vraagt.

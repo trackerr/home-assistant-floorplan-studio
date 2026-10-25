@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b19';
+export const VERSION = '1.4.0b20';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -811,6 +811,65 @@ export function curtainPanels(plan, it, info, c) {
   return { panels, a: [ax, ay], u, n, L };
 }
 
+/* -------------------------------------------- devices recognised automatically */
+/** An air conditioner (a climate entity that can cool or dry, or is called airco): a unit high on the wall. */
+const AC_RE = /airco|aircon|air ?con|split ?unit|\bac\b|klimaat ?unit/i;
+export function isAircon(it, st) {
+  if (it.entity_id.split('.')[0] !== 'climate' || it.aircon === false) return false;
+  if (it.aircon === true) return true;
+  const modes = st?.attributes?.hvac_modes || [];
+  return modes.includes('cool') || modes.includes('dry') || AC_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
+}
+/** What an air conditioner is doing now: 'cool', 'heat', 'dry', 'fan' or null (off/idle). */
+export function airconMode(st) {
+  if (!st || ['off', 'unavailable', 'unknown'].includes(st.state)) return null;
+  const a = st.attributes?.hvac_action;
+  if (a === 'cooling' || (!a && st.state === 'cool')) return 'cool';
+  if (a === 'heating' || (!a && st.state === 'heat')) return 'heat';
+  if (a === 'drying' || st.state === 'dry') return 'dry';
+  if (a === 'fan' || st.state === 'fan_only') return 'fan';
+  if (a === 'idle') return null;
+  return st.state === 'heat_cool' || st.state === 'auto' ? 'fan' : null;
+}
+/**
+ * A TV (media player that is a TV) standing on a TV you drew in step 3: that piece of furniture is the TV,
+ * so no separate icon is needed. Per TV furniture only the nearest TV entity takes it over.
+ */
+const TV_RE = /\btv\b|televisie|television|bravia|oled|qled/i;
+export function tvLinks(plan, hass) {
+  const out = new Map(), S = planScale(plan) || 70, best = new Map();
+  for (const it of plan.items || []) {
+    if (it.entity_id.split('.')[0] !== 'media_player' || it.tvlink === false) continue;
+    const st = hass?.states[it.entity_id];
+    if (!(st?.attributes?.device_class === 'tv' || TV_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`))) continue;
+    let f = typeof it.tvlink === 'string' ? (plan.furniture || []).find((x) => x.id === it.tvlink) : null, d = 0;
+    if (!f) {
+      let bd = Infinity;
+      for (const x of plan.furniture || []) { if (x.type !== 'tv') continue; const dd = Math.hypot(safeNumber(x.x) - safeNumber(it.x), safeNumber(x.y) - safeNumber(it.y)); if (dd < bd) { bd = dd; f = x; } }
+      if (!f || bd > 2.0 * S) continue;
+      d = bd;
+    }
+    const cur = best.get(f.id);
+    if (!cur || d < cur.d) best.set(f.id, { it, d });
+  }
+  for (const [fid, { it }] of best) out.set(it.entity_id, (plan.furniture || []).find((x) => x.id === fid));
+  return out;
+}
+/** A WLED ring clock (a WLED light called klok/clock): drawn as its ring of LEDs showing the time. */
+export function ringClock(it, hass) {
+  if (it.entity_id.split('.')[0] !== 'light' || it.ringclock === false) return 0;
+  const wled = hass?.entities?.[it.entity_id]?.platform === 'wled';
+  if (!(it.ringclock === true || (wled && /klok|clock/i.test(`${it.entity_id} ${it.name || ''} ${hass?.states[it.entity_id]?.attributes?.friendly_name || ''}`)))) return 0;
+  const n = +hass?.states[it.entity_id.replace('light.', 'sensor.') + '_led_count']?.state;
+  return Number.isFinite(n) && n >= 12 && n <= 240 ? Math.round(n) : 60;
+}
+/** Which LEDs of a ring clock are lit now (index from the top, clockwise): hour, minute, second. */
+export function ringClockLeds(n, now = new Date()) {
+  const s = now.getSeconds(), m = now.getMinutes(), h = now.getHours() % 12;
+  const at = (f) => Math.round(f * n) % n;
+  return { hour: at((h + m / 60) / 12), minute: at((m + s / 60) / 60), second: at(s / 60) };
+}
+
 /**
  * Is this a ceiling lamp? Your own choice in step 4 wins; otherwise the name or Home Assistant's icon
  * gives it away (plafond, ceiling, spot, hanglamp, pendant, downlight, kroonluchter ...).
@@ -875,7 +934,8 @@ export function deviceHeight(plan, it, st) {
   if (own) h = ownHeight(it);
   else {
     const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y)), style = lampStyle(plan, it, st);
-    if (style === 'ceiling') h = WALL_H - 0.12;
+    if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
+    else if (style === 'ceiling') h = WALL_H - 0.12;
     else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;
     else if (style === 'floor') h = 1.5;
     else if (style === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
