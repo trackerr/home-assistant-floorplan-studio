@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b19';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b19';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.3.0b20';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b20';
 
 
 const CSS = `
@@ -368,6 +368,7 @@ class FloorplanStudioCard extends HTMLElement {
   get _theme() { const ent = themeFromEntity(this._hass, this._s); if (ent) return ent; const base = this._config.theme || this._s.theme; return this._config.show_theme_toggle ? this._pref('theme', base) : base; }
   get _realTheme() { return resolveTheme(this._theme, this._hass); }
   get _view25() { return this._pref('view', this._config.view || '2d') === '2.5d'; }
+  get _tilt() { return Math.max(20, Math.min(80, safeNumber(this._pref('tilt', this._s.tilt ?? 50), 50))); }
   get _rot() { return safeNumber(this._pref('rot', this._config.rotation || 0), 0) % 360; }
   /** Where a floor point of the plan ends up on screen (2.5D turns and tilts it), as % of the plan box. */
   _at(x, y, m = 0) { const p = this._proj, [a, b] = p ? p.P(x, y, m * p.sc * p.lift) : [x, y]; return [`${(a / this._plan.width) * 100}%`, `${(b / this._plan.height) * 100}%`]; }
@@ -445,7 +446,8 @@ class FloorplanStudioCard extends HTMLElement {
     this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; moving icons happens in 2D (exact), the 2.5D view follows
-    this._proj = this._view25 && !this._compact && !this._moving ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50), height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
+    this._walls = null; this._view = null;
+    this._proj = this._view25 && !this._compact && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -505,7 +507,7 @@ class FloorplanStudioCard extends HTMLElement {
     });
     root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
     root.querySelector('#view3')?.addEventListener('click', () => { this._setPref('view', this._view25 ? '2d' : '2.5d'); this._zoomRoom = null; this._build(); });
-    root.querySelector('#rot')?.addEventListener('click', () => { this._setPref('rot', String((this._rot + 45) % 360)); this._zoomRoom = null; this._build(); });
+    root.querySelector('#rot')?.addEventListener('click', () => { this._setPref('rot', String(((Math.floor(this._rot / 45 + 0.01) + 1) * 45) % 360)); this._zoomRoom = null; this._build(); });
     root.querySelector('#move')?.addEventListener('click', () => this._toggleMove());
     root.querySelectorAll('[data-floor]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); this._setFloor(b.dataset.floor); }));
     root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
@@ -562,22 +564,7 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
-    // 2.5D: a device over a table, desk or cupboard sits just above it (lamps over the dining table),
-    // otherwise at its own or its usual height
-    const under = this._proj ? furnAt(this._plan, it.x, it.y) : null, own = it.height != null && it.height !== '';
-    const hm = !this._proj ? 0 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
-    [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
-    el._hm = hm;
-    if (this._proj) {
-      // icons further back go behind the ones in front, and a thin line shows where it stands
-      const p = this._proj, base = under ? Math.min(hm, furnHeight(under)) * p.sc * p.lift : 0, z = hm * p.sc * p.lift;
-      const [fx, fy] = p.P(it.x, it.y, base), [, ty] = p.P(it.x, it.y, z);
-      el.style.zIndex = String(10 + Math.round((fy / this._plan.height) * 100));
-      const g = this.shadowRoot.querySelector('svg.plan .stalks');
-      if (g && z - base > 1) {
-        g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}"><ellipse cx="${fx.toFixed(1)}" cy="${fy.toFixed(1)}" rx="${(3.2 * p.s).toFixed(1)}" ry="${(3.2 * p.s * Math.cos((p.tilt * Math.PI) / 180)).toFixed(1)}"/><line x1="${fx.toFixed(1)}" y1="${fy.toFixed(1)}" x2="${fx.toFixed(1)}" y2="${ty.toFixed(1)}"/></g>`);
-      }
-    }
+    this._place(el, it, st);
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
     if (kind !== 'sensor') {
@@ -592,6 +579,53 @@ class FloorplanStudioCard extends HTMLElement {
     this._layer.appendChild(el);
     this._items.set(it.entity_id, { el, it, kind, label, icon: bub.firstChild, st: null });
     if (!st && !it.via) el.style.opacity = '.35';
+  }
+
+  /**
+   * Where an icon goes. 2.5D: a device over a table, desk or cupboard sits just above it (lamps over the
+   * dining table), otherwise at its own or its usual height; icons further back go behind the ones in front.
+   */
+  _place(el, it, st) {
+    const p = this._proj, under = p ? furnAt(this._plan, it.x, it.y) : null, own = it.height != null && it.height !== '';
+    const hm = !p ? 0 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
+    [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
+    el._hm = hm;
+    if (!p) return;
+    const base = under ? Math.min(hm, furnHeight(under)) * p.sc * p.lift : 0, z = hm * p.sc * p.lift;
+    const [fx, fy] = p.P(it.x, it.y, base), [, ty] = p.P(it.x, it.y, z);
+    el.style.zIndex = String(10 + Math.round((fy / this._plan.height) * 100));
+    // optional thin line from the floor up to the icon
+    const g = this._s.show_stalks && this.shadowRoot.querySelector('svg.plan .stalks');
+    if (g && z - base > 1) {
+      g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}" style="${el.classList.contains('hidden') ? 'display:none' : ''}"><ellipse cx="${fx.toFixed(1)}" cy="${fy.toFixed(1)}" rx="${(3.2 * p.s).toFixed(1)}" ry="${(3.2 * p.s * Math.cos((p.tilt * Math.PI) / 180)).toFixed(1)}"/><line x1="${fx.toFixed(1)}" y1="${fy.toFixed(1)}" x2="${fx.toFixed(1)}" y2="${ty.toFixed(1)}"/></g>`);
+    }
+  }
+
+  /** Turn or tilt the 2.5D view without rebuilding the card (used while dragging to turn it). */
+  _reproject(rot, tilt) {
+    const plan = this._plan, svg = this.shadowRoot.querySelector('svg.plan');
+    if (!svg || !this._proj) return;
+    this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) });
+    this._view = { rot, tilt };
+    svg.querySelector('.ground')?.setAttribute('transform', `matrix(${this._proj.m.map((v) => +v.toFixed(5)).join(' ')})`);
+    const raised = svg.querySelector('.raised');
+    if (raised) { raised.insertAdjacentHTML('afterend', raisedSVG(plan, this._walls || (this._walls = computeWalls(plan.rooms)), this._proj)); raised.remove(); }
+    const stalks = svg.querySelector('.stalks');
+    if (stalks) stalks.innerHTML = '';
+    for (const rec of this._items.values()) { rec.stalk = null; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
+    this.shadowRoot.querySelectorAll('.rinfo').forEach((d) => { if (d._fx != null) [d.style.left, d.style.top] = this._at(d._fx, d._fy); });
+    this.shadowRoot.querySelectorAll('.opening[data-entity]').forEach((g) => g.classList.toggle('isopen', ['on', 'open', 'opening'].includes(this._hass.states[g.dataset.entity]?.state)));
+  }
+  _turnTo(rot, tilt) {
+    this._turn = { rot: ((rot % 360) + 360) % 360, tilt: Math.max(20, Math.min(80, tilt)) };
+    if (this._turnRaf) return;
+    this._turnRaf = requestAnimationFrame(() => { this._turnRaf = 0; this._reproject(this._turn.rot, this._turn.tilt); });
+  }
+  _turnDone() {
+    if (!this._turn) return;
+    this._setPref('rot', String(Math.round(this._turn.rot)));
+    this._setPref('tilt', String(Math.round(this._turn.tilt)));
+    this._turn = null;
   }
 
   /* ---------------------------------------------------------- update */
@@ -779,7 +813,7 @@ class FloorplanStudioCard extends HTMLElement {
       const [x, y] = room.label ? [room.label.x, room.label.y] : labelSpot(plan, room, fs0, rows);
       const d = document.createElement('div');
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
-      [d.style.left, d.style.top] = this._at(x, y);
+      [d.style.left, d.style.top] = this._at(x, y); d._fx = x; d._fy = y;
       d.style.setProperty('--fs', `${((fs * (this._proj ? Math.min(1, this._proj.s * 1.1) : 1)) / plan.width) * 100}cqw`);
       d.innerHTML = '<div class="rn"><span></span><span class="pd"><ha-icon icon="mdi:motion-sensor"></ha-icon></span></div><div class="rh"></div><div class="rrows"></div>';
       d.querySelector('.rn span').textContent = room.name || '';
@@ -1552,14 +1586,31 @@ class FloorplanStudioCard extends HTMLElement {
     btn.addEventListener('click', (ev) => { ev.stopPropagation(); this._freeSet(1, 0, 0); });
     vp.appendChild(btn);
     const pts = new Map();
-    let pinch = null, pan = null;
+    let pinch = null, pan = null, turn = null;
     const allowed = () => !this._zoomRoom && !this._moving && !this._compact;
+    // 2.5D, mouse: right button (or Shift) + drag turns the house left/right and tilts it up/down
+    vp.addEventListener('contextmenu', (ev) => { if (this._proj) ev.preventDefault(); });
     vp.addEventListener('pointerdown', (ev) => {
-      if (!allowed() || ev.target.closest?.('.freereset')) return;
+      if (!allowed() || !this._proj || ev.pointerType !== 'mouse' || !(ev.button === 2 || (ev.button === 0 && ev.shiftKey))) return;
+      const v = this._view || { rot: this._rot, tilt: this._tilt };
+      turn = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, ...v };
+      vp.setPointerCapture(ev.pointerId); ev.preventDefault(); ev.stopPropagation();
+    }, { capture: true });
+    vp.addEventListener('pointermove', (ev) => {
+      if (!turn || ev.pointerId !== turn.id) return;
+      this._turnTo(turn.rot + (ev.clientX - turn.x0) * 0.4, turn.tilt - (ev.clientY - turn.y0) * 0.25);
+      this._freeDragged = Date.now(); ev.stopPropagation();
+    }, { capture: true });
+    const turnEnd = (ev) => { if (turn && ev.pointerId === turn.id) { turn = null; this._turnDone(); this._freeDragged = Date.now(); } };
+    vp.addEventListener('pointerup', turnEnd, { capture: true });
+    vp.addEventListener('pointercancel', turnEnd, { capture: true });
+    vp.addEventListener('pointerdown', (ev) => {
+      if (turn || !allowed() || ev.target.closest?.('.freereset')) return;
       pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
-        pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), ...this._free, cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2 };
+        const v = this._view || { rot: this._rot, tilt: this._tilt };
+        pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), ...this._free, cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), rot: v.rot, tilt: v.tilt };
         pan = null;
       } else if (pts.size === 1 && this._free.s > 1) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
     }, { capture: true });
@@ -1572,6 +1623,13 @@ class FloorplanStudioCard extends HTMLElement {
         const s = Math.max(1, Math.min(4, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d));
         const px = pinch.cx - r.left, py = pinch.cy - r.top;       // keep the point between the fingers in place
         this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
+        // 2.5D, touch: twist two fingers to turn, move them up or down together to tilt
+        if (this._proj) {
+          let da = (Math.atan2(b[1] - a[1], b[0] - a[0]) - pinch.ang) * 180 / Math.PI;
+          da = ((da + 540) % 360) - 180;
+          const dy = (a[1] + b[1]) / 2 - pinch.cy;
+          this._turnTo(pinch.rot + da, pinch.tilt - dy * 0.3);
+        }
         this._freeDragged = Date.now();
       } else if (pan) {
         const dx = ev.clientX - pan.x0, dy = ev.clientY - pan.y0;
@@ -1581,7 +1639,7 @@ class FloorplanStudioCard extends HTMLElement {
         this._freeDragged = Date.now();
       }
     }, { capture: true });
-    const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) pan = null; };
+    const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) { if (pinch) this._turnDone(); pinch = null; } if (!pts.size) pan = null; };
     vp.addEventListener('pointerup', up, { capture: true });
     vp.addEventListener('pointercancel', up, { capture: true });
     vp.addEventListener('wheel', (ev) => {

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b19';
+export const VERSION = '1.3.0b20';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -589,6 +589,7 @@ export const DEFAULT_SETTINGS = {
   temp_min: 17, temp_max: 24,
   presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
   motion_fade: 5,
+  show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons           // minutes the motion icon slowly fades out after the last movement (0 = off)
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
   alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
@@ -690,15 +691,19 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
   const th = (rot * Math.PI) / 180, t = (tilt * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), ct = Math.cos(t), st = Math.sin(t);
   const lift = height === 'real' ? LIFT : LIFT * Math.max(0.3, Math.min(2, safeNumber(height, 80) / 100));
   const sc = planScale(plan) || 70, wallH = 2.6 * sc * lift;
-  const raw = (x, y, z = 0) => { const xr = co * (x - cx) - si * (y - cy), yr = si * (x - cx) + co * (y - cy); return [xr, yr * ct - z * st]; };
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const q of plan.rooms.flatMap((r) => r.rects.map(norm))) {
-    for (const [x, y] of [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]]) {
-      for (const z of [0, wallH]) { const [a, b] = raw(x, y, z); x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
-    }
-  }
-  if (!Number.isFinite(x0)) { x0 = -cx; x1 = cx; y0 = -cy; y1 = cy; }
-  const pad = W * 0.03, s = Math.min((W - 2 * pad) / Math.max(1, x1 - x0), (H - 2 * pad) / Math.max(1, y1 - y0));
+  const rawAt = (c, n) => (x, y, z = 0) => { const xr = c * (x - cx) - n * (y - cy), yr = n * (x - cx) + c * (y - cy); return [xr, yr * ct - z * st]; };
+  const raw = rawAt(co, si);
+  const corners = plan.rooms.flatMap((r) => r.rects.map(norm)).flatMap((q) => [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]]);
+  const box = (f) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of corners) for (const z of [0, wallH]) { const [a, b] = f(x, y, z); x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
+    return Number.isFinite(x0) ? [x0, y0, x1, y1] : [-cx, -cy, cx, cy];
+  };
+  const pad = W * 0.03, fit = ([a0, b0, a1, b1]) => Math.min((W - 2 * pad) / Math.max(1, a1 - a0), (H - 2 * pad) / Math.max(1, b1 - b0));
+  const [x0, y0, x1, y1] = box(raw);
+  // the same size at every angle (the smallest fit over a full turn), so turning the house doesn't zoom in and out
+  let s = Infinity;
+  for (let d = 0; d < 180; d += 15) { const r = (d * Math.PI) / 180; s = Math.min(s, fit(box(rawAt(Math.cos(r), Math.sin(r))))); }
   const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
   const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
   const [e, f] = P(0, 0), [a1, b1] = P(1, 0), [c1, d1] = P(0, 1);
@@ -709,7 +714,7 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
-function raisedSVG(plan, walls, proj) {
+export function raisedSVG(plan, walls, proj) {
   const { P, dz, s, sc, wallH } = proj, parts = [];
   const pts = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const up = ([x, y], h) => [x, y + dz(h)];
@@ -745,7 +750,8 @@ function raisedSVG(plan, walls, proj) {
     const bits = [];
     for (const pc of pieces) {
       const n = Math.max(1, Math.ceil((pc.hi - pc.lo) / 14));
-      for (let i = 0; i < n; i++) bits.push({ ...pc, lo: pc.lo + ((pc.hi - pc.lo) * i) / n, hi: pc.lo + ((pc.hi - pc.lo) * (i + 1)) / n });
+      // each bit overlaps the next a little, so no thin seams show between them
+      for (let i = 0; i < n; i++) bits.push({ ...pc, lo: pc.lo + ((pc.hi - pc.lo) * i) / n, hi: Math.min(pc.hi, pc.lo + ((pc.hi - pc.lo) * (i + 1)) / n + (pc.win ? 0 : 1.2)) });
     }
     for (const pc of bits) {
       const A = hor ? P(pc.lo, w.y1) : P(w.x1, pc.lo), B = hor ? P(pc.hi, w.y1) : P(w.x1, pc.hi);
@@ -901,7 +907,7 @@ export const PLAN_CSS = `
   .w3.inner .w3face { fill: color-mix(in srgb, var(--fps-wall-inner) 30%, var(--fps-bg)); }
   .w3cap { stroke: var(--fps-wall); stroke-linecap: square; }
   .w3.inner .w3cap { stroke: var(--fps-wall-inner); }
-  .w3.win3 .w3face { fill: rgba(120, 190, 255, .28); stroke: rgba(160, 210, 255, .8); }
+  .w3.win3 .w3face { fill: rgba(120, 190, 255, .28); stroke: none; }
   .w3.win3 .w3cap { stroke: rgba(160, 210, 255, .9); stroke-width: 2 !important; }
   .w3.door3 .w3face { fill: var(--fps-door, #888); fill-opacity: .4; }
   .w3.door3 .w3cap { stroke: var(--fps-door, #888); stroke-width: 2 !important; }
