@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b38';
+} from './fps-core.js?v=1.4.0b39';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -337,21 +337,34 @@ function buildNav(plan, world, S, extra = []) {
     spot(r) {
       const ri = rooms.indexOf(r), q = r.rects.map(norm).sort((p, s2) => (s2[2] - s2[0]) * (s2[3] - s2[1]) - (p[2] - p[0]) * (p[3] - p[1]))[0];
       const mx = (q[0] + q[2]) / 2 / S, mz = (q[1] + q[3]) / 2 / S;
+      // how far you can see from a spot, and the best direction (walls and tall furniture block the view)
+      const view = (x, z, step = 2) => {
+        let look = 0, far = -1;
+        for (let a = 0; a < 24; a += step) {
+          const ang = (a / 24) * 2 * Math.PI, dx = Math.sin(ang), dz = Math.cos(ang);
+          let d = 0;
+          for (; d < 12; d += g) { const [ii, jj] = cellOf(x + dx * d, z + dz * d); if (wall[jj * nx + ii] || tall[jj * nx + ii]) break; }
+          if (d > far) { far = d; look = ang; }
+        }
+        return { look, far };
+      };
+      // stand where you overlook the room (near a side, looking across it) - that feels much roomier than the middle -
+      // with a bit of space around you
       let best = -1, bs = -Infinity;
       for (let k = 0; k < N; k++) {
+        if (room[k] !== ri || blocked[k] || clear[k] < 3) continue;
+        const i = k % nx, j = (k - i) / nx;
+        if ((i + j) % 2) continue;   // every other cell is plenty
+        const sc = view(cx(i), cz(j), 3).far + 0.1 * Math.min(clear[k], 5) - 0.02 * Math.hypot(cx(i) - mx, cz(j) - mz);
+        if (sc > bs) { bs = sc; best = k; }
+      }
+      if (best < 0) for (let k = 0; k < N; k++) {
         if (room[k] !== ri || blocked[k]) continue;
         const i = k % nx, j = (k - i) / nx, sc = Math.min(clear[k], 7) - 0.12 * Math.hypot(cx(i) - mx, cz(j) - mz) / g;
         if (sc > bs) { bs = sc; best = k; }
       }
       const i = best >= 0 ? best % nx : 0, j = best >= 0 ? (best - i) / nx : 0, x = best >= 0 ? cx(i) : mx, z = best >= 0 ? cz(j) : mz;
-      let look = 0, far = -1;
-      for (let a = 0; a < 24; a++) {
-        const ang = (a / 24) * 2 * Math.PI, dx = Math.sin(ang), dz = Math.cos(ang);
-        let d = 0;
-        for (; d < 12; d += g) { const [ii, jj] = cellOf(x + dx * d, z + dz * d); if (wall[jj * nx + ii] || tall[jj * nx + ii]) break; }
-        if (d > far) { far = d; look = ang; }
-      }
-      return { x, z, look };
+      return { x, z, look: view(x, z, 1).look };
     },
   };
 }
@@ -1749,9 +1762,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     } catch (e) { showRoom(null, T.save_err, String(e?.message || e)); } finally { bt.disabled = false; }
   });
 
-  let fov = (70 * Math.PI) / 180;
+  // how wide you see: a fixed width (like in games), so a narrow screen or a small card still feels roomy;
+  // the height follows the screen shape. Ctrl + scroll wheel / pinching zooms (narrower = closer).
+  let hfov = (100 * Math.PI) / 180, fov = (70 * Math.PI) / 180;
+  const fitFov = () => {
+    const r = canvas.getBoundingClientRect(), asp = r.width && r.height ? r.width / r.height : 1.6;
+    fov = Math.max((38 * Math.PI) / 180, Math.min((100 * Math.PI) / 180, 2 * Math.atan(Math.tan(hfov / 2) / asp)));
+  };
   // Ctrl + scroll wheel (or pinching a touchpad / two fingers) zooms the room itself, not the page or the icons
-  const setZoom = (k) => { fov = Math.max((25 * Math.PI) / 180, Math.min((95 * Math.PI) / 180, fov * k)); };
+  const setZoom = (k) => { hfov = Math.max((30 * Math.PI) / 180, Math.min((120 * Math.PI) / 180, hfov * k)); fitFov(); };
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (ev.ctrlKey || ev.metaKey) { setZoom(Math.exp(ev.deltaY * 0.0012)); return; }
@@ -1763,11 +1782,11 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   // two fingers on a phone or tablet: pinch to zoom
   const touches = new Map();
   let pinch0 = null;
-  canvas.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'touch') { touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch0 = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), fov }; drag = null; } } });
+  canvas.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'touch') { touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch0 = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), hfov }; drag = null; } } });
   canvas.addEventListener('pointermove', (ev) => {
     if (!touches.has(ev.pointerId)) return;
     touches.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    if (pinch0 && touches.size === 2) { const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); fov = pinch0.fov; setZoom(pinch0.d / Math.max(20, d)); }
+    if (pinch0 && touches.size === 2) { const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); hfov = pinch0.hfov; setZoom(pinch0.d / Math.max(20, d)); }
   });
   const touchEnd = (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch0 = null; };
   canvas.addEventListener('pointerup', touchEnd); canvas.addEventListener('pointercancel', touchEnd);
@@ -1901,6 +1920,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     const eye = [cam.x, eyeY(), cam.z], f = fwd();
+    fitFov();
     const VP = mul(perspective(fov, w / h, 0.05, 200), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
     gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
     lastVP = VP;

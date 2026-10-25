@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling voelt ruimer: een vaste, brede kijkhoek (100° in de breedte, zoals in games), dus ook op een telefoon of in een kleine kaart geen tunnelvisie; en in elke ruimte sta je op de plek met het verste zicht, aan de rand en over de ruimte heen kijkend, in plaats van in het midden.
 - **WLED-ambilight live** rond de tv: met 4 segmenten worden dat links, boven, rechts en onder (zoals je naar de tv kijkt), elk met zijn eigen leds live; anders verdeeld over de randen. Op de kaart gloeit de tv in de gemiddelde kleur; in 2.5D als een lijst van licht rondom het scherm. Uit of offline = gewoon de tv.
 - **Hoort bij** (stap 4): een lamp koppel je zelf aan een tv (ambilight, ook een HDMI-syncbox) of aan speakerboxen; een mediaspeler aan een getekende tv. Automatisch koppelen gebeurt alleen nog binnen dezelfde ruimte, en een syncbox telt nooit als speakerbox. Een HDMI-/sync-box wordt vanzelf de ambilight van de tv in zijn ruimte; kies je bij *Hoort bij* een tv of box, dan vervalt een getekende lijn.
 - Wandeling: alles aan de muur (matrix, thermostaat, wandlampen, deurbel, klok, airco…) hangt nu op het muuroppervlak in plaats van in een dikke buitenmuur. Een WLED-matrix toont zijn pixels (uit = een zacht raster); het licht van een live WLED knippert niet meer tussen zijn ingestelde kleur en de live kleur.
