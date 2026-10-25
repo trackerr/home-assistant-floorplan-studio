@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b25';
+export const VERSION = '1.3.0b26';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -715,10 +715,11 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
 /** Furniture as a few solid pieces for 2.5D (local units around its centre; z in metres). */
-function furnModel(f) {
+function furnModel(f, spin = 0) {
   const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x0 = -w / 2, y0 = -h / 2;
   const R = (a, b, c, d, z0, z1, cls) => ({ poly: [[x0 + a, y0 + b], [x0 + c, y0 + b], [x0 + c, y0 + d], [x0 + a, y0 + d]], z0, z1, cls });
-  const C = (cx, cy, rx, ry, z0, z1, cls, k = 16) => ({ poly: Array.from({ length: k }, (_, i) => [cx + rx * Math.cos((i * 2 * Math.PI) / k), cy + ry * Math.sin((i * 2 * Math.PI) / k)]), z0, z1, cls });
+  // round shapes: smooth, with their corners kept still towards the viewer (spin), so turning the house doesn't make them twirl
+  const C = (cx, cy, rx, ry, z0, z1, cls, k = 24) => ({ poly: Array.from({ length: k }, (_, i) => { const a = (i * 2 * Math.PI) / k + spin; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; }), z0, z1, cls });
   const legs = (z1, t = 4) => [[t, t], [w - 2 * t, t], [w - 2 * t, h - 2 * t], [t, h - 2 * t]].map(([a, b]) => R(a, b, a + t, b + t, 0, z1));
   const chair = (cx, cy, cw, cs, flip) => [R(cx - x0 - cw / 2, cy - y0 - cs / 2, cx - x0 + cw / 2, cy - y0 + cs / 2, 0, 0.46, 'soft'),
     flip ? R(cx - x0 - cw / 2, cy - y0 + cs / 2 - 3, cx - x0 + cw / 2, cy - y0 + cs / 2, 0.46, 0.9, 'soft') : R(cx - x0 - cw / 2, cy - y0 - cs / 2, cx - x0 + cw / 2, cy - y0 - cs / 2 + 3, 0.46, 0.9, 'soft')];
@@ -739,22 +740,22 @@ function furnModel(f) {
     }
     case 'round': {
       const out = [C(0, 0, 5, 5, 0, 0.7), C(0, 0, w / 2, h / 2, 0.7, 0.76)];
-      for (let i = 0; i < 4; i++) { const ang = (i * Math.PI) / 2 + Math.PI / 4; out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft', 10)); }
+      for (let i = 0; i < 4; i++) { const ang = (i * Math.PI) / 2 + Math.PI / 4; out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
       return out;
     }
-    case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft', 12)];
+    case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft')];
     case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.2, h * 0.2, w * 0.2 + Math.min(60, w / 4), h * 0.8, 0.9, 0.9, 'dark')];
     case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
     case 'bath': return [R(0, 0, w, h, 0, 0.58), R(8, 8, w - 8, h - 8, 0.58, 0.58, 'dark')];
     case 'shower': return [R(0, 0, w, h, 0, 0.05), R(0, 0, w, 1.5, 0.05, 2, 'glass'), R(0, 0, 1.5, h, 0.05, 2, 'glass')];
-    case 'toilet': return [R(0, 0, w, h * 0.3, 0, 0.8), C(0, y0 + h * 0.3 + (h * 0.7) / 2, w / 2 - 2, (h * 0.7) / 2, 0, 0.42, '', 14)];
+    case 'toilet': return [R(0, 0, w, h * 0.3, 0, 0.8), C(0, y0 + h * 0.3 + (h * 0.7) / 2, w / 2 - 2, (h * 0.7) / 2, 0, 0.42, '')];
     case 'stairs': {
       const k = Math.max(3, Math.round(h / 26)), out = [];
       for (let i = 0; i < k; i++) out.push(R(0, (i * h) / k, w, ((i + 1) * h) / k, 0, (2.4 * (k - i)) / k));
       return out;
     }
     case 'tv': return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
-    case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot', 10), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant', 10)];
+    case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot'), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant')];
     default: return [R(0, 0, w, h, 0, FURN_HEIGHT[f.type] || 0.8)];
   }
 }
@@ -813,7 +814,7 @@ export function raisedSVG(plan, walls, proj) {
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
     const zs = fh / (FURN_HEIGHT[f.type] || fh);   // an own height stretches the whole piece
     const toP = ([x, y], z) => { const p = P(fx + x * cr - y * sr, fy + x * sr + y * cr); return [p[0], p[1] + dz(z * zs * sc * proj.lift)]; };
-    for (const pr of furnModel(f)) {
+    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180))) {
       const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
       const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
       const sides = [];
