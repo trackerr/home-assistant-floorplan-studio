@@ -2,13 +2,17 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea,
-} from './fps-core.js?v=1.4.0b2';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
+} from './fps-core.js?v=1.4.0b3';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
+const FURN_NAME = {
+  en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
+  nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
+};
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag devices and furniture to move them · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep apparaten en meubels om ze te verplaatsen · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -70,7 +74,7 @@ class Mesh {
 }
 
 /** Everything that stays put: floors, ceilings, walls with their doors and windows, furniture. */
-function buildWorld(plan, hass) {
+function buildWorld(plan, hass, selFurn = null) {
   const S = planScale(plan) || 70, M = (v) => v / S;
   const solid = new Mesh(), glass = new Mesh(), blockers = [], seeThrough = [];
   const rooms = plan.rooms || [];
@@ -150,7 +154,8 @@ function buildWorld(plan, hass) {
       const poly = pr.poly.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
       const y0 = pr.z0 * zs, y1 = Math.max(pr.z1 * zs, y0 + 0.004);
       if (pr.cls === 'glass') { glass.prism(poly, y0, y1, COL.glass); continue; }
-      const col = COL[pr.cls === 'soft' ? 'soft' : pr.cls === 'dark' ? 'dark' : pr.cls === 'pot' ? 'pot' : pr.cls === 'plant' ? 'plant' : FURN_COL[f.type] || 'woodF'];
+      let col = COL[pr.cls === 'soft' ? 'soft' : pr.cls === 'dark' ? 'dark' : pr.cls === 'pot' ? 'pot' : pr.cls === 'plant' ? 'plant' : FURN_COL[f.type] || 'woodF'];
+      if (f.id === selFurn) col = col.map((v, i) => v * 0.45 + [1, 0.72, 0.35][i] * 0.55);   // picked while editing
       solid.prism(poly, y0, y1, col);
     }
   }
@@ -200,38 +205,17 @@ function buildGraph(plan, S) {
   return { edges, entrance, spot };
 }
 
-/** Rooms in between, as points to walk through (each door: just before it, just after it). */
-function roomPath(graph, from, to) {
-  if (from === to) return [];
-  const prev = new Map([[from, null]]), queue = [from];
-  while (queue.length) {
-    const r = queue.shift();
-    if (r === to) break;
-    for (const e of graph.edges) {
-      const n = e.a === r ? e.b : e.b === r ? e.a : null;
-      if (n && !prev.has(n)) { prev.set(n, { r, e }); queue.push(n); }
-    }
-  }
-  if (!prev.has(to)) return null;
-  const steps = [];
-  for (let r = to; prev.get(r); r = prev.get(r).r) {
-    const { r: p, e } = prev.get(r);
-    steps.unshift(...(e.a === p ? [e.pa, e.pb] : [e.pb, e.pa]).map(([x, z]) => ({ x, z })));
-  }
-  return steps;
-}
-
 /**
  * A fine grid over the house for walking: walls, closed doors and furniture are in the way.
  * find() gives a short path of points around them (A* on the grid, then straightened).
  */
-function buildNav(plan, world, S) {
+function buildNav(plan, world, S, extra = []) {
   const g = 0.15, rooms = plan.rooms || [];
   const qs = rooms.flatMap((r) => r.rects.map(norm));
   if (!qs.length) return null;
   const x0 = Math.min(...qs.map((q) => q[0])) / S - 0.3, z0 = Math.min(...qs.map((q) => q[1])) / S - 0.3;
   const nx = Math.ceil((Math.max(...qs.map((q) => q[2])) / S + 0.3 - x0) / g), nz = Math.ceil((Math.max(...qs.map((q) => q[3])) / S + 0.3 - z0) / g);
-  const N = nx * nz, wall = new Uint8Array(N), blocked = new Uint8Array(N), room = new Int16Array(N).fill(-1);
+  const N = nx * nz, wall = new Uint8Array(N), blocked = new Uint8Array(N), tall = new Uint8Array(N), room = new Int16Array(N).fill(-1);
   const cx = (i) => x0 + (i + 0.5) * g, cz = (j) => z0 + (j + 0.5) * g;
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const r = roomAt(rooms, cx(i) * S, cz(j) * S);
@@ -254,8 +238,14 @@ function buildNav(plan, world, S) {
     const j0 = Math.max(0, Math.floor((Math.min(...pts.map((p) => p[1])) - pad - z0) / g)), j1 = Math.min(nz - 1, Math.floor((Math.max(...pts.map((p) => p[1])) + pad - z0) / g));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const dx = cx(i) - fx / S, dz = cz(j) - fy / S, lx = dx * cr - dz * sr, lz = dx * sr + dz * cr;
-      if (Math.abs(lx) <= w / S + pad && Math.abs(lz) <= h / S + pad) blocked[j * nx + i] = 1;
+      if (Math.abs(lx) <= w / S + pad && Math.abs(lz) <= h / S + pad) { blocked[j * nx + i] = 1; if (furnHeight(f) > 1.4 && Math.abs(lx) <= w / S && Math.abs(lz) <= h / S) tall[j * nx + i] = 1; }
     }
+  }
+  // standing lamps and the like: round things on the floor (x, z, radius in metres)
+  for (const [ex, ez, er] of extra) {
+    for (let j = Math.max(0, Math.floor((ez - er - 0.12 - z0) / g)); j <= Math.min(nz - 1, Math.floor((ez + er + 0.12 - z0) / g)); j++)
+      for (let i = Math.max(0, Math.floor((ex - er - 0.12 - x0) / g)); i <= Math.min(nx - 1, Math.floor((ex + er + 0.12 - x0) / g)); i++)
+        if (Math.hypot(cx(i) - ex, cz(j) - ez) <= er + 0.12) blocked[j * nx + i] = 1;
   }
   // how far every free cell is from the nearest obstacle (for good places to stand)
   const clear = new Float32Array(N).fill(1e9), q0 = [];
@@ -269,6 +259,8 @@ function buildNav(plan, world, S) {
       if (clear[n] > clear[k] + 1) { clear[n] = clear[k] + 1; q0.push(n); }
     }
   }
+  const comfy = new Uint8Array(N);
+  for (let k = 0; k < N; k++) comfy[k] = clear[k] < 1.5 ? 1 : 0;
   const cellOf = (x, z) => [Math.max(0, Math.min(nx - 1, Math.floor((x - x0) / g))), Math.max(0, Math.min(nz - 1, Math.floor((z - z0) / g)))];
   const free = (k, arr = blocked) => k >= 0 && k < N && !arr[k];
   /** The nearest free cell to a point. */
@@ -312,7 +304,7 @@ function buildNav(plan, world, S) {
         const n = jj * nx + ii;
         if (arr[n] || (di && dj && (arr[j * nx + ii] || arr[jj * nx + i]))) continue;
         // keep a little away from walls and furniture where there is room
-        const cost = gs[k] + c * (1 + 0.6 / (1 + Math.min(clear[n], 6)));
+        const cost = gs[k] + c * (1 + 2 / (1 + Math.min(clear[n], 6)));
         if (cost < gs[n]) { gs[n] = cost; from[n] = k; push([cost + H(n), n]); }
       }
     }
@@ -326,7 +318,9 @@ function buildNav(plan, world, S) {
     let cur = [ax, az], idx = 0;
     while (idx < pts.length - 1) {
       let best = idx + 1;
-      for (let k = pts.length - 1; k > idx + 1; k--) if (lineFree(cur[0], cur[1], pts[k][0], pts[k][1], arr)) { best = k; break; }
+      // prefer straight stretches that keep some room from walls and furniture; in tight spots, whatever fits
+      for (let k = pts.length - 1; k > idx + 1; k--) if (lineFree(cur[0], cur[1], pts[k][0], pts[k][1], comfy)) { best = k; break; }
+      if (best === idx + 1) for (let k = pts.length - 1; k > idx + 1; k--) if (lineFree(cur[0], cur[1], pts[k][0], pts[k][1], arr)) { best = k; break; }
       out.push({ x: pts[best][0], z: pts[best][1] });
       cur = pts[best]; idx = best;
     }
@@ -351,7 +345,7 @@ function buildNav(plan, world, S) {
       for (let a = 0; a < 24; a++) {
         const ang = (a / 24) * 2 * Math.PI, dx = Math.sin(ang), dz = Math.cos(ang);
         let d = 0;
-        for (; d < 12; d += g) { const [ii, jj] = cellOf(x + dx * d, z + dz * d); if (wall[jj * nx + ii]) break; }
+        for (; d < 12; d += g) { const [ii, jj] = cellOf(x + dx * d, z + dz * d); if (wall[jj * nx + ii] || tall[jj * nx + ii]) break; }
         if (d > far) { far = d; look = ang; }
       }
       return { x, z, look };
@@ -428,6 +422,19 @@ button ha-icon { --mdc-icon-size: 22px; }
 .bar { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 8px; pointer-events: none; }
 .bar > * { pointer-events: auto; }
 .hint { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); max-width: calc(100% - 32px); text-align: center; padding: 6px 12px; border-radius: 10px; background: rgba(0,0,0,.5); font-size: 13px; transition: opacity 1s; }
+.sheet { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); box-sizing: border-box; padding: 12px 14px; border-radius: 16px; background: rgba(15,18,24,.85); backdrop-filter: blur(8px); display: none; }
+.sheet.show { display: block; }
+.sheet b { display: block; font-size: 15px; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.sheet .row span { min-width: 64px; opacity: .85; }
+.sheet button { border: 0; border-radius: 12px; background: rgba(255,255,255,.12); color: #fff; height: 36px; min-width: 36px; padding: 0 12px; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.sheet button.pri { background: rgba(255,180,90,.95); color: #1a1208; font-weight: 600; }
+.sheet small { display: block; margin-top: 6px; opacity: .75; }
+.editing canvas.gl { cursor: default; }
+.editing .wi .b { cursor: grab; outline: 2px dashed rgba(255,190,110,.8); outline-offset: 3px; }
+.wi.sel .b { outline: 3px solid #ffbe6e; outline-offset: 3px; }
+.badge { padding: 6px 12px; border-radius: 12px; background: rgba(255,180,90,.95); color: #1a1208; font-weight: 700; display: none; }
+.editing .badge { display: inline-block; }
 .msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; }
 .touch .bar .tw { display: inline-flex; } .bar .tw { display: none; }
 @media (max-width: 560px) { .map { width: 120px !important; height: auto !important; } .room b { font-size: 15px; } }
@@ -437,24 +444,27 @@ button ha-icon { --mdc-icon-size: 22px; }
  * Open the walk-through on top of the page. host = the card (for more-info and toggling).
  * Returns { setHass, close }.
  */
-export function openWalk(host, { plan, hass, onClose }) {
+export function openWalk(host, { plan: original, hass, onClose, canEdit = false }) {
+  let plan = JSON.parse(JSON.stringify(original));   // changes stay here until you press Save
   const lang = ((hass?.locale?.language || hass?.language || 'en').slice(0, 2) === 'nl') ? 'nl' : 'en', T = TXT[lang];
   const wrap = document.createElement('div');
   wrap.className = 'fps-walk-host';
   const root = wrap.attachShadow({ mode: 'open' });
   root.innerHTML = `<style>${CSS}</style><div class="wk${matchMedia('(pointer: coarse)').matches ? ' touch' : ''}">
     <canvas class="gl"></canvas><div class="icons"></div>
-    <div class="top"><button class="x" id="close" title="${T.close}"><ha-icon icon="mdi:close"></ha-icon></button><div class="room"><b></b><small></small></div></div>
+    <div class="top"><button class="x" id="close" title="${T.close}"><ha-icon icon="mdi:close"></ha-icon></button><div class="room"><b></b><small></small></div><span class="badge">${T.edit}</span></div>
     <canvas class="map"></canvas>
-    <div class="hint">${T.hint}</div>
-    <div class="bar"><button class="tw" id="back"><ha-icon icon="mdi:arrow-down"></ha-icon></button><button id="tour" class="active"><ha-icon icon="mdi:pause"></ha-icon><span>${T.pause}</span></button><button class="tw" id="fwd"><ha-icon icon="mdi:arrow-up"></ha-icon>${T.fwd}</button></div>
+    <div class="hint">${T.hint}</div><div class="sheet"></div>
+    <div class="bar"><button class="tw" id="back"><ha-icon icon="mdi:arrow-down"></ha-icon></button><button id="tour" class="active"><ha-icon icon="mdi:pause"></ha-icon><span>${T.pause}</span></button><button class="tw" id="fwd"><ha-icon icon="mdi:arrow-up"></ha-icon>${T.fwd}</button>${canEdit ? `<button id="edit"><ha-icon icon="mdi:pencil"></ha-icon><span>${T.edit}</span></button><button id="ecancel" style="display:none">${T.cancel}</button><button id="esave" class="active" style="display:none"><ha-icon icon="mdi:content-save"></ha-icon>${T.save}</button>` : ''}</div>
   </div>`;
   document.body.appendChild(wrap);
   const $ = (s) => root.querySelector(s);
   const canvas = $('canvas.gl'), iconsEl = $('.icons'), mapEl = $('canvas.map'), roomEl = $('.room');
   let closed = false, raf = 0;
+  let dirtyEdit = false, warnedClose = false;
   const close = () => {
     if (closed) return;
+    if (dirtyEdit && !warnedClose) { warnedClose = true; showRoom(null, T.unsaved); return; }
     closed = true; cancelAnimationFrame(raf); ro.disconnect();
     window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKeyUp, true);
     wrap.remove(); onClose?.();
@@ -474,6 +484,8 @@ export function openWalk(host, { plan, hass, onClose }) {
     [['aP', 3, 0], ['aN', 3, 12], ['aC', 3, 24], ['aM', 1, 36]].forEach(([n, k, off]) => { gl.enableVertexAttribArray(A[n]); gl.vertexAttribPointer(A[n], k, gl.FLOAT, false, 40, off); });
   };
 
+  let editing = false, sel = null, stripDraft = null, stripY = 1;
+  let obstacles = [];
   let world, graph, nav, buf = {}, lamps = [], items = [], doorSig = '';
   const S = planScale(plan) || 70, M = (v) => v / S;
   const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
@@ -506,7 +518,7 @@ export function openWalk(host, { plan, hass, onClose }) {
 
   /** Lamps (their spot, the room their light stays in, and a small fixture to draw) and the icons. */
   function buildItems() {
-    lamps = []; items = []; iconsEl.innerHTML = '';
+    lamps = []; items = []; obstacles = []; iconsEl.innerHTML = '';
     const markers = new Mesh(), fixtures = new Mesh();
     const circle = (cx, cz, r, k = 14) => Array.from({ length: k }, (_, i) => [cx + r * Math.cos((i / k) * 2 * Math.PI), cz + r * Math.sin((i / k) * 2 * Math.PI)]);
     const DARK = [0.2, 0.2, 0.22];
@@ -521,7 +533,8 @@ export function openWalk(host, { plan, hass, onClose }) {
       if (room) [px, pz] = insideRoom(room, px, pz, 0.2);
       const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
       // what kind of lamp: on the ceiling, hanging over a table, standing on the floor, on a table or desk, or a strip/other
-      const lampType = !lampKind ? null : ceil ? 'ceiling'
+      const strip = lampKind ? stripPath(it) : null;
+      const lampType = !lampKind ? null : strip ? 'strip' : ceil ? 'ceiling'
         : /vloer|staand|floor|standing|stalamp/i.test(label) ? 'floor'
           : under && ['table', 'round', 'island'].includes(under.type) && !own ? 'pendant'
             : /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i.test(label) || (under && !own) ? 'table'
@@ -540,12 +553,29 @@ export function openWalk(host, { plan, hass, onClose }) {
         if (room) { const qs = room.rects.map(norm); bb = [M(Math.min(...qs.map((q) => q[0]))) - 0.15, M(Math.min(...qs.map((q) => q[1]))) - 0.15, M(Math.max(...qs.map((q) => q[2]))) + 0.15, M(Math.max(...qs.map((q) => q[3]))) + 0.15]; }
         const start = markers.v.length / 10;
         let lightY = h;
-        if (lampType === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, [1, 1, 1]); lightY = H - 0.25; P = [px, H - 0.45, pz]; }
+        if (lampType === 'strip') {
+          // an LED strip: a thin glowing band along the drawn line, lighting the room at a few points along it
+          const pts = strip.map(([sx, sy]) => [M(sx), M(sy)]), tw = 0.014;
+          for (let i = 1; i < pts.length; i++) {
+            const [ax, az] = pts[i - 1], [bx, bz] = pts[i], L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw;
+            markers.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], h - 0.012, h + 0.012, [1, 1, 1]);
+          }
+          const total = pathLength(pts), n = Math.max(1, Math.min(4, Math.round(total / 1.2)));
+          for (let k = 1; k < n; k++) {
+            let left = (total * k) / n, q = pts[0];
+            for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (d >= left) { q = [pts[i - 1][0] + ((pts[i][0] - pts[i - 1][0]) * left) / d, pts[i - 1][1] + ((pts[i][1] - pts[i - 1][1]) * left) / d]; break; } left -= d; }
+            lamps.push({ it, P: [q[0], h, q[1]], bb, start: 0, count: 0, share: 1 / Math.sqrt(n) });
+          }
+          const mid = pathMid(pts);
+          lightY = h; P = [mid[0], Math.min(h + 0.25, H - 0.1), mid[1]];
+          px = mid[0]; pz = mid[1];
+        } else if (lampType === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, [1, 1, 1]); lightY = H - 0.25; P = [px, H - 0.45, pz]; }
         else if (lampType === 'pendant') {
           fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.12, H, DARK);                 // cord
           markers.prism(circle(px, pz, 0.16), h - 0.04, h + 0.12, [1, 1, 1]); lightY = h - 0.1; P = [px, h + 0.4, pz];
         } else if (lampType === 'floor') {
           fixtures.prism(circle(px, pz, 0.14, 12), 0, 0.025, DARK);                                                 // foot
+          obstacles.push([px, pz, 0.2]);
           fixtures.box(px - 0.012, pz - 0.012, px + 0.012, pz + 0.012, 0.025, h - 0.05, DARK);                       // pole
           markers.prism(circle(px, pz, 0.19), h - 0.05, h + 0.2, [1, 1, 1]); lightY = h + 0.05; P = [px, h + 0.5, pz];
         } else if (lampType === 'table') {
@@ -555,7 +585,7 @@ export function openWalk(host, { plan, hass, onClose }) {
           markers.prism(circle(px, pz, 0.11), h - 0.06, h + 0.08, [1, 1, 1]); lightY = h; P = [px, h + 0.35, pz];
         } else { markers.prism(circle(px, pz, 0.05, 10), h - 0.03, h + 0.03, [1, 1, 1]); P = [px, h + 0.2, pz]; }
         P[1] = Math.min(P[1], H - 0.1);
-        lamps.push({ it, P: [px, lightY, pz], bb, start, count: markers.v.length / 10 - start });
+        lamps.push({ it, P: [px, lightY, pz], bb, start, count: markers.v.length / 10 - start, share: lampType === 'strip' ? 1 / Math.sqrt(Math.max(1, Math.min(4, Math.round(pathLength(strip.map(([sx, sy]) => [M(sx), M(sy)])) / 1.2)))) : 1 });
       }
       // the icon you can tap
       const el = document.createElement('div');
@@ -569,9 +599,11 @@ export function openWalk(host, { plan, hass, onClose }) {
         if (ic) icon.icon = ic; else { icon.hass = hass; icon.stateObj = st; }
         b.appendChild(icon);
       }
-      el.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+      const rec = { it, el, P, d, isSensor, icon: b.firstChild, room: room?.id || null, h };
+      el.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); if (editing) startItemDrag(ev, rec); });
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
+        if (editing) return;
         const dd = it.via ? 'switch' : d;
         if (['light', 'switch', 'fan', 'input_boolean'].includes(dd)) { hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id }); return; }
         // anything else: what it is doing, in the room bar
@@ -579,18 +611,19 @@ export function openWalk(host, { plan, hass, onClose }) {
         showRoom(null, it.name || friendly(hass, it.entity_id), st ? `${st.state}${st.attributes.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : ''}` : '');
       });
       iconsEl.appendChild(el);
-      items.push({ it, el, P, d, isSensor, icon: b.firstChild, room: room?.id || null });
+      if (sel?.type === 'item' && sel.id === it.entity_id) el.classList.add('sel');
+      items.push(rec);
     }
     for (const [k, m] of [['markers', markers], ['fixtures', fixtures]]) { if (buf[k]) gl.deleteBuffer(buf[k].b); buf[k] = m.v.length ? upload(m) : null; }
     refreshStates();
   }
   function buildAll() {
-    world = buildWorld(plan, hass);
+    world = buildWorld(plan, hass, sel?.type === 'furn' ? sel.id : null);
     graph = buildGraph(plan, S);
-    nav = buildNav(plan, world, S);
     for (const k of ['solid', 'glass']) { if (buf[k]) gl.deleteBuffer(buf[k].b); buf[k] = world[k].v.length ? upload(world[k]) : null; }
     doorSig = sigOf(hass);
     buildItems();
+    nav = buildNav(plan, world, S, obstacles);
   }
 
   const lampOn = (it) => {
@@ -634,25 +667,29 @@ export function openWalk(host, { plan, hass, onClose }) {
     let cur = start, px = cam.x, pz = cam.z;
     for (const id of order) {
       const r = rooms.find((x) => x.id === id), sp = nav?.spot(r) || { x: graph.spot.get(id)[0], z: graph.spot.get(id)[1], look: 0 };
-      route.push(...pathTo(px, pz, sp.x, sp.z, cur, id).slice(0, -1));
+      const way = pathTo(px, pz, sp.x, sp.z);
+      if (!way) continue;   // no door into this room drawn: skip it rather than walk through a wall
+      route.push(...way.slice(0, -1));
       route.push({ x: sp.x, z: sp.z, look: true, lookYaw: sp.look, room: id });
       cur = id; px = sp.x; pz = sp.z;
     }
     route.push({ done: true });
   }
   /** Points to walk from a to b: around walls and furniture, or (no way through) through the rooms in between. */
-  function pathTo(ax, az, bx, bz, fromId, toId) {
+  function pathTo(ax, az, bx, bz) {
+    // only real ways through doors and openings: never through a wall (no way = null)
     const p = nav?.find(ax, az, bx, bz);
     if (p) return p;
-    const via = fromId && toId ? roomPath(graph, fromId, toId) || [] : [];
-    return [...via, { x: bx, z: bz }];
+    const clear = !world.blockers.some((q) => segHitsBox(ax, az, bx, bz, [q[0] - 0.1, q[1] - 0.1, q[2] + 0.1, q[3] + 0.1]));
+    return clear ? [{ x: bx, z: bz }] : null;
   }
   const area = (r) => r.rects.map(norm).reduce((s, q) => s + (q[2] - q[0]) * (q[3] - q[1]), 0);
   const roomOf = (x, z) => roomAt(plan.rooms, x * S, z * S);
   function walkTo(x, z) {
     const from = roomOf(cam.x, cam.z), to = roomOf(x, z);
     if (touring) pausedTour = route;
-    route = pathTo(cam.x, cam.z, x, z, from?.id, to?.id);
+    // no way through (a room without a door): walk straight and stop at the wall
+    route = pathTo(cam.x, cam.z, x, z) || [{ x, z, stopAtWall: true }];
     setTouring(false);
   }
   function setTouring(on) {
@@ -668,20 +705,26 @@ export function openWalk(host, { plan, hass, onClose }) {
   });
 
   /** Push the walker out of walls (manual walking only; the tour follows its own path). */
-  function collide() {
+  function collide(R = R_PLAYER) {
     for (let k = 0; k < 2; k++) for (const q of world.blockers) {
       const px = Math.max(q[0], Math.min(cam.x, q[2])), pz = Math.max(q[1], Math.min(cam.z, q[3]));
       const dx = cam.x - px, dz = cam.z - pz, d = Math.hypot(dx, dz);
-      if (d < R_PLAYER) {
-        if (d < 1e-6) { cam.x += R_PLAYER; continue; }
-        cam.x = px + (dx / d) * R_PLAYER; cam.z = pz + (dz / d) * R_PLAYER;
+      if (d < R) {
+        if (d < 1e-6) { cam.x += R; continue; }
+        cam.x = px + (dx / d) * R; cam.z = pz + (dz / d) * R;
       }
     }
   }
 
   const keys = new Set();
   const onKey = (ev) => {
-    if (ev.key === 'Escape') { ev.stopPropagation(); close(); return; }
+    if (ev.key === 'Escape') {
+      ev.stopPropagation();
+      if (stripDraft) { stripDraft = null; drawDraft(); showSheet(); return; }
+      if (editing && sel) { sel = null; rebuildWorld(); buildItems(); showSheet(); return; }
+      close(); return;
+    }
+    if (editing && sel?.type === 'furn' && (ev.key === 'Delete' || ev.key === 'Backspace')) { ev.preventDefault(); removeFurn(); return; }
     const k = ev.key.toLowerCase();
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'q', 'e', 'shift'].includes(k)) {
       keys.add(k); ev.preventDefault(); ev.stopPropagation();
@@ -694,7 +737,18 @@ export function openWalk(host, { plan, hass, onClose }) {
 
   // dragging looks around; a short tap on the floor walks there
   let drag = null;
-  canvas.addEventListener('pointerdown', (ev) => { canvas.setPointerCapture(ev.pointerId); drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, t: Date.now(), moved: false }; });
+  canvas.addEventListener('pointerdown', (ev) => {
+    canvas.setPointerCapture(ev.pointerId);
+    drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, t: Date.now(), moved: false };
+    // editing: grab a piece of furniture under the pointer and slide it over the floor
+    if (editing && !stripDraft) {
+      const hit = pickFurniture(ev.clientX, ev.clientY);
+      if (hit) {
+        if (sel?.type !== 'furn' || sel.id !== hit.f.id) { sel = { type: 'furn', id: hit.f.id }; rebuildWorld(); buildItems(); showSheet(); }
+        drag.furn = { f: hit.f, y: hit.y, ox: safeNumber(hit.f.x), oz: safeNumber(hit.f.y), start: planeHit(ev.clientX, ev.clientY, hit.y) };
+      }
+    }
+  });
   canvas.addEventListener('pointermove', (ev) => {
     if (!drag || ev.pointerId !== drag.id) return;
     const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
@@ -703,12 +757,24 @@ export function openWalk(host, { plan, hass, onClose }) {
       if (!drag.moved && touring) { pausedTour = route; route = []; setTouring(false); }
       drag.moved = true;
     }
+    if (drag.furn) {
+      const q = planeHit(ev.clientX, ev.clientY, drag.furn.y), st0 = drag.furn.start;
+      if (q && st0 && drag.moved) { drag.furn.f.x = Math.round(drag.furn.ox + (q[0] - st0[0]) * S); drag.furn.f.y = Math.round(drag.furn.oz + (q[1] - st0[1]) * S); dirtyEdit = true; worldDirty = true; }
+      return;
+    }
     if (drag.moved) { cam.yaw -= dx * 0.0045; cam.pitch = Math.max(-1.1, Math.min(1.0, cam.pitch - dy * 0.0035)); }
   });
   canvas.addEventListener('pointerup', (ev) => {
     if (!drag || ev.pointerId !== drag.id) return;
-    const tap = !drag.moved && Date.now() - drag.t < 450;
+    const tap = !drag.moved && Date.now() - drag.t < 450, wasFurn = drag.furn;
     drag = null;
+    if (wasFurn) { if (worldDirty || dirtyEdit) { rebuildWorld(true); buildItems(); } return; }
+    if (editing) {
+      if (!tap) return;
+      if (stripDraft) { const q = surfaceHit(ev.clientX, ev.clientY) || planeHit(ev.clientX, ev.clientY, stripY); if (q) { stripDraft.push([Math.round(q[0] * 20) / 20, Math.round(q[1] * 20) / 20]); drawDraft(); showSheet(); } return; }
+      if (sel) { sel = null; rebuildWorld(); buildItems(); showSheet(); }
+      return;
+    }
     if (!tap) return;
     const r = canvas.getBoundingClientRect(), nx = ((ev.clientX - r.left) / r.width) * 2 - 1, ny = 1 - ((ev.clientY - r.top) / r.height) * 2;
     const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(FOV / 2), tx = ty * (r.width / r.height);
@@ -728,6 +794,184 @@ export function openWalk(host, { plan, hass, onClose }) {
   mapEl.addEventListener('click', (ev) => {
     const r = mapEl.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * mapBox.w + mapBox.x, z = ((ev.clientY - r.top) / r.height) * mapBox.h + mapBox.y;
     if (roomOf(x, z)) walkTo(x, z);
+  });
+
+  /* ------------------------------------------------------------- editing */
+  let worldDirty = false, backup = null, draftBuf = null;
+  /** The direction from your eye through a point on the screen. */
+  function ray(cx, cy) {
+    const r = canvas.getBoundingClientRect(), nx = ((cx - r.left) / r.width) * 2 - 1, ny = 1 - ((cy - r.top) / r.height) * 2;
+    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(FOV / 2), tx = ty * (r.width / r.height);
+    return [f[0] + right[0] * nx * tx + up[0] * ny * ty, f[1] + right[1] * nx * tx + up[1] * ny * ty, f[2] + right[2] * nx * tx + up[2] * ny * ty];
+  }
+  /** Where that line meets the level at height y (metres), as [x, z]. */
+  function planeHit(cx, cy, y) {
+    const d = ray(cx, cy), e = eyeY();
+    if (Math.abs(d[1]) < 1e-4) return null;
+    const k = (y - e) / d[1];
+    if (k <= 0 || k > 40) return null;
+    return [cam.x + d[0] * k, cam.z + d[2] * k];
+  }
+  /** The first thing you point at (wall, furniture or floor), as [x, z] just in front of it. */
+  function surfaceHit(cx, cy) {
+    const d = ray(cx, cy), e = eyeY();
+    for (let t = 0.1; t < 14; t += 0.02) {
+      const x = cam.x + d[0] * t, y = e + d[1] * t, z = cam.z + d[2] * t;
+      const hit = y < 0 || y > H || world.blockers.some((q) => x >= q[0] && x <= q[2] && z >= q[1] && z <= q[3])
+        || (plan.furniture || []).some((f) => y <= furnHeight(f) && furnAt({ furniture: [f] }, x * S, z * S));
+      if (hit) { const b = Math.max(0, t - 0.03); return [cam.x + d[0] * b, cam.z + d[2] * b]; }
+    }
+    return null;
+  }
+  /** The piece of furniture you point at (not through walls). */
+  function pickFurniture(cx, cy) {
+    const d = ray(cx, cy), e = eyeY();
+    for (let t = 0.1; t < 14; t += 0.03) {
+      const x = cam.x + d[0] * t, y = e + d[1] * t, z = cam.z + d[2] * t;
+      if (y < 0 || y > H) return null;
+      if (world.blockers.some((q) => x >= q[0] && x <= q[2] && z >= q[1] && z <= q[3])) return null;
+      for (const f of plan.furniture || []) {
+        if (y > Math.max(0.15, furnHeight(f)) || (f.type === 'wallcab' && y < 1.35)) continue;
+        if (furnAt({ furniture: [f] }, x * S, z * S)) return { f, y };
+      }
+    }
+    return null;
+  }
+  function rebuildWorld(withNav = false) {
+    world = buildWorld(plan, hass, sel?.type === 'furn' ? sel.id : null);
+    for (const k of ['solid', 'glass']) { if (buf[k]) gl.deleteBuffer(buf[k].b); buf[k] = world[k].v.length ? upload(world[k]) : null; }
+    if (withNav) { nav = buildNav(plan, world, S, obstacles); graph = buildGraph(plan, S); }
+    worldDirty = false;
+  }
+  /** Drag a device (its icon) over the level it hangs at. */
+  function startItemDrag(ev, rec) {
+    ev.preventDefault();
+    const it = rec.it, start = planeHit(ev.clientX, ev.clientY, rec.P[1]);
+    if (sel?.type !== 'item' || sel.id !== it.entity_id) {
+      const wasFurn = sel?.type === 'furn';
+      sel = { type: 'item', id: it.entity_id };
+      items.forEach((I) => I.el.classList.toggle('sel', I === rec));
+      if (wasFurn) rebuildWorld();
+      showSheet();
+    }
+    if (!start) return;
+    const ox = safeNumber(it.x), oy = safeNumber(it.y), path0 = it.path ? it.path.map((q) => [...q]) : null, P0 = [...rec.P], L0 = lamps.filter((l) => l.it === it).map((l) => [l, [...l.P]]);
+    const b = rec.el.querySelector('.b');
+    b.setPointerCapture(ev.pointerId);
+    let moved = false;
+    const move = (e) => {
+      const q = planeHit(e.clientX, e.clientY, P0[1]);
+      if (!q) return;
+      const dx = q[0] - start[0], dz = q[1] - start[1];
+      if (!moved && Math.hypot(dx, dz) < 0.03) return;
+      moved = true;
+      it.x = Math.round(ox + dx * S); it.y = Math.round(oy + dz * S);
+      if (path0) it.path = path0.map(([x, y]) => [Math.round(x + dx * S), Math.round(y + dz * S)]);
+      rec.P[0] = P0[0] + dx; rec.P[2] = P0[2] + dz;
+      for (const [l, lp] of L0) { l.P[0] = lp[0] + dx; l.P[2] = lp[2] + dz; }
+    };
+    const up = () => {
+      b.removeEventListener('pointermove', move); b.removeEventListener('pointerup', up); b.removeEventListener('pointercancel', up);
+      if (moved) { dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); showSheet(); }
+    };
+    b.addEventListener('pointermove', move); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  }
+  function removeFurn() {
+    if (sel?.type !== 'furn') return;
+    plan.furniture = (plan.furniture || []).filter((f) => f.id !== sel.id);
+    sel = null; dirtyEdit = true; rebuildWorld(true); buildItems(); showSheet();
+  }
+  /** The LED strip being drawn, as a glowing line. */
+  function drawDraft() {
+    if (draftBuf) { gl.deleteBuffer(draftBuf.b); draftBuf = null; }
+    if (!stripDraft || stripDraft.length < 1) return;
+    const m = new Mesh(), tw = 0.02;
+    stripDraft.forEach(([x, z]) => m.prism([[x - 0.04, z - 0.04], [x + 0.04, z - 0.04], [x + 0.04, z + 0.04], [x - 0.04, z + 0.04]], stripY - 0.04, stripY + 0.04, [1, 1, 1]));
+    for (let i = 1; i < stripDraft.length; i++) {
+      const [ax, az] = stripDraft[i - 1], [bx, bz] = stripDraft[i], L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw;
+      m.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], stripY - 0.015, stripY + 0.015, [1, 1, 1]);
+    }
+    draftBuf = upload(m);
+  }
+  const fmtM = (v) => `${v.toLocaleString(lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+  /** The panel for what you picked: height and LED strip for a device, turning and removing for furniture. */
+  function showSheet() {
+    const sh = $('.sheet');
+    if (!editing) { sh.classList.remove('show'); return; }
+    let html = '';
+    if (stripDraft) {
+      const len = pathLength(stripDraft);
+      html = `<b>${T.strip}</b><small>${T.strip_hint}</small><div class="row"><span>${T.height}</span><button data-a="sy-">−</button><span>${fmtM(stripY)}</span><button data-a="sy+">+</button></div>
+        <div class="row"><span>${stripDraft.length} · ${fmtM(len)}</span><button data-a="sundo">↶</button><button data-a="scancel">${T.cancel}</button><button class="pri" data-a="sdone">${T.done}</button></div>`;
+    } else if (sel?.type === 'item') {
+      const rec = items.find((I) => I.it.entity_id === sel.id);
+      if (rec) {
+        const it = rec.it, lampish = it.kind !== 'device' && (rec.d === 'light' || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(rec.d));
+        const h0 = it.height != null && it.height !== '' ? +it.height : rec.h;
+        html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button></div>
+          ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>` : ''}`;
+      }
+    } else if (sel?.type === 'furn') {
+      const f = (plan.furniture || []).find((x) => x.id === sel.id);
+      if (f) html = `<b>${esc(FURN_NAME[lang][f.type] || f.type)}</b><div class="row"><span>${T.rotate}</span><button data-a="r-">⟲ 15°</button><button data-a="r+">⟳ 15°</button><button data-a="r90">90°</button></div><div class="row"><button data-a="del"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove}</button></div>`;
+    } else html = `<small>${T.edit_hint}</small>`;
+    sh.innerHTML = html;
+    sh.classList.add('show');
+    sh.querySelectorAll('[data-a]').forEach((bt) => bt.addEventListener('click', (ev) => { ev.stopPropagation(); sheetAction(bt.dataset.a); }));
+  }
+  function sheetAction(a) {
+    const it = sel?.type === 'item' ? plan.items.find((i) => i.entity_id === sel.id) : null, f = sel?.type === 'furn' ? (plan.furniture || []).find((x) => x.id === sel.id) : null;
+    if (a === 'h-' || a === 'h+') {
+      const rec = items.find((I) => I.it === it), cur = it.height != null && it.height !== '' ? +it.height : rec?.h ?? 1;
+      it.height = Math.round(Math.max(0, Math.min(H, cur + (a === 'h+' ? 0.1 : -0.1))) * 100) / 100;
+      dirtyEdit = true; buildItems();
+    } else if (a === 'strip') {
+      const rec = items.find((I) => I.it === it);
+      stripY = it.height != null && it.height !== '' ? +it.height : rec?.h ?? 1; stripDraft = []; drawDraft();
+    } else if (a === 'icon') { delete it.shape; dirtyEdit = true; buildItems(); }
+    else if (a === 'sy-' || a === 'sy+') { stripY = Math.round(Math.max(0.05, Math.min(H - 0.02, stripY + (a === 'sy+' ? 0.1 : -0.1))) * 100) / 100; drawDraft(); }
+    else if (a === 'sundo') { stripDraft.pop(); drawDraft(); }
+    else if (a === 'scancel') { stripDraft = null; drawDraft(); }
+    else if (a === 'sdone') {
+      if (stripDraft.length >= 2 && it) {
+        it.shape = 'strip'; it.path = stripDraft.map(([x, z]) => [Math.round(x * S), Math.round(z * S)]); it.height = stripY;
+        [it.x, it.y] = pathMid(it.path).map(Math.round); dirtyEdit = true;
+      }
+      stripDraft = null; drawDraft(); buildItems();
+    } else if (f && (a === 'r-' || a === 'r+' || a === 'r90')) {
+      f.rot = ((safeNumber(f.rot) + (a === 'r90' ? 90 : a === 'r+' ? 15 : -15)) % 360 + 360) % 360;
+      dirtyEdit = true; rebuildWorld(true); buildItems();
+    } else if (a === 'del') removeFurn();
+    showSheet();
+  }
+  function setEditing(on) {
+    editing = on;
+    root.querySelector('.wk').classList.toggle('editing', on);
+    if (on) {
+      const hEl = $('.hint'); if (hEl) hEl.style.opacity = '0';
+      backup = JSON.stringify(plan);
+      if (touring) { pausedTour = route; setTouring(false); }
+      route = [];
+    } else { sel = null; stripDraft = null; drawDraft(); }
+    for (const [id, show] of [['#edit', !on], ['#ecancel', on], ['#esave', on], ['#tour', !on]]) { const el = $(id); if (el) el.style.display = show ? '' : 'none'; }
+    rebuildWorld(); buildItems(); showSheet();
+  }
+  $('#edit')?.addEventListener('click', () => setEditing(true));
+  $('#ecancel')?.addEventListener('click', () => {
+    if (backup) plan = JSON.parse(backup);
+    dirtyEdit = false; warnedClose = false; sel = null;
+    rebuildWorld(true); setEditing(false);
+  });
+  $('#esave')?.addEventListener('click', async () => {
+    const bt = $('#esave');
+    bt.disabled = true;
+    try {
+      const saved = await savePlan(hass, plan);
+      if (saved && typeof saved === 'object') plan = JSON.parse(JSON.stringify(saved));
+      dirtyEdit = false; warnedClose = false;
+      setEditing(false); rebuildWorld(true); buildItems();
+      showRoom(null, T.saved);
+    } catch (e) { showRoom(null, T.save_err, String(e?.message || e)); } finally { bt.disabled = false; }
   });
 
   const FOV = (70 * Math.PI) / 180;
@@ -768,6 +1012,10 @@ export function openWalk(host, { plan, hass, onClose }) {
           const sp = 1.15 * Math.max(0.12, Math.cos(Math.min(Math.abs(err), Math.PI / 2))) * Math.min(1, d / 0.35 + 0.3);
           const k = Math.min(d, sp * dt) / d;
           cam.x += dx * k; cam.z += dz * k; moving = true;
+          collide(wpt.stopAtWall ? R_PLAYER : 0.13);   // never into a wall, also on a route
+          // stuck (a wall in the way): give up on this point
+          const rest = Math.hypot(wpt.x - cam.x, wpt.z - cam.z);
+          if (wpt.best == null || rest < wpt.best - 0.02) { wpt.best = rest; wpt.since = 0; } else if ((wpt.since += dt) > 1.2) route.shift();
         }
       }
     }
@@ -840,6 +1088,7 @@ export function openWalk(host, { plan, hass, onClose }) {
     if (closed) return;
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (worldDirty) rebuildWorld();
     step(dt);
     const w = canvas.width, h = canvas.height;
     gl.viewport(0, 0, w, h);
@@ -855,7 +1104,7 @@ export function openWalk(host, { plan, hass, onClose }) {
     // the lamps that are on, nearest first
     const lit = lamps.filter((l) => l.on).sort((a, b) => Math.hypot(a.P[0] - cam.x, a.P[2] - cam.z) - Math.hypot(b.P[0] - cam.x, b.P[2] - cam.z)).slice(0, MAX_LIGHTS);
     const LP = new Float32Array(MAX_LIGHTS * 4), LC = new Float32Array(MAX_LIGHTS * 3), LB = new Float32Array(MAX_LIGHTS * 4);
-    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.k], i * 4); LC.set(l.col, i * 3); LB.set(l.bb, i * 4); });
+    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.k * (l.share ?? 1)], i * 4); LC.set(l.col, i * 3); LB.set(l.bb, i * 4); });
     gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB);
     gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
     gl.disable(gl.BLEND); gl.depthMask(true);
@@ -863,9 +1112,10 @@ export function openWalk(host, { plan, hass, onClose }) {
     if (buf.fixtures) { bind(buf.fixtures); gl.drawArrays(gl.TRIANGLES, 0, buf.fixtures.n); }
     if (buf.markers) {
       bind(buf.markers); gl.uniform1f(U.uEmis, 1);
-      for (const l of lamps) { gl.uniform3fv(U.uTint, l.on ? l.col.map((v) => 0.55 + 0.45 * v) : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
+      for (const l of lamps) { if (!l.count) continue; gl.uniform3fv(U.uTint, l.on ? l.col.map((v) => 0.55 + 0.45 * v) : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
       gl.uniform1f(U.uEmis, 0);
     }
+    if (draftBuf) { bind(draftBuf); gl.uniform1f(U.uEmis, 1); gl.uniform3fv(U.uTint, [1, 0.85, 0.45]); gl.drawArrays(gl.TRIANGLES, 0, draftBuf.n); gl.uniform1f(U.uEmis, 0); }
     if (buf.glass) {
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       gl.uniform1f(U.uAlpha, 0.2); bind(buf.glass); gl.drawArrays(gl.TRIANGLES, 0, buf.glass.n);
@@ -877,7 +1127,7 @@ export function openWalk(host, { plan, hass, onClose }) {
       const [x, y, z] = I.P, dist = Math.hypot(x - cam.x, z - cam.z, y - eye[1]);
       const cx = VP[0] * x + VP[4] * y + VP[8] * z + VP[12], cy = VP[1] * x + VP[5] * y + VP[9] * z + VP[13], cwv = VP[3] * x + VP[7] * y + VP[11] * z + VP[15];
       // the room you are in, plus anything close by in the next room (keeps it calm)
-      let show = cwv > 0.1 && (dist < 3.5 || (dist < 10 && I.room === lastRoom));
+      let show = cwv > 0.1 && (dist < (editing ? 7 : 3.5) || (dist < 10 && I.room === lastRoom));
       // hidden behind a wall (the wall it hangs on itself doesn't count)
       if (show) show = !world.blockers.some((q) => segHitsBox(cam.x, cam.z, x, z, q));
       if (!show) { if (I.el.style.display !== 'none') I.el.style.display = 'none'; continue; }

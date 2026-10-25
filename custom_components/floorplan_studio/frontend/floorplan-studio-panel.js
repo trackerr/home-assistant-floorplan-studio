@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b2';
+import './floorplan-studio-card.js?v=1.4.0b3';
 import {
-  VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, areaEntities, entityArea,
+  VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.4.0b2';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b2';
+} from './fps-core.js?v=1.4.0b3';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b3';
 
 const L = {
   en: {
@@ -61,7 +61,7 @@ const L = {
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
     f_hob: 'Hob (on a worktop)', f_sink: 'Sink', f_stove: 'Cooker', f_fridge: 'Fridge', f_island: 'Kitchen island', f_wallcab: 'Wall cupboard', lamp_size: 'Lamps (size in %)', device_size: 'Other devices (size in %)', f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_z: 'Height (cm, for the 2.5D view)', f_turn: 'Turn 90°',
     more_options_room: 'More options (sensors, text, floor…)', more_options: 'More options (icon, colour, height…)', kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
-    i_height: 'Height in metres (for the 2.5D view, empty = usual)', ceil_q: 'Ceiling lamp?', yes: 'yes', no: 'no', ceil_auto: 'Automatic (from the name)', ceil_yes: 'Yes, on the ceiling', ceil_no: 'No (floor, table, wall or strip)',
+    i_height: 'Height in metres (for the 2.5D view, empty = usual)', ceil_q: 'Ceiling lamp?', shape_q: 'Shape on the map', shape_icon: 'Icon', shape_strip: 'Line (LED strip)', strip_draw: 'Draw the line', strip_redraw: 'Draw again', strip_done: 'Done', strip_clear: 'Remove line', strip_hint: 'Tap point by point along the strip; double-tap or Done to stop. Lines snap to 45°; hold Shift for any angle. Set the height of the strip under More options.', strip_len: 'Length', strip_none: 'No line drawn yet.', yes: 'yes', no: 'no', ceil_auto: 'Automatic (from the name)', ceil_yes: 'Yes, on the ceiling', ceil_no: 'No (floor, table, wall or strip)',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
     radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
     motion_fade: 'Motion icon fades out over … minutes (0 = straight away)', height_25d: 'Height of walls and icons in the 2.5D view', perspective: 'Perspective in 2.5D (nearer looks a little bigger)', show_stalks: 'Thin lines from the floor to the icons (2.5D)', turn_ghost: 'Fade the icons while turning (2.5D)', turn_ghost_pct: 'Visible while turning, in %', turn_hint: 'Turning in 2.5D: right mouse button (or Shift) and drag; on a phone or tablet twist two fingers. Up/down tilts.', h25_real: 'real size', h25_custom: 'own value (% of real)',
@@ -119,7 +119,7 @@ const L = {
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht (blad)', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
     f_hob: 'Kookplaat (op het aanrecht)', f_sink: 'Gootsteen', f_stove: 'Fornuis', f_fridge: 'Koelkast', f_island: 'Kookeiland', f_wallcab: 'Bovenkast', lamp_size: 'Lampen (grootte in %)', device_size: 'Andere apparaten (grootte in %)', f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_z: 'Hoogte (cm, voor de 2.5D-weergave)', f_turn: 'Kwartslag draaien',
     more_options_room: 'Meer opties (sensoren, tekst, vloer…)', more_options: 'Meer opties (icoon, kleur, hoogte…)', kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
-    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)', ceil_q: 'Plafondlamp?', yes: 'ja', no: 'nee', ceil_auto: 'Automatisch (uit de naam)', ceil_yes: 'Ja, aan het plafond', ceil_no: 'Nee (staand, tafel, wand of strip)',
+    i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)', ceil_q: 'Plafondlamp?', shape_q: 'Vorm op de kaart', shape_icon: 'Icoon', shape_strip: 'Lijn (ledstrip)', strip_draw: 'Lijn tekenen', strip_redraw: 'Opnieuw tekenen', strip_done: 'Klaar', strip_clear: 'Lijn weghalen', strip_hint: 'Tik punt voor punt langs de strip; dubbeltik of Klaar om te stoppen. Lijnen springen naar 45°; houd Shift ingedrukt voor een vrije hoek. De hoogte van de strip zet je onder Meer opties.', strip_len: 'Lengte', strip_none: 'Nog geen lijn getekend.', yes: 'ja', no: 'nee', ceil_auto: 'Automatisch (uit de naam)', ceil_yes: 'Ja, aan het plafond', ceil_no: 'Nee (staand, tafel, wand of strip)',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
     radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
     motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)', height_25d: 'Hoogte van muren en iconen in de 2.5D-weergave', perspective: 'Perspectief in 2.5D (dichterbij is iets groter)', show_stalks: 'Hulplijntjes van de vloer naar de iconen (2.5D)', turn_ghost: 'Iconen vervagen tijdens draaien (2.5D)', turn_ghost_pct: 'Zichtbaar tijdens draaien, in %', turn_hint: 'Draaien in 2.5D: rechtermuisknop (of Shift) ingedrukt en slepen; op telefoon of tablet twee vingers draaien. Omhoog/omlaag kantelt.', h25_real: 'echte maat', h25_custom: 'eigen waarde (% van echt)',
@@ -220,10 +220,17 @@ const CSS = `
   .rsize { fill: #fff; fill-opacity: .8; font-size: 11px; pointer-events: none; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3px; }
   .dimline line { stroke: #ffd54f; stroke-width: 1.5; pointer-events: none; }
   .dimline text, .fsize { fill: #ffd54f; font-size: 12px; font-weight: 600; pointer-events: none; paint-order: stroke; stroke: rgba(0,0,0,.75); stroke-width: 3px; }
+  .strip { fill: none; stroke: #ffb74d; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; opacity: .75; pointer-events: none; }
+  .strip.sel, .strip.draw { opacity: 1; stroke: #ffd54f; filter: drop-shadow(0 0 4px rgba(255,200,80,.8)); }
+  .strip.rubber { stroke-dasharray: 6 6; }
+  .strippt { fill: #fff; stroke: #ffb74d; stroke-width: 2; pointer-events: none; }
+  .drawing-strip svg { cursor: crosshair; } .drawing-strip .it { pointer-events: none; opacity: .5; }
   .rrange { fill: rgba(3,169,244,.08); stroke: #03a9f4; stroke-width: 1.5; stroke-dasharray: 6 5; pointer-events: none; }
   .sizeline { font-size: 13px; margin: -4px 0 10px; color: var(--primary-text-color); }
 `;
 
+/** Lamps and plugs/switches with a lamp on them: these can be drawn as a line (LED strip). */
+const lampish = (it) => it.entity_id.startsWith('light.') || it.kind === 'lamp' || (['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) && it.kind !== 'device');
 const ROOM_COLORS = ['#f2a541', '#4fc3f7', '#81c784', '#ba68c8', '#ff8a65', '#4db6ac', '#f06292', '#aed581', '#7986cb', '#ffd54f', '#90a4ae', '#e57373'];
 const uid = (p) => `${p}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -343,7 +350,7 @@ class FloorplanStudioPanel extends HTMLElement {
     const out = [];
     const [vx, vy, vw, vh] = this.viewBox();
     const ratio = vw / vh;
-    out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${vw} / ${vh};">`);
+    out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''} ${this.stripDraw && this.step === 3 ? 'drawing-strip' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${vw} / ${vh};">`);
     out.push(`<svg viewBox="${vx} ${vy} ${vw} ${vh}" id="svg">`);
     out.push(`<defs><pattern id="gm" width="${g}" height="${g}" patternUnits="userSpaceOnUse"><path class="gridline" d="M${g} 0H0V${g}" fill="none"/></pattern><pattern id="gM" width="${g * 5}" height="${g * 5}" patternUnits="userSpaceOnUse"><path class="gridline major" d="M${g * 5} 0H0V${g * 5}" fill="none"/></pattern></defs>`);
     out.push(`<rect width="${W}" height="${H}" fill="#0d1116" data-bg="1"/>`);
@@ -397,6 +404,21 @@ class FloorplanStudioPanel extends HTMLElement {
     if (this.sel?.type === 'room' && this.step === 1 && this.tool === 'select') {
       const r = this.room(this.sel.id), q = r && norm(r.rects[this.sel.part] || r.rects[0]);
       if (q) for (const [cx, cy, n] of [[q[0], q[1], 'nw'], [q[2], q[1], 'ne'], [q[0], q[3], 'sw'], [q[2], q[3], 'se']]) out.push(`<rect class="handle ${n}" data-handle="${n}" x="${cx - 6}" y="${cy - 6}" width="12" height="12" rx="3"/>`);
+    }
+    // LED strips: their line, and in step 4 how long each piece is
+    for (const it of p.items) {
+      const sp = stripPath(it);
+      if (!sp || this.stripDraw === it.entity_id) continue;
+      const selS = this.sel?.type === 'item' && this.sel.id === it.entity_id;
+      out.push(`<polyline class="strip ${selS ? 'sel' : ''}" points="${sp.map((q) => q.join(',')).join(' ')}"/>`);
+      if (sc && this.step === 3 && selS) for (let i = 1; i < sp.length; i++) {
+        const [ax, ay] = sp[i - 1], [bx, by] = sp[i];
+        out.push(`<text class="fsize" x="${(ax + bx) / 2}" y="${(ay + by) / 2 - 7}" text-anchor="middle">${m(Math.hypot(bx - ax, by - ay))} m</text>`);
+      }
+    }
+    if (this.stripDraw && this.step === 3) {
+      const pts = this.stripPts || [];
+      out.push(`<polyline class="strip draw" id="stripline" points="${pts.map((q) => q.join(',')).join(' ')}"/>${pts.map(([x, y]) => `<circle class="strippt" cx="${x}" cy="${y}" r="4"/>`).join('')}<line class="strip draw rubber" id="striprubber" x1="0" y1="0" x2="0" y2="0" style="display:none"/><text class="fsize" id="striplen" text-anchor="middle"></text>`);
     }
     out.push('<rect class="draft" id="draft" width="0" height="0"/></svg>');
     out.push(`<div class="items ${this.step === 3 ? '' : 'off'}" id="items">`);
@@ -535,6 +557,12 @@ class FloorplanStudioPanel extends HTMLElement {
           <option value="" ${!it.kind ? 'selected' : ''}>${l.kind_auto}</option><option value="lamp" ${it.kind === 'lamp' ? 'selected' : ''}>${l.kind_lamp}</option><option value="device" ${it.kind === 'device' ? 'selected' : ''}>${l.kind_device}</option></select></div>` : ''}
         ${it.entity_id.startsWith('light.') || it.kind === 'lamp' ? `<div class="field" style="margin-top:8px"><span>${l.ceil_q}</span><select id="iceil">
           <option value="" ${it.ceiling == null ? 'selected' : ''}>${l.ceil_auto}${it.ceiling == null ? ` — ${isCeilingLamp(it, h.states[it.entity_id]) ? l.yes : l.no}` : ''}</option><option value="1" ${it.ceiling === true ? 'selected' : ''}>${l.ceil_yes}</option><option value="0" ${it.ceiling === false ? 'selected' : ''}>${l.ceil_no}</option></select></div>` : ''}
+        ${lampish(it) ? (() => {
+          const sp = stripPath(it), sc = planScale(p), len = sp ? pathLength(sp) : 0, drawing = this.stripDraw === it.entity_id;
+          return `<div class="field" style="margin-top:8px"><span>${l.shape_q}</span><select id="ishape"><option value="" ${it.shape !== 'strip' ? 'selected' : ''}>${l.shape_icon}</option><option value="strip" ${it.shape === 'strip' ? 'selected' : ''}>${l.shape_strip}</option></select></div>
+          ${it.shape === 'strip' ? `<div class="row" style="gap:6px;flex-wrap:wrap">${drawing ? `<button class="primary" id="stripdone"><ha-icon icon="mdi:check"></ha-icon>${l.strip_done}</button>` : `<button class="primary" id="stripdraw"><ha-icon icon="mdi:vector-polyline"></ha-icon>${sp ? l.strip_redraw : l.strip_draw}</button>`}${sp && !drawing ? `<button id="stripclr">${l.strip_clear}</button>` : ''}</div>
+            <p class="hint">${sp ? `${l.strip_len}: <b>${sc ? `${(len / sc).toFixed(2).replace('.', ',')} m` : Math.round(len)}</b>` : l.strip_none}${drawing || !sp ? `<br>${l.strip_hint}` : ''}</p>` : ''}`;
+        })() : ''}
         <details class="sec sub" data-sec="itemmore" ${this._secOpen?.itemmore ? 'open' : ''}><summary>${l.more_options}</summary><div class="secb">
         <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
         ${it.entity_id.startsWith('light.') || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) && it.kind !== 'device' ? `<div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>` : ''}
@@ -626,6 +654,7 @@ class FloorplanStudioPanel extends HTMLElement {
     $('#zoomsel')?.addEventListener('change', (ev) => { this.zoom = ev.target.value || null; this.render(); });
     $('#svg')?.addEventListener('dblclick', (ev) => {
       // double-click a room to zoom in on it, double-click again to see everything
+      if (this.step === 3 && this.stripDraw) { ev.preventDefault(); this.finishStrip(); return; }
       if (this.step === 2 || (this.step === 1 && this.tool !== 'select')) return;   // there a click already draws or places a door
       const [x, y] = this.pt(ev), r = roomAt(this.plan.rooms, x, y);
       this.zoom = this.zoom ? null : r?.id || null; this.render();
@@ -1010,6 +1039,7 @@ class FloorplanStudioPanel extends HTMLElement {
       this.mut((pl) => { pl.items.push({ entity_id: id, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2) }); this.sel = { type: 'item', id }; });
     });
     const it = this.sel?.type === 'item' ? p.items.find((x) => x.entity_id === this.sel.id) : null;
+    if (this.stripDraw && it?.entity_id !== this.stripDraw) { this.stripDraw = null; this.stripPts = []; }
     if (!it) return;
     $('#iname').addEventListener('change', (ev) => this.mut(() => { it.name = ev.target.value || undefined; }));
     $('#iicon').addEventListener('change', (ev) => this.mut(() => { it.icon = ev.target.value || undefined; }));
@@ -1020,6 +1050,10 @@ class FloorplanStudioPanel extends HTMLElement {
     $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen = this._secOpen || {}; this._secOpen[d.dataset.sec] = d.open; }));
     $('#ivia')?.addEventListener('change', (ev) => this.mut(() => { it.via = ev.target.value || undefined; }));
     $('#ikind')?.addEventListener('change', (ev) => this.mut(() => { it.kind = ev.target.value || undefined; }));
+    $('#ishape')?.addEventListener('change', (ev) => this.mut(() => { if (ev.target.value === 'strip') { it.shape = 'strip'; this.stripDraw = stripPath(it) ? null : it.entity_id; } else { delete it.shape; this.stripDraw = null; } }));
+    $('#stripdraw')?.addEventListener('click', () => { this.stripDraw = it.entity_id; this.stripPts = []; this.render(); });
+    $('#stripdone')?.addEventListener('click', () => this.finishStrip());
+    $('#stripclr')?.addEventListener('click', () => this.mut(() => { delete it.path; }));
     $('#iceil')?.addEventListener('change', (ev) => this.mut(() => { const v = ev.target.value; if (v === '') delete it.ceiling; else it.ceiling = v === '1'; }));
     $('#iradar')?.addEventListener('change', (ev) => this.mut(() => {
       if (!ev.target.checked) { delete it.radar; return; }
@@ -1273,7 +1307,47 @@ class FloorplanStudioPanel extends HTMLElement {
       const tgt = ev.target, [x, y] = this.pt(ev);
       if (this.step === 1) this.roomsPointer(ev, tgt, x, y, svg, draft);
       else if (this.step === 2) this.doorsPointer(tgt, x, y, ev, svg);
+      else if (this.step === 3 && this.stripDraw) this.addStripPoint(ev);
       else if (this.step === 3 && this.sel) { this.sel = null; this.render(); }
+    });
+    if (this.step === 3 && this.stripDraw) {
+      // rubber band from the last point to the pointer, with its length
+      svg.addEventListener('pointermove', (ev) => {
+        const pts = this.stripPts || [], rb = this.shadowRoot.getElementById('striprubber'), lt = this.shadowRoot.getElementById('striplen');
+        if (!pts.length || !rb) return;
+        const [x, y] = this.stripSnap(ev), [ax, ay] = pts[pts.length - 1], sc = planScale(p);
+        Object.entries({ x1: ax, y1: ay, x2: x, y2: y }).forEach(([k, v]) => rb.setAttribute(k, v));
+        rb.style.display = '';
+        lt.setAttribute('x', (ax + x) / 2); lt.setAttribute('y', (ay + y) / 2 - 8);
+        const seg = Math.hypot(x - ax, y - ay), tot = pathLength([...pts, [x, y]]);
+        lt.textContent = sc ? `${(seg / sc).toFixed(2).replace('.', ',')} m  (${(tot / sc).toFixed(2).replace('.', ',')} m)` : String(Math.round(seg));
+      });
+    }
+  }
+
+  /** LED strip: where the next point goes (grid, and 45° steps unless Shift is held). */
+  stripSnap(ev) {
+    const [x, y] = this.pt(ev), pts = this.stripPts || [];
+    if (!pts.length || ev.shiftKey) return [this.snap(x), this.snap(y)];
+    const [ax, ay] = pts[pts.length - 1], a = Math.round(Math.atan2(y - ay, x - ax) / (Math.PI / 4)) * (Math.PI / 4), g = this.plan.grid || 10;
+    const L = Math.round(Math.hypot(x - ax, y - ay) / g) * g;
+    return [Math.round(ax + L * Math.cos(a)), Math.round(ay + L * Math.sin(a))];
+  }
+  addStripPoint(ev) {
+    const q = this.stripSnap(ev), pts = (this.stripPts = this.stripPts || []), last = pts[pts.length - 1];
+    if (last && last[0] === q[0] && last[1] === q[1]) return;
+    pts.push(q);
+    this.render();
+  }
+  finishStrip() {
+    const id = this.stripDraw, pts = (this.stripPts || []).filter((q, i, a) => !i || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1]);
+    this.stripDraw = null; this.stripPts = [];
+    if (pts.length < 2) { this.render(); return; }
+    this.mut((pl) => {
+      const it = pl.items.find((i) => i.entity_id === id);
+      if (!it) return;
+      it.shape = 'strip'; it.path = pts;
+      [it.x, it.y] = pathMid(pts).map(Math.round);   // the icon (to tap) in the middle of the strip
     });
   }
 

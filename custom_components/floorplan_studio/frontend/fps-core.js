@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b2';
+export const VERSION = '1.4.0b3';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -736,6 +736,20 @@ export function furnAt(plan, x, y) {
   }
   return null;
 }
+/** A drawn LED strip: its points (plan units), or null when the lamp is just an icon. */
+export const stripPath = (it) => (it?.shape === 'strip' && Array.isArray(it.path) && it.path.length >= 2 ? it.path.map(([x, y]) => [safeNumber(x), safeNumber(y)]) : null);
+/** Length of a line through these points, and the point halfway along it. */
+export function pathLength(path) { let L = 0; for (let i = 1; i < path.length; i++) L += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); return L; }
+export function pathMid(path) {
+  let half = pathLength(path) / 2;
+  for (let i = 1; i < path.length; i++) {
+    const [ax, ay] = path[i - 1], [bx, by] = path[i], d = Math.hypot(bx - ax, by - ay);
+    if (d >= half) { const k = d ? half / d : 0; return [ax + (bx - ax) * k, ay + (by - ay) * k]; }
+    half -= d;
+  }
+  return path[path.length - 1];
+}
+
 /**
  * Is this a ceiling lamp? Your own choice in step 4 wins; otherwise the name or Home Assistant's icon
  * gives it away (plafond, ceiling, spot, hanglamp, pendant, downlight, kroonluchter ...).
@@ -956,6 +970,23 @@ export function raisedSVG(plan, walls, proj) {
   return `<g class="raised">${parts.map((p) => p.svg).join('')}</g>`;
 }
 
+/** LED strips drawn as lines (the card colours them with the lamp and lights them up when on). */
+function stripsSVG(plan, proj) {
+  const out = [];
+  for (const it of plan.items || []) {
+    const sp = stripPath(it);
+    if (!sp) continue;
+    let pts = sp, w = 1;
+    if (proj) {
+      const own = it.height != null && it.height !== '' && Number.isFinite(+it.height), z = (own ? +it.height : itemHeight(it, null)) * proj.sc * proj.lift;
+      pts = sp.map(([x, y]) => proj.P(x, y, z)); w = proj.s;
+    }
+    const pl = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    out.push(`<g class="strip" data-strip="${esc(it.entity_id)}"><polyline class="sglow" points="${pl}" style="stroke-width:${(16 * w).toFixed(1)}"/><polyline class="score" points="${pl}" style="stroke-width:${(4 * w).toFixed(1)}"/></g>`);
+  }
+  return out.length ? `<g class="strips">${out.join('')}</g>` : '';
+}
+
 export function planSVG(plan, { showBackground = false, editor = false, proj = null } = {}) {
   const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), out = [];
   const grid = safeNumber(plan.grid, 10) || 10;
@@ -966,6 +997,7 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
   out.push('<pattern id="fps-plate" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect x="4" y="14" width="18" height="5" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/><rect x="21" y="-3" width="5" height="18" rx="2.5" fill="#d0d0d0" fill-opacity=".11"/></pattern>');
   out.push('<pattern id="fps-scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" fill-opacity=".3"/></pattern>');
   out.push('<filter id="fps-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="50"/></filter>');
+  out.push('<filter id="fps-stripblur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>');
   out.push('<filter id="fps-lampblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="28"/></filter>');
   // floor textures: tiles (bathroom, toilet) and wooden planks
   out.push('<pattern id="fps-tiles" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" class="tex"/></pattern>');
@@ -987,6 +1019,7 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
   if (proj) {
     out.push(groundSVG(plan, proj, editor));
     out.push(raisedSVG(plan, walls, proj));
+    if (!editor) out.push(stripsSVG(plan, proj));
     if (!editor) out.push('<g class="stalks"></g>');   // thin lines from the floor up to raised icons (card fills it)
     out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/></svg>`);
     return out.join('');
@@ -1056,6 +1089,7 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
     }
   }
   out.push('</g>');
+  if (!editor) out.push(stripsSVG(plan, null));
   const cmp = settingsOf(plan).compass;
   if (!editor && cmp !== null && cmp !== '' && cmp !== undefined && !isNaN(+cmp)) {
     // an empty spot (no rooms, no icons), searched from the bottom-right corner
@@ -1101,6 +1135,11 @@ export const PLAN_CSS = `
   .stalks .cord { stroke: var(--fps-fg); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: none; }
   .stalks .rose { fill: var(--fps-wall); fill-opacity: 1; stroke: var(--fps-fg); stroke-opacity: .6; stroke-width: 1.2; }
   .stalks .on .rose { stroke: var(--fps-accent); stroke-opacity: .9; }
+  .strip polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+  .strip .sglow { stroke: rgb(var(--c, var(--fps-accent-rgb))); opacity: 0; filter: url(#fps-stripblur); transition: opacity .3s; }
+  .strip.on .sglow { opacity: calc(.75 * var(--b, 1) * var(--fps-glow, 1)); }
+  .strip .score { stroke: var(--fps-off, #6b7280); opacity: .85; transition: stroke .3s; }
+  .strip.on .score { stroke: rgb(var(--c, var(--fps-accent-rgb))); opacity: 1; }
   .stalks .cone { display: none; pointer-events: none; } .stalks .on .cone { display: inline; }
   .stalks .c0 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: calc(.32 * var(--b, 1) * var(--fps-glow, 1)); } .stalks .c1 { stop-color: rgb(var(--c, var(--fps-accent-rgb))); stop-opacity: 0; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }

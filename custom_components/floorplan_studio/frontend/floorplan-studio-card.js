@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b2';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b2';
+} from './fps-core.js?v=1.4.0b3';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b3';
 
 
 const CSS = `
@@ -634,8 +634,8 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b2');
-      this._walk = openWalk(this, { plan: this._plan, hass: this._hass, onClose: () => { this._walk = null; } });
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b3');
+      this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
 
@@ -650,7 +650,7 @@ class FloorplanStudioCard extends HTMLElement {
     svg.remove();
     this.shadowRoot.querySelector('svg.plan').addEventListener('click', this._svgClick);
     this._glows = new Map(); this._radar = new Map(); this._last = new Map();
-    for (const rec of this._items.values()) { rec.stalk = null; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
+    for (const rec of this._items.values()) { rec.stalk = null; rec.strip = undefined; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
     this.shadowRoot.querySelectorAll('.rinfo').forEach((d) => { if (d._fx != null) [d.style.left, d.style.top] = this._at(d._fx, d._fy); });
     this._update(true);
   }
@@ -708,16 +708,19 @@ class FloorplanStudioCard extends HTMLElement {
       if (!st) { rec.el.classList.toggle('on', on); rec.el.querySelector('.tag').textContent = ''; continue; }
       rec.el.classList.toggle('on', on);
       rec.stalk?.classList.toggle('on', on);
+      if (rec.strip === undefined) rec.strip = [...this.shadowRoot.querySelectorAll('svg.plan [data-strip]')].find((n) => n.dataset.strip === id) || null;
+      rec.strip?.classList.toggle('on', on);
       if (rec.kind === 'lamp') {
         // a fixed colour from the editor wins (e.g. a smart plug with a purple lamp in it)
         const fixed = rec.it.color && /^#[0-9a-f]{6}$/i.test(rec.it.color) ? [1, 3, 5].map((i) => parseInt(rec.it.color.slice(i, i + 2), 16)).join(',') : null;
         const c = fixed || lightColor(st);
         if (c) rec.el.style.setProperty('--c', c); else rec.el.style.removeProperty('--c');
-        if (rec.stalk) { if (c) rec.stalk.style.setProperty('--c', c); else rec.stalk.style.removeProperty('--c'); }
+        for (const g of [rec.stalk, rec.strip]) if (g) { if (c) g.style.setProperty('--c', c); else g.style.removeProperty('--c'); }
         // brightness: a dimmed lamp gets a softer button and glow, and its level as a small tag
         const br = st.attributes.brightness, lvl = on && br != null ? Math.max(1, Math.round(br / 2.55)) : null;
         rec.el.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
         rec.stalk?.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
+        rec.strip?.style.setProperty('--b', lvl != null ? (lvl / 100).toFixed(2) : '1');
         // lamp_level: fixed = always a small tag, hover = only in the name when you point at the lamp, off = nothing
         const lm = levelMode(this._s);
         rec.el.querySelector('.tag').textContent = lvl != null && lm === 'fixed' ? `${lvl}%` : '';

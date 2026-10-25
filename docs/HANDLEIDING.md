@@ -136,6 +136,8 @@ Klik **Volgende**.
 
    Bij een lamp: **Plafondlamp?** Automatisch herkent hij een plafondlamp aan de naam (plafond, spot, hanglamp, pendant, downlight ...). Klopt dat niet, kies dan *Ja* of *Nee*. Een plafondlamp krijgt een plafondlamp-icoon, en in 2.5D hangt hij aan een rozet aan het plafond en schijnt hij een lichtbundel naar de vloer als hij aan is. Een hanglamp boven de eettafel: kies *Ja*, dan hangt hij aan een lang snoer boven de tafel.
 
+   **Ledstrip als lijn:** zet bij een lamp (of een stekker met een lamp eraan) **Vorm op de kaart** op *Lijn (ledstrip)* en kies **Lijn tekenen**. Tik punt voor punt langs de strip; lijnen springen naar 45° (Shift ingedrukt = vrije hoek) en je ziet meteen de lengte in meters. Dubbeltik of **Klaar** om te stoppen. Elk stuk krijgt zijn lengte op de tekening, en de totale lengte staat in het paneel. Op het dashboard gloeit de lijn in de kleur van de lamp; het icoontje (om te tikken) komt in het midden. De hoogte van de strip zet je onder **Meer opties** (handig in 2.5D en de wandeling).
+
    Onder **Meer opties**:
    - een eigen **icoon**;
    - een vaste **gloedkleur** (voor een stekker met een gekleurde lamp erin);
@@ -308,7 +310,14 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
 - Zodra je zelf iets doet, pauzeert de rondleiding; met **Verder** gaat hij door waar hij was.
 - **Iconen** van de ruimte waar je bent (en wat dichtbij is) hangen op hun plek; tik op een lamp of schakelaar om hem aan of uit te zetten.
 - Een deur met een sensor staat open of dicht zoals hij echt is. Ramen zijn glas met een kozijn; je kijkt naar buiten.
-- Sluiten met het kruisje of Esc.
+- **Ledstrips** gloeien als een band langs de lijn die je tekende, op hun eigen hoogte.
+- **Bewerken** (alleen voor beheerders): tik op **Bewerken** onderin. Daarna:
+  - **Apparaten verplaatsen:** sleep het icoontje; het blijft op zijn hoogte. Tik erop om het te kiezen, dan kun je de **hoogte** met − en + per 10 cm aanpassen.
+  - **Ledstrip tekenen:** kies een lamp en tik **Ledstrip tekenen**. Zet de hoogte goed en tik punt voor punt op de muur of het meubel waar de strip loopt, dan **Klaar**.
+  - **Meubels:** sleep een meubel over de vloer, of tik erop en draai het (15° of 90°) of haal het weg (ook met Delete).
+  - **Opslaan** bewaart alles in je plattegrond (2D, 2.5D en de wandeling kloppen meteen); **Annuleren** gooit de wijzigingen weg.
+- Je loopt nooit door een muur: de rondleiding gaat alleen door deuren en doorgangen, en een ruimte zonder deur slaat hij over. Ook zelf lopen stopt bij de muur.
+- Sluiten met het kruisje of Esc. Heb je nog niet opgeslagen, dan waarschuwt hij eerst.
 - Hoe hoog muren en iconen zijn stel je in bij stap 5 → *Telefoon, tablet en 2.5D*: de **echte maat** of een eigen percentage.
 
 ![2.5D op de telefoon, ruimte per ruimte](img/telefoon-25d.png)
