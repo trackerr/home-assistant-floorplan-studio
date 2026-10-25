@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b15';
+export const VERSION = '1.3.0b16';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -588,7 +588,8 @@ export const DEFAULT_SETTINGS = {
   temp_color: false,        // colour the rooms from cold (blue) to warm (red)
   temp_min: 17, temp_max: 24,
   presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
-  motion_fade: 5,           // minutes the motion icon slowly fades out after the last movement (0 = off)
+  motion_fade: 5,
+  height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons           // minutes the motion icon slowly fades out after the last movement (0 = off)
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
   alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
   alert_open: true,         // open doors/windows: the room gets an orange edge
@@ -656,7 +657,7 @@ export function labelSpot(plan, room, fs, rows = 2) {
 /* ------------------------------------------------------------------ 2.5D */
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
 export const FURN_HEIGHT = { sofa: 0.8, bed: 0.55, table: 0.75, round: 0.75, desk: 0.75, counter: 0.9, cabinet: 2, bath: 0.6, shower: 2, toilet: 0.45, stairs: 0, tv: 0.7, plant: 0.9 };
-const LIFT = 0.42;
+const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
 /** The piece of furniture under a point (its turned rectangle), or null. */
@@ -684,10 +685,11 @@ export function itemHeight(it, st) {
  * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted
  * back into the plan's own box. P(x, y) gives where a floor point lands, dz(h) how far up a height goes.
  */
-export function makeProj(plan, { rot = 0, tilt = 50 } = {}) {
+export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
   const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), cx = W / 2, cy = H / 2;
   const th = (rot * Math.PI) / 180, t = (tilt * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), ct = Math.cos(t), st = Math.sin(t);
-  const sc = planScale(plan) || 70, wallH = 2.6 * sc * LIFT;
+  const lift = height === 'real' ? LIFT : LIFT * Math.max(0.3, Math.min(2, safeNumber(height, 80) / 100));
+  const sc = planScale(plan) || 70, wallH = 2.6 * sc * lift;
   const raw = (x, y, z = 0) => { const xr = co * (x - cx) - si * (y - cy), yr = si * (x - cx) + co * (y - cy); return [xr, yr * ct - z * st]; };
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const q of plan.rooms.flatMap((r) => r.rects.map(norm))) {
@@ -703,7 +705,7 @@ export function makeProj(plan, { rot = 0, tilt = 50 } = {}) {
   const a = a1 - e, b = b1 - f, c = c1 - e, d = d1 - f, det = a * d - b * c || 1;
   // inv: from a point on screen (plan box units) back to the floor
   const inv = (X, Y) => [(d * (X - e) - c * (Y - f)) / det, (-b * (X - e) + a * (Y - f)) / det];
-  return { P, inv, m: [a, b, c, d, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift: LIFT };
+  return { P, inv, m: [a, b, c, d, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift };
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
@@ -723,7 +725,7 @@ function raisedSVG(plan, walls, proj) {
       const ry = proj.si * nx * sgn + proj.co * ny * sgn;              // ... after turning: >0 = towards the viewer
       full = ry > -0.35;                                               // back and side walls stand, front walls are cut
     }
-    const h = full ? wallH : wallH * 0.22;
+    const h = full ? wallH : wallH * 0.25;
     // split the wall where doors, windows and passages are
     const a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2);
     const cuts = openings.filter((o) => (hor ? o.y1 === o.y2 && Math.abs(o.y1 - w.y1) < 3 : o.x1 === o.x2 && Math.abs(o.x1 - w.x1) < 3))
@@ -751,7 +753,7 @@ function raisedSVG(plan, walls, proj) {
     if (!(fh > 0)) continue;
     const w2 = Math.max(10, safeNumber(f.w, 100)) / 2, h2 = Math.max(6, safeNumber(f.h, 60)) / 2, r = (safeNumber(f.rot) * Math.PI) / 180;
     const base = [[-w2, -h2], [w2, -h2], [w2, h2], [-w2, h2]].map(([x, y]) => P(safeNumber(f.x) + x * Math.cos(r) - y * Math.sin(r), safeNumber(f.y) + x * Math.sin(r) + y * Math.cos(r)));
-    const hh = fh * sc * LIFT, top = base.map((p) => up(p, hh));
+    const hh = fh * sc * proj.lift, top = base.map((p) => up(p, hh));
     const ccx = base.reduce((a, p) => a + p[0], 0) / 4, ccy = base.reduce((a, p) => a + p[1], 0) / 4;
     const sides = [];
     for (let i = 0; i < 4; i++) {

@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b15';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b15';
+} from './fps-core.js?v=1.3.0b16';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b16';
 
 
 const CSS = `
@@ -445,7 +445,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._compact = this._compactWanted;
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; not while moving icons or in room-by-room mode
-    this._proj = this._view25 && !this._compact ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50) }) : null;
+    this._proj = this._view25 && !this._compact ? makeProj(plan, { rot: this._rot, tilt: safeNumber(this._s.tilt, 50), height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">

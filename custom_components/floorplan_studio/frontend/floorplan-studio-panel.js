@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b15';
+import './floorplan-studio-card.js?v=1.3.0b16';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b15';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b15';
+} from './fps-core.js?v=1.3.0b16';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b16';
 
 const L = {
   en: {
@@ -64,7 +64,7 @@ const L = {
     i_height: 'Height in metres (for the 2.5D view, empty = usual)',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
     radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
-    motion_fade: 'Motion icon fades out over … minutes (0 = straight away)',
+    motion_fade: 'Motion icon fades out over … minutes (0 = straight away)', height_25d: 'Height of walls and icons in the 2.5D view', h25_real: 'real size', h25_custom: 'own value (% of real)',
   },
   nl: {
     steps: ['Achtergrond', 'Ruimtes', 'Deuren & meubels', 'Apparaten', 'Instellingen', 'Klaar'],
@@ -122,7 +122,7 @@ const L = {
     i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
     radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
-    motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)',
+    motion_fade: 'Bewegingsicoontje dooft uit in … minuten (0 = meteen)', height_25d: 'Hoogte van muren en iconen in de 2.5D-weergave', h25_real: 'echte maat', h25_custom: 'eigen waarde (% van echt)',
   },
 };
 
@@ -1095,7 +1095,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
       <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="mkhelper" style="flex:none">${l.make_helper}</button></div></div>
       <p>${l.theme_entity_hint}</p>
-      ${num('plan_size', 50, 100, 5)}<div class="field"><span>${l.compact}</span><select data-set="compact">${['auto', 'on', 'off'].map((k) => `<option value="${k}" ${(s.compact || 'auto') === k ? 'selected' : ''}>${l['cmp_' + k]}</option>`).join('')}</select></div>${num('compact_width', 320, 1200, 20)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
+      ${num('plan_size', 50, 100, 5)}<div class="field"><span>${l.height_25d}</span><select id="h25mode"><option value="real" ${s.height_25d === 'real' ? 'selected' : ''}>${l.h25_real}</option><option value="custom" ${s.height_25d !== 'real' ? 'selected' : ''}>${l.h25_custom}</option></select></div>${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}<div class="field"><span>${l.compact}</span><select data-set="compact">${['auto', 'on', 'off'].map((k) => `<option value="${k}" ${(s.compact || 'auto') === k ? 'selected' : ''}>${l['cmp_' + k]}</option>`).join('')}</select></div>${num('compact_width', 320, 1200, 20)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
       <h3>${l.set_room}</h3>${chk('show_temp')}${chk('show_hum')}${chk('show_lights')}${chk('show_tags')}
       <h3>${l.set_simple}</h3>
       <div class="field"><span>${l.default_mode}</span><select data-set="default_mode"><option value="all" ${s.default_mode === 'all' ? 'selected' : ''}>${l.all}</option><option value="simple" ${s.default_mode === 'simple' ? 'selected' : ''}>${l.simple}</option></select></div>
@@ -1147,6 +1147,7 @@ class FloorplanStudioPanel extends HTMLElement {
       const k = el.dataset.set;
       set(k, el.type === 'checkbox' ? el.checked : el.dataset.num ? +el.value : el.value);
     }));
+    $('#h25mode')?.addEventListener('change', (ev) => set('height_25d', ev.target.value === 'real' ? 'real' : 80));
     $$('[data-side]').forEach((el) => el.addEventListener('change', () => set('side', { ...(settingsOf(this.plan).side || {}), [el.dataset.side]: el.value || undefined })));
     $$('[data-sidelist]').forEach((el) => el.addEventListener('change', () => {
       const k = el.dataset.sidelist;
