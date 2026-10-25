@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: licht lekt niet meer door muren — een lamp verlicht precies zijn eigen ruimte (ook een L-vormige), niet de andere kant van de muur. Een kader-ledstrip die bijna recht is staat recht langs de muur.
 - Een tv op een kast of tv-meubel heeft geen voet meer: alleen het scherm op kleine pootjes (wandeling en 2.5D).
 - Stap 5: *De rondleiding begint in* — kies een ruimte; de rondleiding begint dan bij de deur van die ruimte.
 - Kaartoptie `walk: tour`: de wandeling opent vanzelf en de rondleiding loopt steeds opnieuw — voor een tv (Home Assistant Cast), wandtablet of kiosk. De kaart staat nu ook vanzelf bij de dashboard-resources (en houdt zijn versie bij), zodat Home Assistant Cast en kioskbrowsers hem vinden.

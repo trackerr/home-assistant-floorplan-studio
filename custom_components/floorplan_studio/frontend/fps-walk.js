@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b46';
+} from './fps-core.js?v=1.4.0b47';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -380,7 +380,7 @@ precision mediump float;
 #endif
 varying vec3 vP; varying vec3 vN; varying vec3 vC; varying float vM;
 uniform vec3 uEye; uniform vec3 uSky; uniform float uAmb; uniform float uSun; uniform vec3 uSunDir;
-uniform int uNL; uniform vec4 uLP[${N}]; uniform vec3 uLC[${N}]; uniform vec4 uLB[${N}]; uniform vec4 uLD[${N}];
+uniform int uNL; uniform vec4 uLP[${N}]; uniform vec3 uLC[${N}]; uniform vec4 uLB[${N}]; uniform vec4 uLB2[${N}]; uniform vec4 uLD[${N}];
 uniform float uAlpha; uniform float uEmis; uniform vec3 uTint;
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main(){
@@ -403,7 +403,8 @@ void main(){
   for (int i = 0; i < ${N}; i++) {
     if (i >= uNL) break;
     vec3 L = uLP[i].xyz - vP; float d = length(L); vec3 l = L / max(d, 0.001);
-    vec4 b = uLB[i]; float inside = step(b.x, vP.x) * step(vP.x, b.z) * step(b.y, vP.z) * step(vP.z, b.w);
+    vec4 b = uLB[i]; vec4 b2 = uLB2[i];
+    float inside = max(step(b.x, vP.x) * step(vP.x, b.z) * step(b.y, vP.z) * step(vP.z, b.w), step(b2.x, vP.x) * step(vP.x, b2.z) * step(b2.y, vP.z) * step(vP.z, b2.w));
     float cone = 1.0;
     if (uLD[i].w > 0.0) cone = smoothstep(uLD[i].w, uLD[i].w + 0.06, dot(-l, uLD[i].xyz));   // a spot: only inside its beam
     light += uLC[i] * (uLP[i].w / (1.0 + 0.8 * d * d)) * inside * cone * max(dot(N, l), 0.0);
@@ -503,10 +504,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.warn('fps-walk', gl.getShaderInfoLog(s)); return s; };
   const prog = gl.createProgram();
   // as many lamps at once as the graphics chip allows (32, or 16 on very old ones): no lamps dropping out while you walk
-  const NL = (gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0) >= 180 ? 32 : MAX_LIGHTS;
+  const NL = (gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0) >= 200 ? 32 : MAX_LIGHTS;
   gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS(NL))); gl.linkProgram(prog); gl.useProgram(prog);
   const A = Object.fromEntries(['aP', 'aN', 'aC', 'aM'].map((n) => [n, gl.getAttribLocation(prog, n)]));
-  const U = Object.fromEntries(['uVP', 'uEye', 'uSky', 'uAmb', 'uSun', 'uSunDir', 'uNL', 'uLP', 'uLC', 'uLB', 'uLD', 'uAlpha', 'uEmis', 'uTint'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  const U = Object.fromEntries(['uVP', 'uEye', 'uSky', 'uAmb', 'uSun', 'uSunDir', 'uNL', 'uLP', 'uLC', 'uLB', 'uLB2', 'uLD', 'uAlpha', 'uEmis', 'uTint'].map((n) => [n, gl.getUniformLocation(prog, n)]));
   const upload = (mesh) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.v), gl.STATIC_DRAW); return { b, n: mesh.v.length / 10 }; };
   const bind = ({ b }) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, b);
@@ -580,7 +581,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   function buildItems() {
     lamps = []; items = []; obstacles = []; clocks = []; tvFurn = new Map(); iconsEl.innerHTML = '';
     const tvl = tvLinks(plan, hass), rads = radiatorLinks(plan, hass);
-    const lampBox = (room) => { if (!room) return [-1e9, -1e9, 1e9, 1e9]; const qs = room.rects.map(norm); return [M(Math.min(...qs.map((q) => q[0]))) - 0.15, M(Math.min(...qs.map((q) => q[1]))) - 0.15, M(Math.max(...qs.map((q) => q[2]))) + 0.15, M(Math.max(...qs.map((q) => q[3]))) + 0.15]; };
+    // what a lamp may light: exactly its own room (its walls' inner sides are inside the room's rectangle, the other
+    // side of a wall is not), in up to two parts for an L-shaped room
+    const lampBox = (room) => {
+      if (!room) return [-1e9, -1e9, 1e9, 1e9, -1e9, -1e9, 1e9, 1e9];
+      const qs = room.rects.map(norm).sort((p, q) => (q[2] - q[0]) * (q[3] - q[1]) - (p[2] - p[0]) * (p[3] - p[1])), e = 0.02;
+      const box = (list) => [M(Math.min(...list.map((q) => q[0]))) - e, M(Math.min(...list.map((q) => q[1]))) - e, M(Math.max(...list.map((q) => q[2]))) + e, M(Math.max(...list.map((q) => q[3]))) + e];
+      const b1 = box([qs[0]]);
+      return [...b1, ...(qs.length > 1 ? box(qs.slice(1)) : b1)];
+    };
     const markers = new Mesh(), fixtures = new Mesh();
     const circle = (cx, cz, r, k = 14) => Array.from({ length: k }, (_, i) => [cx + r * Math.cos((i / k) * 2 * Math.PI), cz + r * Math.sin((i / k) * 2 * Math.PI)]);
     const DARK = [0.2, 0.2, 0.22];
@@ -737,8 +746,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         return null;
       };
       if (lampKind && !isClock) {   // a ring clock is drawn as its ring, not as a lamp
-        let bb = [-1e9, -1e9, 1e9, 1e9];
-        if (room) { const qs = room.rects.map(norm); bb = [M(Math.min(...qs.map((q) => q[0]))) - 0.15, M(Math.min(...qs.map((q) => q[1]))) - 0.15, M(Math.max(...qs.map((q) => q[2]))) + 0.15, M(Math.max(...qs.map((q) => q[3]))) + 0.15]; }
+        let bb = lampBox(room);
         const start = markers.v.length / 10, livePieces = [];
         let lightY = h, lampPushed = false;
         if (lampType === 'strip') {
@@ -749,6 +757,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           const tw = 0.014;
           // a frame: only its width counts (first to last point) - a U drawn on the plan for "left, top, right" gives the same frame
           if (['frame', 'frame3'].includes(it.strip_dir) && pts.length > 2) pts = [pts[0], pts[pts.length - 1]];
+          // a frame that is nearly straight stands straight (along the wall, not a little askew)
+          if (['frame', 'frame3'].includes(it.strip_dir)) {
+            const [p0, p1] = [pts[0], pts[pts.length - 1]], dx = p1[0] - p0[0], dz = p1[1] - p0[1];
+            if (Math.abs(dz) < Math.abs(dx) * 0.3) { const z = (p0[1] + p1[1]) / 2; pts = [[p0[0], z], [p1[0], z]]; }
+            else if (Math.abs(dx) < Math.abs(dz) * 0.3) { const x = (p0[0] + p1[0]) / 2; pts = [[x, p0[1]], [x, p1[1]]]; }
+          }
           // the strip in 3D: lying along the line at its height, standing upright at each point, or a frame all round
           const dir = it.strip_dir, top = Math.max(h + 0.05, Math.min(H - 0.02, stripTop(it)));
           const segs3 = dir === 'up' ? pts.map(([x, z]) => [[x, h, z], [x, top, z]])
@@ -2035,9 +2049,9 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     const chosen = lamps.filter((l) => l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
     for (const l of lamps) { l.sel = chosen.includes(l); l.sw = (l.sw ?? (l.sel ? 1 : 0)) + ((l.sel ? 1 : 0) - (l.sw ?? 0)) * ease; }
     const lit = lamps.filter((l) => l.sw > 0.01 && l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
-    const LP = new Float32Array(NL * 4), LC = new Float32Array(NL * 3), LB = new Float32Array(NL * 4), LD = new Float32Array(NL * 4);
-    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.kv * l.sw * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.cv, i * 3); LB.set(l.bb, i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); });
-    gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB); gl.uniform4fv(U.uLD, LD);
+    const LP = new Float32Array(NL * 4), LC = new Float32Array(NL * 3), LB = new Float32Array(NL * 4), LB2 = new Float32Array(NL * 4), LD = new Float32Array(NL * 4);
+    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.kv * l.sw * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.cv, i * 3); LB.set(l.bb.slice(0, 4), i * 4); LB2.set(l.bb.length > 4 ? l.bb.slice(4, 8) : l.bb.slice(0, 4), i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); });
+    gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB); gl.uniform4fv(U.uLB2, LB2); gl.uniform4fv(U.uLD, LD);
     gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
     gl.disable(gl.BLEND); gl.depthMask(true);
     if (buf.solid) { bind(buf.solid); gl.drawArrays(gl.TRIANGLES, 0, buf.solid.n); }
