@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b9';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b9';
+} from './fps-core.js?v=1.3.0b10';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b10';
 
 
 const CSS = `
@@ -79,6 +79,10 @@ const CSS = `
                background: color-mix(in srgb, var(--fps-bg) 82%, transparent); backdrop-filter: blur(6px); border-left: 1px solid var(--fps-line);
                transform: translateX(105%); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
   .roompanel.open { transform: none; }
+  .ptop { display: flex; justify-content: space-between; align-items: center; }
+  .roompanel.min, .roompanel.narrow.min { top: 10px; right: 10px; bottom: auto; left: auto; width: auto; height: auto; padding: 6px 8px; border: 1px solid var(--fps-line); border-radius: 14px; overflow: visible; }
+  .pminbar { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .pminbar .pname { margin: 0; font-size: 12px; } .pminbar .pmt { font-size: 18px; font-weight: 300; color: var(--fps-fg); }
   .roompanel.narrow { top: auto; width: 100%; height: 46%; border-left: none; border-top: 1px solid var(--fps-line); transform: translateY(105%); }
   .roompanel.narrow.open { transform: none; }
   .pname { margin-top: 12px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fps-muted); }
@@ -282,6 +286,16 @@ const CSS = `
   .toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 25; padding: 8px 14px; border-radius: 999px; font-size: 13px;
            background: rgba(0,0,0,.8); color: #fff; animation: fpsfade .2s ease; pointer-events: none; }
 `;
+
+/** Convex hull of a few points (outline around a raised room for the 2.5D fade). */
+function hull(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
 
 /** A media player that is a TV (by its type, icon or name); everything else counts as a speaker. */
 function isTv(st, it) {
@@ -1297,7 +1311,17 @@ class FloorplanStudioCard extends HTMLElement {
     }).join('');
     const m = `fpsghost-${room.id}`.replace(/[^\w-]/g, '');
     const mx = this._proj ? ` transform="matrix(${this._proj.m.join(' ')})"` : '';
-    g.innerHTML = `<defs><mask id="${m}" maskUnits="userSpaceOnUse" x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}"><rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" fill="#fff"/><g${mx}>${holes}</g></mask></defs>
+    // 2.5D: keep the room's own raised walls clear too (the outline around its floor and its wall tops)
+    let tall = '';
+    if (this._proj) {
+      const { P, wallH } = this._proj;
+      tall = room.rects.map((q) => {
+        const [a0, b0, a1, b1] = [Math.min(q[0], q[2]) - e, Math.min(q[1], q[3]) - e, Math.max(q[0], q[2]) + e, Math.max(q[1], q[3]) + e];
+        const pts = [[a0, b0], [a1, b0], [a1, b1], [a0, b1]].flatMap(([x, y]) => [P(x, y), P(x, y, wallH)]);
+        return `<polygon points="${hull(pts).map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' ')}" fill="#000"/>`;
+      }).join('');
+    }
+    g.innerHTML = `<defs><mask id="${m}" maskUnits="userSpaceOnUse" x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}"><rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" fill="#fff"/><g${mx}>${holes}</g>${tall}</mask></defs>
       <rect x="-${W}" y="-${H}" width="${3 * W}" height="${3 * H}" mask="url(#${m})"/>`;
     g.classList.add('on');
   }
@@ -1364,14 +1388,21 @@ class FloorplanStudioCard extends HTMLElement {
       panel.classList.remove('open');
     } else {
       const [x0, y0, x1, y1] = this._screenBox(room);
-      const side = this._stage.clientWidth > 520 ? 0.36 : 0;        // room panel takes the right 36% on wide cards
+      const wide = this._stage.clientWidth > 520;
+      const side = wide && !this._panelMin ? 0.36 : 0;              // room panel takes the right 36% on wide cards (unless made small)
       const availW = W * (1 - side), cxT = availW / 2;
-      const s = Math.min(5, Math.min(availW / (x1 - x0), H / (y1 - y0)) * 0.86);
+      // only the part of the plan you can actually see counts (a tall plan can run below the screen)
+      const vp = this.shadowRoot.querySelector('.viewport').getBoundingClientRect(), sh = this._stage.clientHeight || 1, ih = window.innerHeight || sh;
+      const vTop = Math.max(0, -vp.top), vBot = Math.max(vTop + 60, Math.min(sh, ih - vp.top));
+      let yv0 = (vTop / sh) * H, yv1 = (vBot / sh) * H;
+      if (!wide && !this._panelMin) yv1 = yv0 + (yv1 - yv0) * 0.54;  // the panel covers the bottom on narrow cards
+      const s = Math.min(5, Math.min(availW / (x1 - x0), (yv1 - yv0) / (y1 - y0)) * 0.86);
       const tx = ((cxT - ((x0 + x1) / 2) * s) / W) * 100;
-      const ty = ((H / 2 - ((y0 + y1) / 2) * s) / H) * 100;
+      const ty = (((yv0 + yv1) / 2 - ((y0 + y1) / 2) * s) / H) * 100;
       this._stage.style.transform = `translate(${tx}%, ${ty}%) scale(${s})`;
       k = Math.min(1, 1.9 / s);
-      panel.classList.toggle('narrow', !side);
+      panel.classList.toggle('narrow', !wide);
+      panel.classList.toggle('min', !!this._panelMin);
       panel.classList.add('open');
       this._renderPanel(true);
     }
@@ -1395,7 +1426,16 @@ class FloorplanStudioCard extends HTMLElement {
     if (!force && panel.dataset.key === key) return;
     panel.dataset.key = key;
     const info = roomInfo(h, room, S);
-    panel.innerHTML = `<button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button>
+    if (this._panelMin) {
+      // made small: just the room, its temperature and a button to open the panel again
+      panel.innerHTML = `<div class="pminbar"><button class="btn icon" id="back" title="${t(h, 'back')}"><ha-icon icon="mdi:arrow-left"></ha-icon></button>
+        <span class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</span>${info.headline ? `<span class="pmt">${esc(info.headline)}</span>` : ''}
+        <button class="btn icon" id="pmin" title="${t(h, 'panel_open')}"><ha-icon icon="mdi:arrow-expand-left"></ha-icon></button></div>`;
+      panel.querySelector('#back').addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
+      panel.querySelector('#pmin').addEventListener('click', (ev) => { ev.stopPropagation(); this._panelMin = false; this._zoom(this._zoomRoom); });
+      return;
+    }
+    panel.innerHTML = `<div class="ptop"><button class="btn" id="back"><ha-icon icon="mdi:arrow-left"></ha-icon>${t(h, 'back')}</button><button class="btn icon" id="pmin" title="${t(h, 'panel_min')}"><ha-icon icon="mdi:arrow-collapse-right"></ha-icon></button></div>
       <div class="pname ${s.lit.length ? 'on' : ''}">${esc(room.name || '')}</div>
       ${info.headline ? `<div class="ptemp">${esc(info.headline)}</div>` : ''}
       <div class="prows">${info.rows.map((r) => `<div class="pline prow2 ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}">${r.icon ? `<ha-icon icon="${r.icon}"></ha-icon>` : `<ha-state-icon data-id="${esc(r.entity)}"></ha-state-icon>`}<span>${esc(r.text)}</span></div>`).join('')}</div>
@@ -1406,6 +1446,7 @@ class FloorplanStudioCard extends HTMLElement {
     panel.querySelectorAll('.prows ha-state-icon[data-id]').forEach((ic) => { ic.hass = h; ic.stateObj = h.states[ic.dataset.id]; });
     panel.querySelector('#back')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._goBack(); });
     panel.querySelector('#clean')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._cleanRoom(room); });
+    panel.querySelector('#pmin')?.addEventListener('click', (ev) => { ev.stopPropagation(); this._panelMin = true; this._zoom(this._zoomRoom); });
     // "In this room" starts folded; tap the heading to open it (kept while you go from room to room)
     panel.querySelector('#pfold')?.addEventListener('click', (ev) => {
       ev.stopPropagation(); this._plistOpen = !this._plistOpen;
