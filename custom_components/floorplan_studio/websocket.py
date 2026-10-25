@@ -25,6 +25,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete)
     websocket_api.async_register_command(hass, ws_usage)
     websocket_api.async_register_command(hass, ws_subscribe)
+    websocket_api.async_register_command(hass, ws_wled)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/plans"})
@@ -110,3 +111,47 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_PLAN_SAVED, _saved)
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/wled"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_wled(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Every WLED device with its LED count, matrix size and segments (from the WLED JSON API), mapped to its light entities."""
+    import asyncio  # noqa: PLC0415
+
+    from homeassistant.helpers import entity_registry as er  # noqa: PLC0415
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: PLC0415
+
+    session = async_get_clientsession(hass)
+    reg = er.async_get(hass)
+    lights: dict[str, str] = {}
+    for ent in reg.entities.values():
+        if ent.platform == "wled" and ent.domain == "light" and ent.unique_id:
+            lights[ent.unique_id.lower()] = ent.entity_id
+
+    async def one(entry) -> dict[str, Any] | None:
+        host = entry.data.get("host")
+        if not host:
+            return None
+        try:
+            async with asyncio.timeout(4):
+                resp = await session.get(f"http://{host}/json")
+                data = await resp.json(content_type=None)
+        except Exception:  # noqa: BLE001 - device offline or not reachable
+            return {"title": entry.title, "host": host, "offline": True}
+        info, state = data.get("info", {}), data.get("state", {})
+        mac = (info.get("mac") or entry.unique_id or "").lower()
+        leds = info.get("leds", {}) or {}
+        matrix = leds.get("matrix") or None
+        segs = []
+        for seg in state.get("seg", []):
+            if not isinstance(seg, dict) or seg.get("stop", 0) <= seg.get("start", 0):
+                continue
+            sid = seg.get("id", len(segs))
+            segs.append({"id": sid, "start": seg.get("start", 0), "stop": seg.get("stop", 0), "len": seg.get("len", seg.get("stop", 0) - seg.get("start", 0)),
+                         "entity_id": lights.get(f"{mac}_{sid}")})
+        return {"title": entry.title, "host": host, "mac": mac, "leds": leds.get("count"), "matrix": matrix, "segments": segs, "main": lights.get(mac)}
+
+    results = await asyncio.gather(*(one(e) for e in hass.config_entries.async_entries("wled")))
+    connection.send_result(msg["id"], {"devices": [r for r in results if r]})

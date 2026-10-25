@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b10';
+import './floorplan-studio-card.js?v=1.4.0b11';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight,
-} from './fps-core.js?v=1.4.0b10';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b10';
+} from './fps-core.js?v=1.4.0b11';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b11';
 
 const L = {
   en: {
@@ -23,7 +23,7 @@ const L = {
     delete_room: 'Delete room', delete_part: 'Delete this piece', rooms_list: 'Rooms', no_rooms: 'No rooms yet.',
     doors_title: 'Doors, windows and openings', door: 'Door', window: 'Window', opening: 'Open passage', doors_tip: 'Choose door, window or opening and tap a wall. An opening removes the wall, e.g. for an open kitchen. Link a door or window to its sensor and it turns orange on the plan while it is open.', o_sensor: 'Sensor (open / closed)', o_none: '— none —',
     length: 'Width', whole: 'Whole wall', delete: 'Delete', no_walls: 'Draw your rooms first; the walls come by themselves.',
-    items_title: 'Devices on the map', auto_place: 'Place everything for me', auto_hint: 'Puts lights, switches, heating, curtains and TVs in the room they belong to in Home Assistant.',
+    items_title: 'Devices on the map', auto_place: 'Place everything for me', wled_auto: 'Set up WLED automatically', wled_hint: 'Reads every WLED: number of LEDs, segments and matrix. Segments of a strip you drew get their own part of it, strips without a line get one along the nearest wall (assuming 60 LEDs per metre; redraw it for the exact spot), and WLED lights are never treated as ceiling lamps.', wled_none: 'No WLED found (or not reachable).', wled_done: 'WLED set up', wled_split: '{n}: split into {k} segments', wled_line: '{n}: line of {m} m added ({l} LEDs)', wled_matrix: '{n}: LED matrix {w}×{h}', wled_off: '{n}: not reachable', auto_hint: 'Puts lights, switches, heating, curtains and TVs in the room they belong to in Home Assistant.',
     unplaced: 'Not on the map yet', add: 'Add', search: 'Search anything in Home Assistant…', item: 'Device', show_always: 'Always show (also in Simple mode)', color: 'Light colour (for a plug with a coloured lamp)', no_color: 'automatic', icon: 'Icon (optional)', label: 'Name (optional)',
     remove: 'Remove from map', items_tip: 'Drag the icons to the right spot. On your dashboard: tap = on/off, hold = more info.',
     finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', dash_conflict: 'A dashboard already exists at /{url}, and Floorplan Studio did not create it. It was left unchanged.', dash_error: 'The dashboard could not be created: ', open: 'Open',
@@ -81,7 +81,7 @@ const L = {
     delete_room: 'Ruimte verwijderen', delete_part: 'Dit stuk verwijderen', rooms_list: 'Ruimtes', no_rooms: 'Nog geen ruimtes.',
     doors_title: 'Deuren, ramen en doorgangen', door: 'Deur', window: 'Raam', opening: 'Open doorgang', doors_tip: 'Kies deur, raam of doorgang en tik op een muur. Een doorgang haalt de muur weg, bijvoorbeeld bij een open keuken. Koppel een deur of raam aan zijn sensor: staat hij open, dan wordt hij oranje op de kaart.', o_sensor: 'Sensor (open / dicht)', o_none: '— geen —',
     length: 'Breedte', whole: 'Hele muur', delete: 'Verwijderen', no_walls: 'Teken eerst je ruimtes, dan komen de muren vanzelf.',
-    items_title: 'Apparaten op de kaart', auto_place: 'Alles vanzelf neerzetten', auto_hint: 'Zet lampen, schakelaars, verwarming, gordijnen en tv’s neer in de ruimte waar ze in Home Assistant bij horen.',
+    items_title: 'Apparaten op de kaart', wled_auto: 'WLED automatisch instellen', wled_hint: 'Leest elke WLED uit: aantal leds, segmenten en matrix. Segmenten van een strip die je tekende krijgen hun eigen stuk ervan, strips zonder lijn krijgen er een langs de dichtstbijzijnde muur (uitgaande van 60 leds per meter; teken hem na voor de precieze plek), en WLED-lampen worden nooit als plafondlamp gezien.', wled_none: 'Geen WLED gevonden (of niet bereikbaar).', wled_done: 'WLED ingesteld', wled_split: '{n}: verdeeld over {k} segmenten', wled_line: '{n}: lijn van {m} m toegevoegd ({l} leds)', wled_matrix: '{n}: ledmatrix {w}×{h}', wled_off: '{n}: niet bereikbaar', auto_place: 'Alles vanzelf neerzetten', auto_hint: 'Zet lampen, schakelaars, verwarming, gordijnen en tv’s neer in de ruimte waar ze in Home Assistant bij horen.',
     unplaced: 'Nog niet op de kaart', add: 'Toevoegen', search: 'Zoek iets uit Home Assistant…', item: 'Apparaat', show_always: 'Altijd laten zien (ook bij Eenvoudig)', color: 'Kleur van het licht (voor een stekker met een gekleurde lamp)', no_color: 'automatisch', icon: 'Ander icoon (mag leeg)', label: 'Andere naam (mag leeg)',
     remove: 'Van de kaart halen', items_tip: 'Sleep de iconen naar de goede plek. Op je dashboard: tikken = aan/uit, vasthouden = meer info.',
     finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Laat zien wat de laatste … dagen gebruikt is', make_dash: 'Maak een dashboard (Thuis, Plattegrond, Kiosk, Energie, Buiten, TV en een pagina per ruimte)', dash_done: 'Dashboard gemaakt:', dash_conflict: 'Er bestaat al een dashboard op /{url} dat Floorplan Studio niet heeft gemaakt. Het is niet gewijzigd.', dash_error: 'Het dashboard kon niet worden gemaakt: ', open: 'Openen',
@@ -638,6 +638,7 @@ class FloorplanStudioPanel extends HTMLElement {
     const groups = p.rooms.filter((r) => r.area_id).map((r) => [r, areaEntities(h, r.area_id, PLACE_DOMAINS).filter((id) => !placed.has(id))]).filter(([, ids]) => ids.length);
     return `<h2>${l.items_title}</h2>
       <button class="primary" id="autoplace" style="width:100%"><ha-icon icon="mdi:auto-fix"></ha-icon>${l.auto_place}</button>
+      ${Object.values(h.entities || {}).some((e) => e.platform === 'wled') ? `<button id="wledauto" style="width:100%;margin-top:6px"><ha-icon icon="mdi:led-strip-variant"></ha-icon>${l.wled_auto}</button>${this._wledMsg ? `<p class="hint">${esc(this._wledMsg).replace(/\n/g, '<br>')}</p>` : `<p class="hint">${l.wled_hint}</p>`}` : ''}
       <p>${l.auto_hint}</p>
       <p>${l.items_tip}</p>
       ${it ? `<div class="card"><b>${esc(friendly(h, it.entity_id))}</b><small class="hint">${esc(it.entity_id)}</small>
@@ -1120,6 +1121,7 @@ class FloorplanStudioPanel extends HTMLElement {
   wireItems($, $$) {
     const h = this._hass, p = this.plan;
     $('#autoplace').addEventListener('click', () => this.mut((pl) => this.autoPlace(pl)));
+    $('#wledauto')?.addEventListener('click', () => this.autoWled());
     $$('[data-additem]').forEach((el) => el.addEventListener('click', () => this.mut((pl) => {
       const r = this.room(el.dataset.room), [x0, y0, x1, y1] = roomBBox(r);
       pl.items.push({ entity_id: el.dataset.additem, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2) });
@@ -1418,6 +1420,74 @@ class FloorplanStudioPanel extends HTMLElement {
         lt.textContent = sc ? `${(seg / sc).toFixed(2).replace('.', ',')} m  (${(tot / sc).toFixed(2).replace('.', ',')} m)` : String(Math.round(seg));
       });
     }
+  }
+
+  /**
+   * WLED: read every device (LEDs, segments, matrix) through the integration and set up its lights on the plan:
+   * a strip drawn for the whole device is shared out over its segments, a strip without a line gets one along the
+   * nearest wall, and WLED lights are not ceiling lamps.
+   */
+  async autoWled() {
+    const l = this.L, h = this._hass, fmt = (t, v) => Object.entries(v).reduce((a, [k, x]) => a.replace(`{${k}}`, x), t);
+    let devices = [];
+    try { devices = (await h.callWS({ type: 'floorplan_studio/wled' })).devices || []; } catch (e) { this._wledMsg = `${l.wled_none} (${e.message || e.code || e})`; this.render(); return; }
+    if (!devices.length) { this._wledMsg = l.wled_none; this.render(); return; }
+    const lines = [];
+    this.mut((pl) => {
+      const sc = planScale(pl) || 70, find = (id) => id && pl.items.find((i) => i.entity_id === id);
+      for (const dev of devices) {
+        const segs = (dev.segments || []).filter((sg) => sg.entity_id);
+        const main = find(dev.main), placed = [main, ...segs.map((sg) => find(sg.entity_id))].filter(Boolean);
+        if (!placed.length) continue;
+        const name = dev.title || dev.host;
+        if (dev.offline) { lines.push(fmt(l.wled_off, { n: name })); continue; }
+        for (const it of placed) if (it.ceiling == null) it.ceiling = false;   // a strip or panel, not a ceiling lamp
+        if (dev.matrix?.w) {
+          for (const it of placed) if (!it.icon) it.icon = 'mdi:grid';
+          lines.push(fmt(l.wled_matrix, { n: name, w: dev.matrix.w, h: dev.matrix.h }));
+          continue;
+        }
+        // one line drawn for the whole device (on the main light, or a segment holding all LEDs): share it out
+        const total = dev.leds || segs.reduce((a, sg) => Math.max(a, sg.stop), 0);
+        const base = main && stripPath(main) ? main : null;
+        if (base && segs.length > 1) {
+          const path = stripPath(base), L = pathLength(path);
+          const at = (d) => { let left = d; for (let i = 1; i < path.length; i++) { const [ax, ay] = path[i - 1], [bx, by] = path[i], sl = Math.hypot(bx - ax, by - ay); if (sl >= left) { const k = sl ? left / sl : 0; return [ax + (bx - ax) * k, ay + (by - ay) * k]; } left -= sl; } return path[path.length - 1]; };
+          const cut = (d0, d1) => { const pts = [at(d0)]; let acc = 0; for (let i = 1; i < path.length; i++) { acc += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); if (acc > d0 && acc < d1) pts.push(path[i]); } pts.push(at(d1)); return pts.map((q) => q.map(Math.round)); };
+          let k = 0;
+          for (const sg of segs) {
+            const it = find(sg.entity_id);
+            if (!it || stripPath(it)) continue;
+            it.shape = 'strip'; it.path = cut((sg.start / total) * L, (sg.stop / total) * L); it.leds = sg.len;
+            if (base.height != null && it.height == null) it.height = base.height;
+            [it.x, it.y] = pathMid(it.path).map(Math.round); k++;
+          }
+          if (k) { delete base.shape; lines.push(fmt(l.wled_split, { n: name, k: segs.length })); }   // the main light stays an icon (no double glow)
+          continue;
+        }
+        // strips without a line: one along the nearest wall of their room, as long as the LEDs make it
+        for (const sg of segs.length ? segs : []) {
+          const it = find(sg.entity_id);
+          // clocks, bulbs and little objects with a WLED inside are not strips
+          const label = `${dev.title || ''} ${friendly(h, sg.entity_id)} ${sg.entity_id}`;
+          if (!it || stripPath(it) || (sg.len || 0) < 20 || /klok|clock|nixie|bulb|lamp|luna|mandala|matrix|panel|stick|quad|leeuw|lion/i.test(label)) continue;
+          const r = roomAt(pl.rooms, it.x, it.y) || pl.rooms.find((x) => x.rects.some((q) => { const n = norm(q); return it.x >= n[0] - 10 && it.x <= n[2] + 10 && it.y >= n[1] - 10 && it.y <= n[3] + 10; }));
+          const q = r ? r.rects.map(norm).find((n) => it.x >= n[0] - 10 && it.x <= n[2] + 10 && it.y >= n[1] - 10 && it.y <= n[3] + 10) : null;
+          const len = (sg.len / 60) * sc;
+          let a, b;
+          if (q) {
+            const dl = it.x - q[0], dr = q[2] - it.x, dt = it.y - q[1], db = q[3] - it.y, m = Math.min(dl, dr, dt, db), inset = 0.05 * sc;
+            if (m === dl || m === dr) { const x = m === dl ? q[0] + inset : q[2] - inset, half = Math.min(len, q[3] - q[1]) / 2, c = Math.max(q[1] + half, Math.min(q[3] - half, it.y)); a = [x, c - half]; b = [x, c + half]; }
+            else { const y = m === dt ? q[1] + inset : q[3] - inset, half = Math.min(len, q[2] - q[0]) / 2, c = Math.max(q[0] + half, Math.min(q[2] - half, it.x)); a = [c - half, y]; b = [c + half, y]; }
+          } else { a = [it.x - len / 2, it.y]; b = [it.x + len / 2, it.y]; }
+          it.shape = 'strip'; it.path = [a.map(Math.round), b.map(Math.round)]; it.leds = sg.len;
+          [it.x, it.y] = pathMid(it.path).map(Math.round);
+          lines.push(fmt(l.wled_line, { n: friendly(h, it.entity_id), m: (sg.len / 60).toFixed(1).replace('.', ','), l: sg.len }));
+        }
+      }
+    });
+    this._wledMsg = `${l.wled_done}:\n${lines.length ? lines.join('\n') : '–'}`;
+    this.render();
   }
 
   /** LED strip: where the next point goes (grid, and 45° steps unless Shift is held). */

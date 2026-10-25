@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **WLED automatisch instellen** (stap 4): leest leds, segmenten en matrix van elke WLED uit en deelt een getekende strip over de segmenten, zet strips zonder lijn langs de muur, en ziet WLED nooit als plafondlamp.
 - Wandeling, bewerken: een apparaat slepen gaat in één richting per keer (opzij = over de vloer, omhoog/omlaag = hoogte).
 - Een hoogte boven 6 wordt als centimeters gelezen (100 = 1 m), in de editor, 2.5D en de wandeling. Een ledstrip op een muurlijn loopt in de wandeling net vóór de muur. In de wandeling werkt − / + nu altijd vanaf de hoogte die je ziet.
 - 2.5D en de wandeling gebruiken nu precies dezelfde hoogte en dezelfde lampsoort (plafond, hanglamp, staande lamp, tafellamp, ledstrip); een hoogte die je in de wandeling instelt staat ook zo in 2.5D. Apparaten staan in de wandeling op exact hun plek uit de plattegrond.
