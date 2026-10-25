@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState,
-} from './fps-core.js?v=1.2.3';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.2.3';
+} from './fps-core.js?v=1.3.0b1';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b1';
 
 
 const CSS = `
