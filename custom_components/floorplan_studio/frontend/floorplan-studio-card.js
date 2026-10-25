@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b31';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b31';
+} from './fps-core.js?v=1.3.0b32';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b32';
 
 
 const CSS = `
@@ -57,7 +57,9 @@ const CSS = `
   .item:hover { z-index: 999 !important; }
   .stage { isolation: isolate; }   /* icons stack among themselves; the quick window and menus always stay on top */
   .p25 .rinfo .rrows { display: none; }
-  .p25 .rinfo { transform: translate(-50%, -50%); text-align: center; }   /* 2.5D: only name and temperature, so it stays calm */
+  .p25 .rinfo { transform: translate(-50%, -50%); text-align: center; }
+  svg.plan .stalks { transition: opacity .2s; }
+  .turning .item, .turning svg.plan .stalks { opacity: var(--fps-turn-op, .1) !important; }   /* 2.5D: only name and temperature, so it stays calm */
   .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
   .zoomhint.on { opacity: 1; }
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
@@ -641,11 +643,15 @@ class FloorplanStudioCard extends HTMLElement {
   }
   _turnTo(rot, tilt) {
     this._turn = { rot: ((rot % 360) + 360) % 360, tilt: Math.max(20, Math.min(80, tilt)) };
+    clearTimeout(this._turnGhostT);
+    this.shadowRoot.querySelector('ha-card')?.classList.add('turning');   // icons ghosted while turning (setting)
     if (this._turnRaf) return;
     this._turnRaf = requestAnimationFrame(() => { this._turnRaf = 0; this._reproject(this._turn.rot, this._turn.tilt); });
   }
   _turnDone() {
     if (!this._turn) return;
+    clearTimeout(this._turnGhostT);
+    this._turnGhostT = setTimeout(() => this.shadowRoot.querySelector('ha-card')?.classList.remove('turning'), 120);
     this._setPref('rot', String(Math.round(this._turn.rot)));
     this._setPref('tilt', String(Math.round(this._turn.tilt)));
     this._turn = null;

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b31';
+export const VERSION = '1.3.0b32';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -135,7 +135,7 @@ export function themeStyle(name, hass, s = DEFAULT_SETTINGS) {
     document.head.appendChild(l);
   }
   const vars = { ...(th.daylight ? daylightVars(hass, s).vars : th.vars),
-    '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-lamp-scale': (s.lamp_size || 100) / 100, '--fps-dev-scale': (s.device_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100 };
+    '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-lamp-scale': (s.lamp_size || 100) / 100, '--fps-dev-scale': (s.device_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100, '--fps-turn-op': s.turn_ghost === false ? 1 : Math.max(0, Math.min(100, safeNumber(s.turn_ghost_pct, 10))) / 100 };
   return Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
@@ -613,9 +613,11 @@ export const DEFAULT_SETTINGS = {
   temp_min: 17, temp_max: 24,
   presence: true,           // show who/where: motion, occupancy and presence sensors in the room's area
   motion_fade: 5,
-  show_stalks: false,
-  perspective: true,        // 2.5D: real perspective (nearer = a little bigger)       // 2.5D: thin lines from the floor up to raised icons
-  height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons           // minutes the motion icon slowly fades out after the last movement (0 = off)
+  show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
+  perspective: true,        // 2.5D: real perspective (nearer = a little bigger)
+  height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons
+  turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
+  turn_ghost_pct: 10,       // ... to this % visible
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)
   alerts: true,             // smoke, gas, CO, water leak: the room flashes red and a banner appears
   alert_open: true,         // open doors/windows: the room gets an orange edge
