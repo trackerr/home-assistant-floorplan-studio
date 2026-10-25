@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b18';
+import './floorplan-studio-card.js?v=1.3.0b19';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b18';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b18';
+} from './fps-core.js?v=1.3.0b19';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b19';
 
 const L = {
   en: {
@@ -28,14 +28,14 @@ const L = {
     remove: 'Remove from map', items_tip: 'Drag the icons to the right spot. On your dashboard: tap = on/off, hold = more info.',
     finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', dash_conflict: 'A dashboard already exists at /{url}, and Floorplan Studio did not create it. It was left unchanged.', dash_error: 'The dashboard could not be created: ', open: 'Open',
     set_title: 'Settings', set_intro: 'This applies to every card that shows this floorplan.',
-    set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
+    set_light: 'Light', set_screens: 'Phones, tablets and 2.5D', set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
     default_mode: 'Default view', learning_days: 'Show everything until … days of history exist', plan_size: 'Floor plan size in %', icon_size: 'Icon size', label_size: 'Room text size', glow: 'Glow strength',
     show_temp: 'Temperature', show_hum: 'Humidity', show_lights: 'Lights on (count)', show_tags: 'State labels under devices (21°, open…)',
     tap_zoom: 'Tap a room to zoom in', hold_ms: 'How long to hold for more info (1000 = 1 second)', hold_action: 'Holding an icon opens', hold_quick: 'a small window with on/off and sliders', hold_more: 'Home Assistant’s own window', sun_before: 'Starts getting light … minutes before sunrise', sun_ramp: 'Transition takes … minutes',
     auto_domains: 'Which kinds of devices', reset: 'Reset to defaults', simple: 'Simple', all: 'All',
     theme_entity: 'One theme for the whole house', theme_entity_hint: 'Every screen then shows the same theme, and an automation can switch it. No dropdown list yet? Create one with the button.', make_helper: 'Create the list', own_choice: 'each screen chooses',
     headline: 'Big value', headline_auto: 'temperature', extra_rows: 'Extra rows in the text block', floor: 'Floor', floor_plain: 'plain', floor_tiles: 'tiles', floor_wood: 'wood',
-    set_text: 'Text block and light', glow_style: 'Light', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', compact: 'Small screens', cmp_auto: 'room by room on narrow screens', cmp_on: 'always room by room', cmp_off: 'never, always the whole plan', compact_width: 'Narrow means less than (pixels)', lamp_level: 'How bright a lamp is', lvl_fixed: 'always under the lamp', lvl_hover: 'only when pointing at it', lvl_off: 'do not show',
+    set_text: 'Text block and light', glow_style: 'Glow', glow_lamp: 'soft pool of light per lamp', glow_room: 'whole room glows', glow_off: 'no glow', compact: 'Small screens', cmp_auto: 'room by room on narrow screens', cmp_on: 'always room by room', cmp_off: 'never, always the whole plan', compact_width: 'Narrow means less than (pixels)', lamp_level: 'How bright a lamp is', lvl_fixed: 'always under the lamp', lvl_hover: 'only when pointing at it', lvl_off: 'do not show',
     show_co2: 'CO2', show_covers: 'Curtains / shutters', show_climate: 'Heating / air conditioning', show_media: 'What is playing', info_rows: 'Maximum number of rows',
     compass: 'Compass (degrees, empty = none)', greeting: 'Greeting + who is home (with side column)',
     set_side: 'Side column', side_hint: 'Leave empty and it picks for you. You see the side column on the dashboard you create in step 6.',
@@ -60,7 +60,7 @@ const L = {
     furn_title: 'Furniture and stairs', furn_tip: 'Tap a piece to put it on the plan, then drag it to the right spot. It is only a light outline on your dashboard.',
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
     f_kind: 'Kind', f_w: 'Width', f_h: 'Depth', f_z: 'Height (cm, for the 2.5D view)', f_turn: 'Turn 90°',
-    kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
+    more_options_room: 'More options (sensors, text, floor…)', more_options: 'More options (icon, colour, height…)', kind_q: 'What is plugged in / connected?', kind_auto: 'automatic', kind_lamp: 'a lamp (lamp icon and glow)', kind_device: 'a device, no light (no glow)', kind_hint: 'A normal lamp on a smart plug? Choose “a lamp”: it then looks and glows like a lamp on the plan.',
     i_height: 'Height in metres (for the 2.5D view, empty = usual)',
     via: 'Power through a smart switch (may be empty)', via_hint: 'Is this lamp on a smart plug or switch? Pick it here. You then see one lamp, and tapping it switches the power on or off.',
     radar: 'Radar: show where someone is', radar_dist: 'distance', radar_dots: 'position per person', radar_scale: 'First fill in the real width of a room in step 2, otherwise the radar does not know how far a metre is.', radar_angle: 'Which way the sensor looks (degrees, 0 = down)', radar_height: 'On the ceiling? Height of the sensor in metres', radar_wall: 'empty = on the wall',
@@ -86,14 +86,14 @@ const L = {
     remove: 'Van de kaart halen', items_tip: 'Sleep de iconen naar de goede plek. Op je dashboard: tikken = aan/uit, vasthouden = meer info.',
     finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Laat zien wat de laatste … dagen gebruikt is', make_dash: 'Maak een dashboard (Thuis, Plattegrond, Kiosk, Energie, Buiten, TV en een pagina per ruimte)', dash_done: 'Dashboard gemaakt:', dash_conflict: 'Er bestaat al een dashboard op /{url} dat Floorplan Studio niet heeft gemaakt. Het is niet gewijzigd.', dash_error: 'Het dashboard kon niet worden gemaakt: ', open: 'Openen',
     set_title: 'Instellingen', set_intro: 'Dit geldt voor elke kaart met deze plattegrond.',
-    set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
+    set_light: 'Licht', set_screens: 'Telefoon, tablet en 2.5D', set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
     default_mode: 'Begint op', learning_days: 'Laat alles zien zolang er minder dan … dagen geschiedenis is', plan_size: 'Grootte plattegrond in %', icon_size: 'Grootte iconen', label_size: 'Grootte tekst bij ruimtes', glow: 'Sterkte van de gloed',
     show_temp: 'Temperatuur', show_hum: 'Vochtigheid', show_lights: 'Aantal lampen aan', show_tags: 'Kleine labels onder apparaten (21°, open…)',
     tap_zoom: 'Tik op een ruimte om in te zoomen', hold_ms: 'Hoe lang vasthouden voor meer info (1000 = 1 seconde)', hold_action: 'Vasthouden op een icoon opent', hold_quick: 'een klein venster met aan/uit en schuifjes', hold_more: 'het venster van Home Assistant', sun_before: 'Wordt … minuten voor zonsopkomst licht', sun_ramp: 'Overgang duurt … minuten',
     auto_domains: 'Wat zet hij neer', reset: 'Alles terugzetten', simple: 'Eenvoudig', all: 'Alles',
     theme_entity: 'Eén thema voor het hele huis', theme_entity_hint: 'Dan hebben alle schermen hetzelfde thema, en kun je het ook met een automatisering wisselen. Geen keuzelijst? Maak er een met de knop.', make_helper: 'Keuzelijst maken', own_choice: 'elk scherm kiest zelf',
     headline: 'Grote waarde', headline_auto: 'temperatuur', extra_rows: 'Extra regels in het tekstblok', floor: 'Vloer', floor_plain: 'gewoon', floor_tiles: 'tegels', floor_wood: 'hout',
-    set_text: 'Tekstblok en licht', glow_style: 'Licht', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', compact: 'Kleine schermen', cmp_auto: 'per ruimte op smalle schermen', cmp_on: 'altijd per ruimte', cmp_off: 'nooit, altijd de hele plattegrond', compact_width: 'Smal is smaller dan (pixels)', lamp_level: 'Sterkte van lampen', lvl_fixed: 'altijd onder de lamp', lvl_hover: 'alleen bij aanwijzen', lvl_off: 'niet tonen',
+    set_text: 'Tekstblok en licht', glow_style: 'Gloed', glow_lamp: 'zachte lichtvlek per lamp', glow_room: 'hele ruimte gloeit', glow_off: 'geen gloed', compact: 'Kleine schermen', cmp_auto: 'per ruimte op smalle schermen', cmp_on: 'altijd per ruimte', cmp_off: 'nooit, altijd de hele plattegrond', compact_width: 'Smal is smaller dan (pixels)', lamp_level: 'Sterkte van lampen', lvl_fixed: 'altijd onder de lamp', lvl_hover: 'alleen bij aanwijzen', lvl_off: 'niet tonen',
     show_co2: 'CO2', show_covers: 'Gordijnen / rolluiken', show_climate: 'Verwarming / airco', show_media: 'Wat er speelt', info_rows: 'Hoeveel regels maximaal',
     compass: 'Noordpijl (graden, leeg = geen)', greeting: 'Begroeting en wie er thuis is (bij de zijkolom)',
     set_side: 'Zijkolom', side_hint: 'Leeg laten = hij kiest zelf. Je ziet de zijkolom op het dashboard dat je bij stap 6 maakt.',
@@ -118,7 +118,7 @@ const L = {
     furn_title: 'Meubels en trap', furn_tip: 'Tik op een meubel om het neer te zetten en sleep het daarna naar de goede plek. Op je dashboard is het alleen een lichte omtrek.',
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
     f_kind: 'Soort', f_w: 'Breedte', f_h: 'Diepte', f_z: 'Hoogte (cm, voor de 2.5D-weergave)', f_turn: 'Kwartslag draaien',
-    kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
+    more_options_room: 'Meer opties (sensoren, tekst, vloer…)', more_options: 'Meer opties (icoon, kleur, hoogte…)', kind_q: 'Wat zit eraan?', kind_auto: 'automatisch', kind_lamp: 'een lamp (lampicoon en gloed)', kind_device: 'een apparaat, geen licht (geen gloed)', kind_hint: 'Een gewone lamp aan een slimme stekker? Kies “een lamp”: dan ziet hij eruit en gloeit hij als een lamp op de kaart.',
     i_height: 'Hoogte in meter (voor de 2.5D-weergave, leeg = gebruikelijk)',
     via: 'Stroom via een slimme schakelaar (mag leeg)', via_hint: 'Zit deze lamp aan een slimme stekker of schakelaar? Kies die hier. Dan zie je één lamp, en tikken zet de stroom aan of uit.',
     radar: 'Radar: laat zien waar iemand is', radar_dist: 'afstand', radar_dots: 'plek per persoon', radar_scale: 'Vul eerst bij stap 2 de echte breedte van een ruimte in, anders weet de radar niet hoe ver een meter is.', radar_angle: 'Kant waar de sensor naar kijkt (graden, 0 = naar beneden)', radar_height: 'Aan het plafond? Hoogte van de sensor in meter', radar_wall: 'leeg = aan de muur',
@@ -201,6 +201,13 @@ const CSS = `
   .it:hover .tip, .it.sel .tip { opacity: 1; }
   .items.off .it { pointer-events: none; opacity: .55; }
   .preview { width: 100%; }
+  details.sec { border: 1px solid var(--divider-color); border-radius: 12px; margin-bottom: 8px; }
+  details.sec > summary { cursor: pointer; padding: 10px 12px; font-size: 14px; font-weight: 600; list-style: none; display: flex; align-items: center; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary::after { content: '›'; margin-left: auto; font-size: 18px; transition: transform .2s; color: var(--secondary-text-color); }
+  details.sec[open] > summary::after { transform: rotate(90deg); }
+  details.sec .secb { padding: 0 12px 10px; }
+  details.sec.sub { margin-top: 8px; }
   .cwcol { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
   .zoombar { display: flex; align-items: center; gap: 8px; align-self: stretch; font-size: 13px; } .zoombar select { width: auto; min-width: 180px; } .zoombar small { color: var(--secondary-text-color); } .zoombar ha-icon { --mdc-icon-size: 20px; color: var(--secondary-text-color); }
   .furn { fill: #ffffff; fill-opacity: .05; stroke: #d7dee8; stroke-opacity: .7; stroke-width: 1.5; pointer-events: none; }
@@ -455,6 +462,7 @@ class FloorplanStudioPanel extends HTMLElement {
             return `<div class="row" style="align-items:flex-end;margin-bottom:10px"><div class="field" style="margin:0"><span>${l.measure_w}</span>${inp('w', x1 - x0, '4,20')}</div><div class="field" style="margin:0"><span>${l.measure_l}</span>${inp('l', y1 - y0, '3,50')}</div></div>
               ${sc ? `<div class="sizeline">${l.dims}: ${fmtMeters(x1 - x0, sc)} × ${fmtMeters(y1 - y0, sc)} · ${String(m2.toFixed(1)).replace('.', ',')} m²</div>` : `<p class="hint">${l.measure_hint}</p>`}`;
           })()}
+          <details class="sec sub" data-sec="roommore" ${this._secOpen?.roommore ? 'open' : ''}><summary>${l.more_options_room}</summary><div class="secb">
           ${r.area_id ? `<div class="field"><span>${l.temp_sensor}</span><select id="rtemp">${sensorOpts('temperature', r.temperature)}</select></div>
           <div class="field"><span>${l.hum_sensor}</span><select id="rhum">${sensorOpts('humidity', r.humidity)}</select></div>` : ''}
           ${r.area_id ? (() => {
@@ -466,6 +474,7 @@ class FloorplanStudioPanel extends HTMLElement {
           })() : ''}
           <div class="field"><span>${l.floor}</span><select id="rfloor">${['', 'tiles', 'wood'].map((f) => `<option value="${f}" ${(r.floor || '') === f ? 'selected' : ''}>${l['floor_' + (f || 'plain')]}</option>`).join('')}</select></div>
           ${this._hass.services?.vacuum?.clean_area ? '' : `<div class="field"><span>${l.segments}</span><input id="rseg" placeholder="${l.segments_hint}" value="${esc(r.vacuum_segments || '')}"></div>`}
+          </div></details>
           <div class="row">${r.rects.length > 1 ? `<button id="delpart">${l.delete_part}</button>` : ''}<button class="danger" id="delroom">${l.delete_room}</button></div>
         </div>` : ''}
       <h3>${l.rooms_list}</h3>
@@ -521,17 +530,19 @@ class FloorplanStudioPanel extends HTMLElement {
       <p>${l.items_tip}</p>
       ${it ? `<div class="card"><b>${esc(friendly(h, it.entity_id))}</b><small class="hint">${esc(it.entity_id)}</small>
         <div class="field"><span>${l.label}</span><input id="iname" value="${esc(it.name || '')}"></div>
-        <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
-        <div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>
         <label class="row" style="font-size:13px"><input type="checkbox" id="ipin" ${it.pin ? 'checked' : ''} style="flex:none">${l.show_always}</label>
-        <div class="field" style="margin-top:8px"><span>${l.i_height}</span><input type="number" id="iheight" min="0" max="6" step="0.1" placeholder="${String(itemHeight({ ...it, height: undefined }, h.states[it.entity_id])).replace('.', ',')}" value="${it.height != null ? it.height : ''}"></div>
         ${['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) ? `<div class="field" style="margin-top:8px"><span>${l.kind_q}</span><select id="ikind">
-          <option value="" ${!it.kind ? 'selected' : ''}>${l.kind_auto}</option><option value="lamp" ${it.kind === 'lamp' ? 'selected' : ''}>${l.kind_lamp}</option><option value="device" ${it.kind === 'device' ? 'selected' : ''}>${l.kind_device}</option></select></div><p class="hint">${l.kind_hint}</p>` : ''}
+          <option value="" ${!it.kind ? 'selected' : ''}>${l.kind_auto}</option><option value="lamp" ${it.kind === 'lamp' ? 'selected' : ''}>${l.kind_lamp}</option><option value="device" ${it.kind === 'device' ? 'selected' : ''}>${l.kind_device}</option></select></div>` : ''}
+        <details class="sec sub" data-sec="itemmore" ${this._secOpen?.itemmore ? 'open' : ''}><summary>${l.more_options}</summary><div class="secb">
+        <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
+        ${it.entity_id.startsWith('light.') || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) && it.kind !== 'device' ? `<div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>` : ''}
+        <div class="field"><span>${l.i_height}</span><input type="number" id="iheight" min="0" max="6" step="0.1" placeholder="${String(itemHeight({ ...it, height: undefined }, h.states[it.entity_id])).replace('.', ',')}" value="${it.height != null ? it.height : ''}"></div>
         ${it.entity_id.startsWith('light.') ? (() => {
           const area = entityArea(h, it.entity_id);
           const sw = Object.keys(h.states).filter((id) => id.startsWith('switch.')).sort((a, b) => ((entityArea(h, b) === area) - (entityArea(h, a) === area)) || friendly(h, a).localeCompare(friendly(h, b)));
-          return `<div class="field" style="margin-top:8px"><span>${l.via}</span><select id="ivia"><option value="">${l.none}</option>${sw.map((id) => `<option value="${esc(id)}" ${it.via === id ? 'selected' : ''}>${esc(friendly(h, id))}</option>`).join('')}</select></div><p class="hint">${l.via_hint}</p>`;
+          return `<div class="field"><span>${l.via}</span><select id="ivia"><option value="">${l.none}</option>${sw.map((id) => `<option value="${esc(id)}" ${it.via === id ? 'selected' : ''}>${esc(friendly(h, id))}</option>`).join('')}</select></div><p class="hint">${l.via_hint}</p>`;
         })() : ''}
+        </div></details>
         ${(() => {
           const found = it.radar || (it.entity_id.startsWith('binary_sensor.') && radarEntities(h, it.entity_id));
           if (!found) return '';
@@ -905,6 +916,7 @@ class FloorplanStudioPanel extends HTMLElement {
       })));
       $('#rseg')?.addEventListener('change', (ev) => this.mut(() => { r.vacuum_segments = ev.target.value.trim() || undefined; }));
       $('#delroom').addEventListener('click', () => this.deleteSel());
+      $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen = this._secOpen || {}; this._secOpen[d.dataset.sec] = d.open; }));
       $('#delpart')?.addEventListener('click', () => this.mut(() => { r.rects.splice(this.sel.part, 1); this.sel.part = 0; }));
     }
     $('#fromareas')?.addEventListener('click', () => this.mut((pl) => {
@@ -991,10 +1003,11 @@ class FloorplanStudioPanel extends HTMLElement {
     if (!it) return;
     $('#iname').addEventListener('change', (ev) => this.mut(() => { it.name = ev.target.value || undefined; }));
     $('#iicon').addEventListener('change', (ev) => this.mut(() => { it.icon = ev.target.value || undefined; }));
-    $('#icolor').addEventListener('change', (ev) => this.mut(() => { it.color = ev.target.value; }));
-    $('#icolorclr').addEventListener('click', () => this.mut(() => { delete it.color; }));
+    $('#icolor')?.addEventListener('change', (ev) => this.mut(() => { it.color = ev.target.value; }));
+    $('#icolorclr')?.addEventListener('click', () => this.mut(() => { delete it.color; }));
     $('#ipin').addEventListener('change', (ev) => this.mut(() => { it.pin = ev.target.checked || undefined; }));
     $('#iheight').addEventListener('change', (ev) => this.mut(() => { const v = parseFloat(String(ev.target.value).replace(',', '.')); if (v >= 0 && ev.target.value !== '') it.height = v; else delete it.height; }));
+    $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen = this._secOpen || {}; this._secOpen[d.dataset.sec] = d.open; }));
     $('#ivia')?.addEventListener('change', (ev) => this.mut(() => { it.via = ev.target.value || undefined; }));
     $('#ikind')?.addEventListener('change', (ev) => this.mut(() => { it.kind = ev.target.value || undefined; }));
     $('#iradar')?.addEventListener('change', (ev) => this.mut(() => {
@@ -1090,53 +1103,65 @@ class FloorplanStudioPanel extends HTMLElement {
     const optsOf = (list, cur, first) => `<option value="">${first}</option>` + list.map((id) => `<option value="${id}" ${cur === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('');
     const sideSel = (k, list, first = l.auto) => `<div class="field"><span>${l['s_' + k]}</span><select data-side="${k}">${optsOf(list, side[k], first)}</select></div>`;
     const maps = ids.filter((id) => id.startsWith('image.') || id.startsWith('camera.'));
-    return `<h2>${l.set_title}</h2><p>${l.set_intro}</p>
-      <h3>${l.set_look}</h3>
-      <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
-      <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="mkhelper" style="flex:none">${l.make_helper}</button></div></div>
-      <p>${l.theme_entity_hint}</p>
-      ${num('plan_size', 50, 100, 5)}<div class="field"><span>${l.height_25d}</span><select id="h25mode"><option value="real" ${s.height_25d === 'real' ? 'selected' : ''}>${l.h25_real}</option><option value="custom" ${s.height_25d !== 'real' ? 'selected' : ''}>${l.h25_custom}</option></select></div>${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}<div class="field"><span>${l.compact}</span><select data-set="compact">${['auto', 'on', 'off'].map((k) => `<option value="${k}" ${(s.compact || 'auto') === k ? 'selected' : ''}>${l['cmp_' + k]}</option>`).join('')}</select></div>${num('compact_width', 320, 1200, 20)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}${num('glow', 0, 150, 5)}
-      <h3>${l.set_room}</h3>${chk('show_temp')}${chk('show_hum')}${chk('show_lights')}${chk('show_tags')}
-      <h3>${l.set_simple}</h3>
-      <div class="field"><span>${l.default_mode}</span><select data-set="default_mode"><option value="all" ${s.default_mode === 'all' ? 'selected' : ''}>${l.all}</option><option value="simple" ${s.default_mode === 'simple' ? 'selected' : ''}>${l.simple}</option></select></div>
-      ${num('usage_days', 1, 60)}${num('learning_days', 0, 14)}
-      <h3>${l.set_behaviour}</h3>${chk('tap_zoom')}
-      <div class="field"><span>${l.room_tap}</span><select data-set="room_tap"><option value="zoom" ${s.room_tap !== 'page' ? 'selected' : ''}>${l.tap_zoom_opt}</option><option value="page" ${s.room_tap === 'page' ? 'selected' : ''}>${l.tap_page_opt}</option></select></div>${num('hold_ms', 250, 1500, 50)}<div class="field"><span>${l.hold_action}</span><select data-set="hold_action"><option value="quick" ${s.hold_action !== 'more-info' ? 'selected' : ''}>${l.hold_quick}</option><option value="more-info" ${s.hold_action === 'more-info' ? 'selected' : ''}>${l.hold_more}</option></select></div>
-      <h3>${l.set_sun}</h3>${num('sun_before', 0, 120, 5)}${num('sun_ramp', 15, 240, 5)}
-      <h3>${l.set_text}</h3>
-      <div class="field"><span>${l.glow_style}</span><select data-set="glow_style">${['lamp', 'room', 'off'].map((k) => `<option value="${k}" ${s.glow_style === k ? 'selected' : ''}>${l['glow_' + k]}</option>`).join('')}</select></div>
-      <div class="field"><span>${l.lamp_level}</span><select data-set="lamp_level">${['fixed', 'hover', 'off'].map((k) => `<option value="${k}" ${levelMode(s) === k ? 'selected' : ''}>${l['lvl_' + k]}</option>`).join('')}</select></div>${chk('show_co2')}${chk('show_covers')}${chk('show_climate')}${chk('show_media')}${num('info_rows', 1, 8)}
-      <div class="field"><span>${l.compass}</span><input type="number" min="0" max="359" id="compass" value="${s.compass == null || s.compass === '' ? '' : safeNumber(s.compass, '')}"></div>
-      ${chk('greeting')}
-      <h3>${l.set_side}</h3><p>${l.side_hint}</p>
-      ${sideSel('weather', ids.filter((id) => id.startsWith('weather.')))}
-      ${sideSel('main', ids.filter((id) => /^(script|scene)\./.test(id)), l.s_main_auto)}
-      <h3>${l.smart}</h3><p>${l.smart_hint}</p>
-      ${[0, 1, 2, 3].map((i) => { const x = side.smart?.[i] || {}; const acts = ids.filter((id) => /^(script|scene|automation|button|input_button)\./.test(id));
+    // short and simple: sections fold open on demand, and settings only show when they matter
+    this._secOpen = this._secOpen || { look: true };
+    const sec = (id, title, body) => (body.trim() ? `<details class="sec" data-sec="${id}" ${this._secOpen[id] ? 'open' : ''}><summary>${title}</summary><div class="secb">${body}</div></details>` : '');
+    const sel = (k, opts, cur) => `<div class="field"><span>${l[k]}</span><select data-set="${k}">${opts.map(([v, t]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+    const sunTheme = ['sun', 'auto'].includes(s.theme) || !!s.theme_entity;
+    const smartSlots = [0, 1, 2, 3].map((i) => { const x = side.smart?.[i] || {}; const acts = ids.filter((id) => /^(script|scene|automation|button|input_button)\./.test(id));
         return `<div class="card" data-slot="${i}" style="padding:8px 10px;margin-bottom:6px">
           <div class="row"><input data-k="from" placeholder="${l.from} 06:00" value="${esc(x.from || '')}" style="max-width:110px"><input data-k="name" placeholder="${l.slot_name}" value="${esc(x.name || '')}"></div>
           <div class="row" style="margin-top:4px"><select data-k="action">${optsOf(acts, x.action, l.lights_off)}</select><input data-k="sub" placeholder="${l.slot_sub}" value="${esc(x.sub || '')}"></div>
           <div style="font-size:12px;margin:6px 0 2px;opacity:.8">${l.slot_on}</div>
           <div class="row"><input data-k="name_on" placeholder="${l.slot_name}" value="${esc(x.name_on || '')}"><input data-k="sub_on" placeholder="${l.slot_sub}" value="${esc(x.sub_on || '')}"></div>
-          <div class="row" style="margin-top:4px"><select data-k="action_on">${optsOf(acts, x.action_on, l.slot_action + ': ' + l.same)}</select></div></div>`; }).join('')}
-      <div class="field"><span>${l.smart_on}</span><select data-side="smart_on">${optsOf(ids.filter((id) => /^(light|switch|input_boolean|binary_sensor|group)\./.test(id)), side.smart_on, l.any_lamp)}</select></div>
-      <div class="field"><span>${l.s_buttons}</span>${[0, 1, 2].map((i) => `<select data-sidelist="buttons" style="margin-bottom:4px">${optsOf(ids.filter((id) => /^(script|scene|input_button|button|switch|light)\./.test(id)), side.buttons?.[i], l.none)}</select>`).join('')}</div>
-      ${sideSel('solar', power)}${sideSel('grid', power)}${sideSel('grid_return', power)}
-      ${sideSel('price', ids.filter((id) => id.startsWith('sensor.') && /\/kwh/i.test(this._hass.states[id].attributes.unit_of_measurement || '')))}
-      ${sideSel('solar_today', ids.filter((id) => id.startsWith('sensor.') && this._hass.states[id].attributes.device_class === 'energy'))}
-      <div class="field"><span>${l.s_status}</span>${[0, 1, 2, 3, 4].map((i) => `<select data-sidelist="status" style="margin-bottom:4px">${optsOf(ids.filter((id) => !id.startsWith('sun.') && !id.startsWith('zone.')), side.status?.[i], l.none)}</select>`).join('')}</div>
-      <h3>${l.set_temp}</h3>${chk('temp_color')}${num('temp_min', 10, 22, 0.5)}${num('temp_max', 18, 30, 0.5)}
-      <h3>${l.set_presence}</h3>${chk('presence')}${num('motion_fade', 0, 30, 1)}
-      ${persons.length ? `<p>${l.people_hint}</p>${persons.map((pid) => `<div class="field"><span>${esc(friendly(this._hass, pid))}</span><select data-person="${pid}"><option value="">${l.none}</option>${sensors.map((id) => `<option value="${id}" ${s.people?.[pid] === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>`).join('')}` : ''}
-      <h3>${l.set_alerts}</h3>${chk('alerts')}${chk('alert_open')}
-      <h3>${l.set_vacuum}</h3>
-      <div class="field"><span>${l.vacuum}</span><select data-set="vacuum"><option value="">${l.auto} (${l.first_on_plan})</option>${vacs.map((id) => `<option value="${id}" ${s.vacuum === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
-      <div class="field"><span>${l.vacuum_live}</span><select data-set="vacuum_live">${['cleaning', 'always', 'off'].map((k) => `<option value="${k}" ${s.vacuum_live === k ? 'selected' : ''}>${l['live_' + k]}</option>`).join('')}</select></div>
-      <div class="field"><span>${l.vacuum_map}</span><select data-set="vacuum_map"><option value="">${l.auto} (${l.from_bg}${this.plan.background?.source ? ': ' + esc(friendly(this._hass, this.plan.background.source)) : ''})</option>${maps.map((id) => `<option value="${id}" ${s.vacuum_map === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
-      <div class="field"><span>${l.vacuum_show}</span><select data-set="vacuum_show">${['robot', 'map', 'both'].map((k) => `<option value="${k}" ${(s.vacuum_show || 'robot') === k ? 'selected' : ''}>${l['vshow_' + k]}</option>`).join('')}</select></div>
-      <p>${l.vacuum_map_hint}</p>${num('vacuum_opacity', 0.2, 1, 0.05)}
-      <h3>${l.set_auto}</h3><p>${l.auto_domains}</p>
-      <div class="row" style="flex-wrap:wrap;gap:6px 14px">${doms.map((d) => `<label style="flex:none;font-size:13px"><input type="checkbox" data-dom="${d}" ${s.auto_domains.includes(d) ? 'checked' : ''}> ${d}</label>`).join('')}</div>
+          <div class="row" style="margin-top:4px"><select data-k="action_on">${optsOf(acts, x.action_on, l.slot_action + ': ' + l.same)}</select></div></div>`; }).join('');
+    const smartUsed = (side.smart || []).some((x) => x && (x.name || x.action || x.from));
+    return `<h2>${l.set_title}</h2><p>${l.set_intro}</p>
+      ${sec('look', l.set_look, `
+        <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+        <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>${selects.length ? '' : `<button id="mkhelper" style="flex:none">${l.make_helper}</button>`}</div></div>
+        ${s.theme_entity ? '' : `<p class="hint">${l.theme_entity_hint}</p>`}
+        ${num('plan_size', 50, 100, 5)}${num('icon_size', 60, 180, 5)}${num('label_size', 60, 180, 5)}`)}
+      ${sec('light', l.set_light, `
+        ${sel('glow_style', ['lamp', 'room', 'off'].map((k) => [k, l['glow_' + k]]), s.glow_style)}
+        ${s.glow_style !== 'off' ? num('glow', 0, 150, 5) : ''}
+        ${sel('lamp_level', ['fixed', 'hover', 'off'].map((k) => [k, l['lvl_' + k]]), levelMode(s))}`)}
+      ${sec('room', l.set_room, `${chk('show_temp')}${chk('show_hum')}${chk('show_lights')}${chk('show_co2')}${chk('show_covers')}${chk('show_climate')}${chk('show_media')}${chk('show_tags')}${num('info_rows', 1, 8)}${chk('greeting')}
+        <div class="field"><span>${l.compass}</span><input type="number" min="0" max="359" id="compass" value="${s.compass == null || s.compass === '' ? '' : safeNumber(s.compass, '')}"></div>`)}
+      ${sec('screens', l.set_screens, `
+        ${sel('compact', ['auto', 'on', 'off'].map((k) => [k, l['cmp_' + k]]), s.compact || 'auto')}
+        ${(s.compact || 'auto') === 'auto' ? num('compact_width', 320, 1200, 20) : ''}
+        <div class="field"><span>${l.height_25d}</span><select id="h25mode"><option value="real" ${s.height_25d === 'real' ? 'selected' : ''}>${l.h25_real}</option><option value="custom" ${s.height_25d !== 'real' ? 'selected' : ''}>${l.h25_custom}</option></select></div>
+        ${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}`)}
+      ${sec('tap', l.set_behaviour, `${chk('tap_zoom')}
+        ${s.tap_zoom ? sel('room_tap', [['zoom', l.tap_zoom_opt], ['page', l.tap_page_opt]], s.room_tap === 'page' ? 'page' : 'zoom') : ''}
+        ${sel('hold_action', [['quick', l.hold_quick], ['more-info', l.hold_more]], s.hold_action === 'more-info' ? 'more-info' : 'quick')}
+        ${num('hold_ms', 250, 1500, 50)}`)}
+      ${sec('simple', l.set_simple, `${sel('default_mode', [['all', l.all], ['simple', l.simple]], s.default_mode === 'simple' ? 'simple' : 'all')}${num('usage_days', 1, 60)}${num('learning_days', 0, 14)}`)}
+      ${sunTheme ? sec('sun', l.set_sun, `${num('sun_before', 0, 120, 5)}${num('sun_ramp', 15, 240, 5)}`) : ''}
+      ${sec('temp', l.set_temp, `${chk('temp_color')}${num('temp_min', 10, 22, 0.5)}${num('temp_max', 18, 30, 0.5)}`)}
+      ${sec('presence', l.set_presence, `${chk('presence')}
+        ${s.presence ? `${num('motion_fade', 0, 30, 1)}
+        ${persons.length ? `<p class="hint">${l.people_hint}</p>${persons.map((pid) => `<div class="field"><span>${esc(friendly(this._hass, pid))}</span><select data-person="${pid}"><option value="">${l.none}</option>${sensors.map((id) => `<option value="${id}" ${s.people?.[pid] === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>`).join('')}` : ''}` : ''}`)}
+      ${sec('alerts', l.set_alerts, `${chk('alerts')}${chk('alert_open')}`)}
+      ${vacs.length ? sec('vacuum', l.set_vacuum, `
+        <div class="field"><span>${l.vacuum}</span><select data-set="vacuum"><option value="">${l.auto} (${l.first_on_plan})</option>${vacs.map((id) => `<option value="${id}" ${s.vacuum === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
+        ${sel('vacuum_live', ['cleaning', 'always', 'off'].map((k) => [k, l['live_' + k]]), s.vacuum_live)}
+        ${s.vacuum_live !== 'off' ? `${sel('vacuum_show', ['robot', 'map', 'both'].map((k) => [k, l['vshow_' + k]]), s.vacuum_show || 'robot')}
+        ${(s.vacuum_show || 'robot') !== 'robot' ? `<div class="field"><span>${l.vacuum_map}</span><select data-set="vacuum_map"><option value="">${l.auto} (${l.from_bg}${this.plan.background?.source ? ': ' + esc(friendly(this._hass, this.plan.background.source)) : ''})</option>${maps.map((id) => `<option value="${id}" ${s.vacuum_map === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
+        <p class="hint">${l.vacuum_map_hint}</p>${num('vacuum_opacity', 0.2, 1, 0.05)}` : ''}` : ''}`) : ''}
+      ${sec('side', l.set_side, `<p class="hint">${l.side_hint}</p>
+        ${sideSel('weather', ids.filter((id) => id.startsWith('weather.')))}
+        ${sideSel('main', ids.filter((id) => /^(script|scene)\./.test(id)), l.s_main_auto)}
+        <div class="field"><span>${l.s_buttons}</span>${[0, 1, 2].map((i) => `<select data-sidelist="buttons" style="margin-bottom:4px">${optsOf(ids.filter((id) => /^(script|scene|input_button|button|switch|light)\./.test(id)), side.buttons?.[i], l.none)}</select>`).join('')}</div>
+        ${sideSel('solar', power)}${sideSel('grid', power)}${sideSel('grid_return', power)}
+        ${sideSel('price', ids.filter((id) => id.startsWith('sensor.') && /\/kwh/i.test(this._hass.states[id].attributes.unit_of_measurement || '')))}
+        ${sideSel('solar_today', ids.filter((id) => id.startsWith('sensor.') && this._hass.states[id].attributes.device_class === 'energy'))}
+        <div class="field"><span>${l.s_status}</span>${[0, 1, 2, 3, 4].map((i) => `<select data-sidelist="status" style="margin-bottom:4px">${optsOf(ids.filter((id) => !id.startsWith('sun.') && !id.startsWith('zone.')), side.status?.[i], l.none)}</select>`).join('')}</div>
+        <details class="sec sub" data-sec="smart" ${this._secOpen.smart || smartUsed ? 'open' : ''}><summary>${l.smart}</summary><div class="secb"><p class="hint">${l.smart_hint}</p>${smartSlots}
+          <div class="field"><span>${l.smart_on}</span><select data-side="smart_on">${optsOf(ids.filter((id) => /^(light|switch|input_boolean|binary_sensor|group)\./.test(id)), side.smart_on, l.any_lamp)}</select></div></div></details>`)}
+      ${sec('auto', l.set_auto, `<p class="hint">${l.auto_domains}</p>
+        <div class="row" style="flex-wrap:wrap;gap:6px 14px">${doms.map((d) => `<label style="flex:none;font-size:13px"><input type="checkbox" data-dom="${d}" ${s.auto_domains.includes(d) ? 'checked' : ''}> ${d}</label>`).join('')}</div>`)}
       <button id="setreset" style="margin-top:14px"><ha-icon icon="mdi:restore"></ha-icon>${l.reset}</button>
       ${this.navHTML()}`;
   }
@@ -1148,6 +1173,7 @@ class FloorplanStudioPanel extends HTMLElement {
       set(k, el.type === 'checkbox' ? el.checked : el.dataset.num ? +el.value : el.value);
     }));
     $('#h25mode')?.addEventListener('change', (ev) => set('height_25d', ev.target.value === 'real' ? 'real' : 80));
+    $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen[d.dataset.sec] = d.open; }));
     $$('[data-side]').forEach((el) => el.addEventListener('change', () => set('side', { ...(settingsOf(this.plan).side || {}), [el.dataset.side]: el.value || undefined })));
     $$('[data-sidelist]').forEach((el) => el.addEventListener('change', () => {
       const k = el.dataset.sidelist;
