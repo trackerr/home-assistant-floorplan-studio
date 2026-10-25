@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b20';
+import './floorplan-studio-card.js?v=1.4.0b21';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight,
-} from './fps-core.js?v=1.4.0b20';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b20';
+} from './fps-core.js?v=1.4.0b21';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b21';
 
 const L = {
   en: {
@@ -227,6 +227,7 @@ const CSS = `
   .furn { fill: #ffffff; fill-opacity: .05; stroke: #d7dee8; stroke-opacity: .7; stroke-width: 1.5; pointer-events: none; }
   .furn .arrow { fill: none; }
   .doors-mode .furn { pointer-events: visiblePainted; cursor: move; }
+  .handle.fh { fill: #fff; stroke: var(--primary-color, #03a9f4); stroke-width: 2; cursor: nwse-resize; } .handle.fh.side { cursor: ew-resize; }
   .fsel .furn { stroke: var(--primary-color); stroke-opacity: 1; stroke-width: 2.5; fill: var(--primary-color); fill-opacity: .12; }
   .furnbtns { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-bottom: 10px; }
   .furnbtns button { flex-direction: column; font-size: 12px; padding: 6px 4px; }
@@ -518,6 +519,14 @@ class FloorplanStudioPanel extends HTMLElement {
     }
     // the selected piece of furniture: its size in cm
     const fs = this.step === 2 && this.sel?.type === 'furn' ? (p.furniture || []).find((f) => f.id === this.sel.id) : null;
+    if (fs) {
+      // handles to resize with the mouse: corners change width and depth together, sides just one of them
+      const r = (safeNumber(fs.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), hw = safeNumber(fs.w, 100) / 2, hd = safeNumber(fs.h, 60) / 2;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const lx = sx * hw, ly = sy * hd, X = safeNumber(fs.x) + lx * cr - ly * sr, Y = safeNumber(fs.y) + lx * sr + ly * cr, corner = sx && sy;
+        out.push(`<rect class="handle fh ${corner ? 'corner' : 'side'}" data-fhandle="${sx},${sy}" x="${X - (corner ? 6 : 5)}" y="${Y - (corner ? 6 : 5)}" width="${corner ? 12 : 10}" height="${corner ? 12 : 10}" rx="${corner ? 3 : 5}"/>`);
+      }
+    }
     if (fs) out.push(`<text class="fsize" x="${safeNumber(fs.x)}" y="${safeNumber(fs.y) - Math.max(fs.w, fs.h) / 2 - 10}" text-anchor="middle">${sc ? `${Math.round((fs.w / sc) * 100)} × ${Math.round((fs.h / sc) * 100)} cm` : `${Math.round(fs.w)} × ${Math.round(fs.h)}`}</text>`);
     // step 4: how far each radar reaches
     if (sc && this.step === 3) {
@@ -1644,8 +1653,43 @@ class FloorplanStudioPanel extends HTMLElement {
     svg.addEventListener('pointermove', move); svg.addEventListener('pointerup', up);
   }
 
+  /** Drag a handle of the selected piece of furniture: the opposite side stays put (Shift = keep its proportions). */
+  resizeFurn(ev, handle, svg) {
+    const p = this.plan, f = (p.furniture || []).find((q) => this.sel?.type === 'furn' && q.id === this.sel.id);
+    if (!f) return;
+    const [sx, sy] = handle.split(',').map(Number), before = JSON.stringify(p), r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r);
+    const w0 = safeNumber(f.w, 100), h0 = safeNumber(f.h, 60), fx = safeNumber(f.x), fy = safeNumber(f.y), sc = planScale(p);
+    // the fixed point: the opposite corner (or side)
+    const ax = -sx * w0 / 2, ay = -sy * h0 / 2, AX = fx + ax * cr - ay * sr, AY = fy + ax * sr + ay * cr;
+    const step = sc ? sc / 100 : 1;   // whole centimetres once the plan has a real size
+    svg.setPointerCapture(ev.pointerId);
+    let moved = false;
+    const move = (e) => {
+      const [mx, my] = this.pt(e), dx = mx - AX, dy = my - AY, lx = dx * cr + dy * sr, ly = -dx * sr + dy * cr;
+      let w = sx ? Math.max(8, Math.abs(lx)) : w0, h = sy ? Math.max(6, Math.abs(ly)) : h0;
+      if (e.shiftKey && sx && sy) { const k = Math.max(w / w0, h / h0); w = w0 * k; h = h0 * k; }
+      w = Math.round(w / step) * step; h = Math.round(h / step) * step;
+      // keep the fixed side where it is: the new centre is halfway between it and the pointer
+      const ox = sx ? (Math.sign(lx) || sx) * w / 2 : 0, oy = sy ? (Math.sign(ly) || sy) * h / 2 : 0;
+      const ncx = AX + ox * cr - oy * sr, ncy = AY + ox * sr + oy * cr;
+      f.w = Math.round(w * 10) / 10; f.h = Math.round(h * 10) / 10; f.x = Math.round(ncx * 10) / 10; f.y = Math.round(ncy * 10) / 10;
+      moved = true;
+      const g = [...svg.querySelectorAll('[data-furn]')].find((n) => n.dataset.furn === f.id);
+      if (g) g.innerHTML = furnSVG(f);
+      const lbl = svg.querySelector('.fsize');
+      if (lbl) lbl.textContent = sc ? `${Math.round((f.w / sc) * 100)} × ${Math.round((f.h / sc) * 100)} cm` : `${Math.round(f.w)} × ${Math.round(f.h)}`;
+    };
+    const up = () => {
+      svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerup', up);
+      if (moved) { this.history.push(before); this.dirty = true; }
+      this.render();
+    };
+    svg.addEventListener('pointermove', move); svg.addEventListener('pointerup', up);
+  }
+
   doorsPointer(tgt, x, y, ev, svg) {
     const p = this.plan;
+    if (tgt.dataset.fhandle) return this.resizeFurn(ev, tgt.dataset.fhandle, svg);
     if (tgt.dataset.op) { this.sel = { type: 'opening', id: tgt.dataset.op }; this.render(); return; }
     const fe = tgt.closest?.('[data-furn]');
     if (fe) {

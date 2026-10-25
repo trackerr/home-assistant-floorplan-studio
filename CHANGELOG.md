@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Editor: meubels met de muis van formaat veranderen (hoek = breedte en diepte tegelijk, zijkant = één maat, Shift = in verhouding).
 - **Vanzelf herkend:** tv's worden de getekende tv (licht op, geen los icoon), airco's hangen hoog aan de muur en gloeien bij koelen/verwarmen, WLED-klokken tonen hun ledring met de tijd. Ook in de wandeling (scherm, unit, ring).
 - Wandeling: tik op een tv, speaker, airco of gordijn voor info en bediening.
 - **Gordijnen** bij hun raam, geanimeerd open/dicht op de kaart, in 2.5D en in de wandeling (stand uit Home Assistant). Automatisch gekoppeld, instelbaar bij stap 4 (raam en soort: midden, links, rechts, rolgordijn).
