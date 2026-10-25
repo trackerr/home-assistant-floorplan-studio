@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b22';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b22';
+} from './fps-core.js?v=1.3.0b23';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b23';
 
 
 const CSS = `
@@ -55,7 +55,8 @@ const CSS = `
   .item:hover .name { opacity: 1; }
   .item:hover { z-index: 999 !important; }
   .stage { isolation: isolate; }   /* icons stack among themselves; the quick window and menus always stay on top */
-  .p25 .rinfo .rrows { display: none; }   /* 2.5D: only name and temperature, so it stays calm */
+  .p25 .rinfo .rrows { display: none; }
+  .p25 .rinfo { transform: translate(-50%, -50%); text-align: center; }   /* 2.5D: only name and temperature, so it stays calm */
   .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
   .zoomhint.on { opacity: 1; }
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
@@ -815,7 +816,12 @@ class FloorplanStudioCard extends HTMLElement {
       const [x, y] = room.label ? [room.label.x, room.label.y] : labelSpot(plan, room, fs0, rows);
       const d = document.createElement('div');
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
-      [d.style.left, d.style.top] = this._at(x, y); d._fx = x; d._fy = y;
+      if (this._proj) {
+        // 2.5D: hang the (short) block by its middle, so turning and tilting keeps it inside the room
+        const name = String(room.name || ''), bw = Math.max(name.length * fs0 * 0.84, fs0 * 9.5), bh = fs0 * 3.9;
+        d._fx = x + bw / 2; d._fy = y + bh / 2;
+      } else { d._fx = x; d._fy = y; }
+      [d.style.left, d.style.top] = this._at(d._fx, d._fy);
       d.style.setProperty('--fs', `${((fs * (this._proj ? Math.min(1, this._proj.s * 1.1) : 1)) / plan.width) * 100}cqw`);
       d.innerHTML = '<div class="rn"><span></span><span class="pd"><ha-icon icon="mdi:motion-sensor"></ha-icon></span></div><div class="rh"></div><div class="rrows"></div>';
       d.querySelector('.rn span').textContent = room.name || '';

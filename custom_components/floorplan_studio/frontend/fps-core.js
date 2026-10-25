@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b22';
+export const VERSION = '1.3.0b23';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -657,7 +657,7 @@ export function labelSpot(plan, room, fs, rows = 2) {
  */
 /* ------------------------------------------------------------------ 2.5D */
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { sofa: 0.8, bed: 0.55, table: 0.75, round: 0.75, desk: 0.75, counter: 0.9, cabinet: 2, bath: 0.6, shower: 2, toilet: 0.45, stairs: 0, tv: 0.7, plant: 0.9 };
+export const FURN_HEIGHT = { sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -714,6 +714,51 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100 } = {}) {
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
+/** Furniture as a few solid pieces for 2.5D (local units around its centre; z in metres). */
+function furnModel(f) {
+  const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x0 = -w / 2, y0 = -h / 2;
+  const R = (a, b, c, d, z0, z1, cls) => ({ poly: [[x0 + a, y0 + b], [x0 + c, y0 + b], [x0 + c, y0 + d], [x0 + a, y0 + d]], z0, z1, cls });
+  const C = (cx, cy, rx, ry, z0, z1, cls, k = 16) => ({ poly: Array.from({ length: k }, (_, i) => [cx + rx * Math.cos((i * 2 * Math.PI) / k), cy + ry * Math.sin((i * 2 * Math.PI) / k)]), z0, z1, cls });
+  const legs = (z1, t = 4) => [[t, t], [w - 2 * t, t], [w - 2 * t, h - 2 * t], [t, h - 2 * t]].map(([a, b]) => R(a, b, a + t, b + t, 0, z1));
+  const chair = (cx, cy, cw, cs, flip) => [R(cx - x0 - cw / 2, cy - y0 - cs / 2, cx - x0 + cw / 2, cy - y0 + cs / 2, 0, 0.46, 'soft'),
+    flip ? R(cx - x0 - cw / 2, cy - y0 + cs / 2 - 3, cx - x0 + cw / 2, cy - y0 + cs / 2, 0.46, 0.9, 'soft') : R(cx - x0 - cw / 2, cy - y0 - cs / 2, cx - x0 + cw / 2, cy - y0 - cs / 2 + 3, 0.46, 0.9, 'soft')];
+  switch (f.type) {
+    case 'sofa': {
+      const arm = Math.min(w * 0.12, 22), back = Math.min(h * 0.28, 24);
+      return [R(arm, back, w - arm, h, 0, 0.42, 'soft'), R(0, 0, w, back, 0, 0.85, 'soft'), R(0, back, arm, h, 0, 0.62, 'soft'), R(w - arm, back, w, h, 0, 0.62, 'soft')];
+    }
+    case 'bed': {
+      const pw = w > 120 ? (w - 30) / 2 : w - 20, ph = Math.min(30, h * 0.16);
+      return [R(0, 0, w, h, 0, 0.42), R(0, 0, w, 6, 0, 0.95), R(0, h * 0.38, w, h, 0.42, 0.5, 'soft'),
+        ...(w > 120 ? [R(10, 10, 10 + pw, 10 + ph, 0.42, 0.54, 'soft'), R(20 + pw, 10, 20 + 2 * pw, 10 + ph, 0.42, 0.54, 'soft')] : [R(10, 10, 10 + pw, 10 + ph, 0.42, 0.54, 'soft')])];
+    }
+    case 'table': {
+      const cw = Math.min(34, w / 4), cs = 14, n = Math.max(1, Math.floor(w / 60)), out = [...legs(0.7), R(0, 0, w, h, 0.7, 0.76)];
+      for (let i = 0; i < n; i++) { const cx = x0 + ((i + 0.5) * w) / n; out.push(...chair(cx, y0 - cs / 2 - 4, cw, cs, false), ...chair(cx, -y0 + cs / 2 + 4, cw, cs, true)); }
+      return out;
+    }
+    case 'round': {
+      const out = [C(0, 0, 5, 5, 0, 0.7), C(0, 0, w / 2, h / 2, 0.7, 0.76)];
+      for (let i = 0; i < 4; i++) { const ang = (i * Math.PI) / 2 + Math.PI / 4; out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft', 10)); }
+      return out;
+    }
+    case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft', 12)];
+    case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.2, h * 0.2, w * 0.2 + Math.min(60, w / 4), h * 0.8, 0.9, 0.9, 'dark')];
+    case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
+    case 'bath': return [R(0, 0, w, h, 0, 0.58), R(8, 8, w - 8, h - 8, 0.58, 0.58, 'dark')];
+    case 'shower': return [R(0, 0, w, h, 0, 0.05), R(0, 0, w, 1.5, 0.05, 2, 'glass'), R(0, 0, 1.5, h, 0.05, 2, 'glass')];
+    case 'toilet': return [R(0, 0, w, h * 0.3, 0, 0.8), C(0, y0 + h * 0.3 + (h * 0.7) / 2, w / 2 - 2, (h * 0.7) / 2, 0, 0.42, '', 14)];
+    case 'stairs': {
+      const k = Math.max(3, Math.round(h / 26)), out = [];
+      for (let i = 0; i < k; i++) out.push(R(0, (i * h) / k, w, ((i + 1) * h) / k, 0, (2.4 * (k - i)) / k));
+      return out;
+    }
+    case 'tv': return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
+    case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot', 10), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant', 10)];
+    default: return [R(0, 0, w, h, 0, FURN_HEIGHT[f.type] || 0.8)];
+  }
+}
+
 export function raisedSVG(plan, walls, proj) {
   const { P, dz, s, sc, wallH } = proj, parts = [];
   const pts = (list) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
@@ -765,19 +810,28 @@ export function raisedSVG(plan, walls, proj) {
   for (const f of plan.furniture || []) {
     const fh = furnHeight(f);
     if (!(fh > 0)) continue;
-    const w2 = Math.max(10, safeNumber(f.w, 100)) / 2, h2 = Math.max(6, safeNumber(f.h, 60)) / 2, r = (safeNumber(f.rot) * Math.PI) / 180;
-    const base = [[-w2, -h2], [w2, -h2], [w2, h2], [-w2, h2]].map(([x, y]) => P(safeNumber(f.x) + x * Math.cos(r) - y * Math.sin(r), safeNumber(f.y) + x * Math.sin(r) + y * Math.cos(r)));
-    const hh = fh * sc * proj.lift, top = base.map((p) => up(p, hh));
-    const ccx = base.reduce((a, p) => a + p[0], 0) / 4, ccy = base.reduce((a, p) => a + p[1], 0) / 4;
-    const sides = [];
-    for (let i = 0; i < 4; i++) {
-      const p = base[i], q = base[(i + 1) % 4];
-      let nxs = q[1] - p[1], nys = -(q[0] - p[0]);
-      if (nxs * ((p[0] + q[0]) / 2 - ccx) + nys * ((p[1] + q[1]) / 2 - ccy) < 0) { nxs = -nxs; nys = -nys; }
-      if (nys > 0) sides.push(`<polygon class="f3side" points="${pts([p, q, up(q, hh), up(p, hh)])}"/>`);
+    const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
+    const zs = fh / (FURN_HEIGHT[f.type] || fh);   // an own height stretches the whole piece
+    const toP = ([x, y], z) => { const p = P(fx + x * cr - y * sr, fy + x * sr + y * cr); return [p[0], p[1] + dz(z * zs * sc * proj.lift)]; };
+    for (const pr of furnModel(f)) {
+      const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
+      const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
+      const sides = [];
+      if (pr.z1 > pr.z0) {
+        for (let i = 0; i < n; i++) {
+          const p = base[i], q = base[(i + 1) % n];
+          let nxs = q[1] - p[1], nys = -(q[0] - p[0]);
+          if (nxs * ((p[0] + q[0]) / 2 - ccx) + nys * ((p[1] + q[1]) / 2 - ccy) < 0) { nxs = -nxs; nys = -nys; }
+          if (nys > 0) sides.push(`<polygon class="f3side" points="${pts([p, q, top[(i + 1) % n], top[i]])}"/>`);
+        }
+      }
+      const allp = [...base, ...top];
+      parts.push({
+        key: Math.max(...base.map((p) => p[1])) + pr.z0 * 0.001, box: [fx, fy],
+        sb: [Math.min(...allp.map((p) => p[0])), Math.min(...allp.map((p) => p[1])), Math.max(...allp.map((p) => p[0])), Math.max(...allp.map((p) => p[1]))],
+        svg: `<g class="f3 ${pr.cls || ''}">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/></g>`,
+      });
     }
-    const allp = [...base, ...top];
-    parts.push({ key: Math.max(...base.map((p) => p[1])), box: [safeNumber(f.x), safeNumber(f.y)], sb: [Math.min(...allp.map((p) => p[0])), Math.min(...allp.map((p) => p[1])), Math.max(...allp.map((p) => p[0])), Math.max(...allp.map((p) => p[1]))], svg: `<g class="f3">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/><g transform="translate(0 ${dz(hh).toFixed(1)}) matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">${furnSVG(f)}</g></g>` });
   }
   // a block against a wall: which side of that wall it stands on decides who is drawn first
   // (comparing only how far forward things are goes wrong for a desk right behind a low wall)
@@ -935,6 +989,11 @@ export const PLAN_CSS = `
   .f3side { fill: color-mix(in srgb, var(--fps-muted) 30%, var(--fps-bg)); stroke: var(--fps-muted); stroke-opacity: .5; stroke-width: .8; }
   .f3top { fill: color-mix(in srgb, var(--fps-muted) 18%, var(--fps-floor)); stroke: var(--fps-muted); stroke-opacity: .6; stroke-width: .8; }
   .f3 .furn { fill: none; stroke-opacity: .5; }
+  .f3.soft .f3top { fill: color-mix(in srgb, var(--fps-muted) 26%, var(--fps-floor)); } .f3.soft .f3side { fill: color-mix(in srgb, var(--fps-muted) 36%, var(--fps-bg)); }
+  .f3.dark .f3top, .f3.dark .f3side { fill: color-mix(in srgb, var(--fps-bg) 80%, #000); }
+  .f3.glass .f3top, .f3.glass .f3side { fill: rgba(160, 210, 255, .12); stroke: rgba(170, 215, 255, .6); }
+  .f3.plant .f3top { fill: rgba(70, 160, 90, .75); stroke: rgba(120, 200, 130, .7); } .f3.plant .f3side { fill: rgba(50, 120, 70, .75); stroke: rgba(120, 200, 130, .5); }
+  .f3.pot .f3top, .f3.pot .f3side { fill: rgba(160, 100, 70, .7); }
   .stalks line { stroke: var(--fps-fg); stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
   .stalks ellipse { fill: var(--fps-fg); fill-opacity: .3; pointer-events: none; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
