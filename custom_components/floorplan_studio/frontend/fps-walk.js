@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b11';
+} from './fps-core.js?v=1.4.0b12';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -11,8 +11,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -770,7 +770,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     }
     if (!tap) return;
     const r = canvas.getBoundingClientRect(), nx = ((ev.clientX - r.left) / r.width) * 2 - 1, ny = 1 - ((ev.clientY - r.top) / r.height) * 2;
-    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(FOV / 2), tx = ty * (r.width / r.height);
+    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(fov / 2), tx = ty * (r.width / r.height);
     const dir = [f[0] + right[0] * nx * tx + up[0] * ny * ty, f[1] + right[1] * nx * tx + up[1] * ny * ty, f[2] + right[2] * nx * tx + up[2] * ny * ty];
     if (dir[1] > -0.02) return;
     const k = -eyeY() / dir[1], x = cam.x + dir[0] * k, z = cam.z + dir[2] * k;
@@ -794,7 +794,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   /** The direction from your eye through a point on the screen. */
   function ray(cx, cy) {
     const r = canvas.getBoundingClientRect(), nx = ((cx - r.left) / r.width) * 2 - 1, ny = 1 - ((cy - r.top) / r.height) * 2;
-    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(FOV / 2), tx = ty * (r.width / r.height);
+    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(fov / 2), tx = ty * (r.width / r.height);
     return [f[0] + right[0] * nx * tx + up[0] * ny * ty, f[1] + right[1] * nx * tx + up[1] * ny * ty, f[2] + right[2] * nx * tx + up[2] * ny * ty];
   }
   /** Where that line meets the level at height y (metres), as [x, z]. */
@@ -854,7 +854,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     const L0 = lamps.filter((l) => l.it === it).map((l) => [l, [...l.P]]);
     const sx0 = ev.clientX, sy0 = ev.clientY, e0 = [cam.x, eyeY(), cam.z];
     // metres per screen pixel at the device's distance
-    const dist = Math.max(0.3, Math.hypot(P0[0] - e0[0], P0[1] - e0[1], P0[2] - e0[2])), mpp = (dist * 2 * Math.tan(FOV / 2)) / Math.max(1, canvas.clientHeight);
+    const dist = Math.max(0.3, Math.hypot(P0[0] - e0[0], P0[1] - e0[1], P0[2] - e0[2])), mpp = (dist * 2 * Math.tan(fov / 2)) / Math.max(1, canvas.clientHeight);
     const f = fwd(), right = nrm(cross(f, [0, 1, 0])), rl = Math.hypot(right[0], right[2]) || 1, rx = right[0] / rl, rz = right[2] / rl;
     const b = rec.el.querySelector('.b');
     b.setPointerCapture(ev.pointerId);
@@ -981,7 +981,28 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     } catch (e) { showRoom(null, T.save_err, String(e?.message || e)); } finally { bt.disabled = false; }
   });
 
-  const FOV = (70 * Math.PI) / 180;
+  let fov = (70 * Math.PI) / 180;
+  // Ctrl + scroll wheel (or pinching a touchpad / two fingers) zooms the room itself, not the page or the icons
+  const setZoom = (k) => { fov = Math.max((25 * Math.PI) / 180, Math.min((95 * Math.PI) / 180, fov * k)); };
+  canvas.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    if (ev.ctrlKey || ev.metaKey) { setZoom(Math.exp(ev.deltaY * 0.0012)); return; }
+    // plain scroll wheel: a small step forward or back
+    const st = Math.max(-0.6, Math.min(0.6, -ev.deltaY * 0.004));
+    cam.x += Math.sin(cam.yaw) * st; cam.z += Math.cos(cam.yaw) * st; collide();
+    if (touring) { pausedTour = route; route = []; setTouring(false); }
+  }, { passive: false });
+  // two fingers on a phone or tablet: pinch to zoom
+  const touches = new Map();
+  let pinch0 = null;
+  canvas.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'touch') { touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch0 = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), fov }; drag = null; } } });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!touches.has(ev.pointerId)) return;
+    touches.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    if (pinch0 && touches.size === 2) { const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); fov = pinch0.fov; setZoom(pinch0.d / Math.max(20, d)); }
+  });
+  const touchEnd = (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch0 = null; };
+  canvas.addEventListener('pointerup', touchEnd); canvas.addEventListener('pointercancel', touchEnd);
   const fwd = () => [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
   const eyeY = () => EYE + Math.sin(bob) * 0.018;
 
@@ -1104,7 +1125,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     const eye = [cam.x, eyeY(), cam.z], f = fwd();
-    const VP = mul(perspective(FOV, w / h, 0.05, 200), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
+    const VP = mul(perspective(fov, w / h, 0.05, 200), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
     gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
     gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);
     gl.uniform1f(U.uAmb, 0.24 + 0.36 * day); gl.uniform1f(U.uSun, 0.38 * day); gl.uniform3fv(U.uSunDir, nrm([0.45, 0.8, 0.35]));
@@ -1165,7 +1186,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     close,
     /** For tests: move the walk on by this many seconds at once. */
     _advance(sec) { for (let t = 0; t < sec; t += 0.05) step(0.05); },
-    _state() { return { cam: { ...cam }, next: route.slice(0, 3), room: lastRoom }; },
+    _state() { return { cam: { ...cam }, next: route.slice(0, 3), room: lastRoom, fov: Math.round((fov * 180) / Math.PI) }; },
     _setCam(x, z, yaw, pitch = -0.06) { route = []; setTouring(false); Object.assign(cam, { x, z, yaw, pitch }); },
   };
 }
