@@ -1,9 +1,9 @@
 // Floorplan Studio – walk through your own home (first person, WebGL).
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
-  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount,
+  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b7';
+} from './fps-core.js?v=1.4.0b8';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -490,8 +490,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   const S = planScale(plan) || 70, M = (v) => v / S;
   const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
 
-  /** The room a device belongs to: its Home Assistant area first, otherwise the room most of its icon is in. */
+  /** The room a device is in: where you put it on the plan; on a wall: its Home Assistant area, or the room most of its icon is in. */
   function itemRoom(it) {
+    const here = roomAt(plan.rooms, safeNumber(it.x), safeNumber(it.y));
+    if (here) return here;
     const area = entityArea(hass, it.entity_id);
     if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
     const x = safeNumber(it.x), y = safeNumber(it.y), half = 0.25 * S;
@@ -513,7 +515,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       if (dd < bd) { bd = dd; best = [cx, cz]; }
     }
     // only pull devices that sit on or right next to a wall; a device in the room stays exactly where it is
-    return bd < 0.6 ? best : [x, z];
+    return bd < 0.2 ? best : [x, z];
   }
 
   /** Lamps (their spot, the room their light stays in, and a small fixture to draw) and the icons. */
@@ -530,24 +532,11 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const ceil = lampKind && isCeilingLamp(it, st);
       // where it really is: a device drawn on a wall hangs just in front of it, in its own room
       let [px, pz] = [M(x), M(y)];
-      if (room) [px, pz] = insideRoom(room, px, pz, 0.2);
-      const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
-      // what kind of lamp: on the ceiling, hanging over a table, standing on the floor, on a table or desk, or a strip/other
+      if (room) [px, pz] = insideRoom(room, px, pz, 0.13);
       const strip = lampKind ? stripPath(it) : null;
-      const mount = lampKind ? ceilingMount(it, st) : null;
-      const lampType = !lampKind ? null : strip ? 'strip' : mount === 'hanging' ? 'pendant' : ceil ? 'ceiling'
-        : /vloer|staand|floor|standing|stalamp/i.test(label) ? 'floor'
-          : under && ['table', 'round', 'island'].includes(under.type) && !own ? 'pendant'
-            : /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i.test(label) || (under && !own) ? 'table'
-              : 'other';
-      let h;
-      if (own) h = itemHeight(it, st);
-      else if (lampType === 'ceiling') h = H - 0.12;
-      else if (lampType === 'pendant') h = under ? furnHeight(under) + 0.85 : itemHeight(it, st);
-      else if (lampType === 'floor') h = 1.5;
-      else if (lampType === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
-      else h = under ? furnHeight(under) + 0.35 : itemHeight(it, st);
-      h = Math.min(Math.max(h, 0.15), H - 0.08);
+      // kind of lamp and height: the same rule as the 2.5D view, so both always agree
+      const lampType = lampKind ? lampStyle(plan, it, st) || 'other' : null;
+      const h = Math.min(Math.max(deviceHeight(plan, it, st), 0.05), H - 0.08);
       let P = [px, h, pz];
       if (lampKind) {
         let bb = [-1e9, -1e9, 1e9, 1e9];
@@ -568,23 +557,23 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
             lamps.push({ it, P: [q[0], h, q[1]], bb, start: 0, count: 0, share: 1 / Math.sqrt(n) });
           }
           const mid = pathMid(pts);
-          lightY = h; P = [mid[0], Math.min(h + 0.25, H - 0.1), mid[1]];
+          lightY = h; P = [mid[0], h, mid[1]];
           px = mid[0]; pz = mid[1];
-        } else if (lampType === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, [1, 1, 1]); lightY = H - 0.25; P = [px, H - 0.45, pz]; }
+        } else if (lampType === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, [1, 1, 1]); lightY = H - 0.25; P = [px, H - 0.12, pz]; }
         else if (lampType === 'pendant') {
           fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.12, H, DARK);                 // cord
-          markers.prism(circle(px, pz, 0.16), h - 0.04, h + 0.12, [1, 1, 1]); lightY = h - 0.1; P = [px, h + 0.4, pz];
+          markers.prism(circle(px, pz, 0.16), h - 0.04, h + 0.12, [1, 1, 1]); lightY = h - 0.1; P = [px, h, pz];
         } else if (lampType === 'floor') {
           fixtures.prism(circle(px, pz, 0.14, 12), 0, 0.025, DARK);                                                 // foot
           obstacles.push([px, pz, 0.2]);
           fixtures.box(px - 0.012, pz - 0.012, px + 0.012, pz + 0.012, 0.025, h - 0.05, DARK);                       // pole
-          markers.prism(circle(px, pz, 0.19), h - 0.05, h + 0.2, [1, 1, 1]); lightY = h + 0.05; P = [px, h + 0.5, pz];
+          markers.prism(circle(px, pz, 0.19), h - 0.05, h + 0.2, [1, 1, 1]); lightY = h + 0.05; P = [px, h, pz];
         } else if (lampType === 'table') {
           const base = h - 0.3;
           fixtures.prism(circle(px, pz, 0.06, 10), base, base + 0.02, DARK);
           fixtures.box(px - 0.008, pz - 0.008, px + 0.008, pz + 0.008, base + 0.02, h - 0.06, DARK);
-          markers.prism(circle(px, pz, 0.11), h - 0.06, h + 0.08, [1, 1, 1]); lightY = h; P = [px, h + 0.35, pz];
-        } else { markers.prism(circle(px, pz, 0.05, 10), h - 0.03, h + 0.03, [1, 1, 1]); P = [px, h + 0.2, pz]; }
+          markers.prism(circle(px, pz, 0.11), h - 0.06, h + 0.08, [1, 1, 1]); lightY = h; P = [px, h, pz];
+        } else { markers.prism(circle(px, pz, 0.05, 10), h - 0.03, h + 0.03, [1, 1, 1]); P = [px, h, pz]; }
         P[1] = Math.min(P[1], H - 0.1);
         lamps.push({ it, P: [px, lightY, pz], bb, start, count: markers.v.length / 10 - start, share: lampType === 'strip' ? 1 / Math.sqrt(Math.max(1, Math.min(4, Math.round(pathLength(strip.map(([sx, sy]) => [M(sx), M(sy)])) / 1.2)))) : 1 });
       }

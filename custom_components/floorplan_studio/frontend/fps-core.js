@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b7';
+export const VERSION = '1.4.0b8';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -783,6 +783,45 @@ export function itemHeight(it, st) {
   if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(dc)) return 2.3;
   return { light: 2.2, fan: 2.3, cover: 2.0, camera: 2.3, climate: 1.5, sensor: 1.5, binary_sensor: 1.4, lock: 1.1, switch: 1.0, input_boolean: 1.0, media_player: 1.0, vacuum: 0, lawn_mower: 0 }[d] ?? 1.0;
 }   // heights are drawn at 42% so the walls don't hide the rooms
+
+/**
+ * What kind of lamp and how high a device really hangs, in metres - one rule for 2.5D, the walk-through and the editor.
+ * Your own height always wins. A lamp: against the ceiling, hanging (over the dining table: well above it),
+ * a floor lamp (~1.5 m), a desk/table lamp (on the furniture under it) or an LED strip; anything over a table
+ * or cupboard sits just above it.
+ */
+export const WALL_H = 2.6;
+const FLOORLAMP_RE = /vloer|staand|floor|standing|stalamp/i, TABLELAMP_RE = /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i;
+export function lampStyle(plan, it, st) {
+  const d = it.entity_id.split('.')[0];
+  if (it.kind === 'device' || !(d === 'light' || it.kind === 'lamp')) return null;
+  if (stripPath(it)) return 'strip';
+  const own = it.height != null && it.height !== '' && Number.isFinite(+it.height);
+  const mount = ceilingMount(it, st);
+  if (mount === 'hanging') return 'pendant';
+  // a lamp against the ceiling that you gave a lower height hangs on a cord
+  if (mount === 'flush') return own && +it.height < WALL_H - 0.25 ? 'pendant' : 'ceiling';
+  const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+  if (FLOORLAMP_RE.test(label)) return 'floor';
+  const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y));
+  if (under && !own && ['table', 'round', 'island'].includes(under.type)) return 'pendant';
+  if (TABLELAMP_RE.test(label) || (under && !own)) return 'table';
+  return 'other';
+}
+export function deviceHeight(plan, it, st) {
+  const own = it.height != null && it.height !== '' && Number.isFinite(+it.height);
+  let h;
+  if (own) h = +it.height;
+  else {
+    const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y)), style = lampStyle(plan, it, st);
+    if (style === 'ceiling') h = WALL_H - 0.12;
+    else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;
+    else if (style === 'floor') h = 1.5;
+    else if (style === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
+    else h = under ? furnHeight(under) + 0.35 : itemHeight(it, st);
+  }
+  return Math.min(Math.max(h, 0), WALL_H - 0.05);
+}
 
 /**
  * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted

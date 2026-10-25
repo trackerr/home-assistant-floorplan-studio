@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- 2.5D en de wandeling gebruiken nu precies dezelfde hoogte en dezelfde lampsoort (plafond, hanglamp, staande lamp, tafellamp, ledstrip); een hoogte die je in de wandeling instelt staat ook zo in 2.5D. Apparaten staan in de wandeling op exact hun plek uit de plattegrond.
 - **AI-assistent**: apparaten plaatsen door het te vragen (*"hang de lamp boven de eettafel"*). Hulpmiddelen voor de AI van Home Assistant, de acties `floorplan_studio.place_device` en `floorplan_studio.describe`, en een **AI-hulp**-chat in de editor. Werkt ook zonder AI: korte opdrachten als *"zet Keukenlamp boven de eettafel"* begrijpt de integratie zelf.
 - Kaarten werken zichzelf bij als de plattegrond ergens anders verandert (ander scherm, assistent of actie).
 - **Hanglampen**: *Plafondlamp? → Ja, hangend* met een eigen hoogte; plafondlamp-icoon, in 2.5D en de wandeling aan een snoer op die hoogte.
