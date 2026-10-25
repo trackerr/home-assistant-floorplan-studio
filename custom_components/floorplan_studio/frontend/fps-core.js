@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b48';
+export const VERSION = '1.4.0b49';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -428,6 +428,9 @@ export const FURN_TYPES = {
   radiator: { icon: 'mdi:radiator', w: 80, h: 10 },
   speakerbox: { icon: 'mdi:speaker', w: 22, h: 26 },
   videowall: { icon: 'mdi:monitor-multiple', w: 280, h: 8 },
+  dishwasher: { icon: 'mdi:dishwasher', w: 42, h: 42 },
+  washer: { icon: 'mdi:washing-machine', w: 42, h: 42 },
+  dryer: { icon: 'mdi:tumble-dryer', w: 42, h: 42 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
   sink: { icon: 'mdi:faucet', w: 80, h: 50 },
@@ -505,6 +508,9 @@ export function furnSVG(f, extra = '') {
       body = chairs.join('') + R(x, y, w, h, 6);
       break;
     }
+    case 'dishwasher': case 'washer': case 'dryer':   // an appliance: a square, a round door for a washer or dryer
+      body = R(x, y, w, h, 3) + (f.type === 'dishwasher' ? R(x + w * 0.15, y + h - 6, w * 0.7, 3, 1, 'soft') : `<circle class="soft" cx="0" cy="${(y + h * 0.55).toFixed(1)}" r="${(Math.min(w, h) * 0.3).toFixed(1)}"/>`);
+      break;
     case 'videowall': {   // a camera wall: a long panel with a row of screens seen from above
       const k = Math.max(2, Math.round(w / 40));
       body = R(x, y, w, h, 2) + Array.from({ length: k }, (_, i) => R(x + (i * w) / k + 2, y + 1, w / k - 4, h - 2, 1, 'soft')).join('');
@@ -779,7 +785,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f?.type === 'videowall' ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -1099,6 +1105,60 @@ export function speakerBoxes(plan, it, st) {
   const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox' && (!room || roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) === room)).map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
   if (!near.length) return [];
   return /links|rechts|left|right|\b[lr]\b/i.test(label) ? [near[0][0]] : near.map(([f]) => f);
+}
+/**
+ * What an appliance you drew (dishwasher, washer, dryer) is linked to: f.entity, or else the best match in its room's
+ * area (then anywhere) by name: a status or power sensor first, a switch last. Returns an entity id or null.
+ */
+const APPLIANCE_RE = { dishwasher: /vaatwasser|afwasmachine|dishwasher|sp[üu]lmaschine/i, washer: /(?<!af)wasmachine|washing ?machine|\bwasher\b|waschmaschine/i, dryer: /(?<!filament[ _])droger|\bdryer\b|wasdroger|trockner/i };
+// the side features of a machine (child lock, remote start, firmware...): never the one that tells whether it runs
+const APP_SIDE_RE = /child|kinder|lock|slot|remote|firmware|update|wrinkle|kreuk|bubble|detergent|zeep|temp|humid|calibrat|signal|rssi|battery|batterij|countdown|indicator|outage|energy|energie|saved|amps|volt|current/i;
+/** The entity that tells whether a dishwasher / washer / dryer you drew is running: f.entity, or the best match (its room first). */
+export function applianceEntity(plan, f, hass) {
+  if (f.entity === '' || f.entity === false) return null;
+  if (f.entity && hass?.states[f.entity]) return f.entity;
+  const re = APPLIANCE_RE[f.type];
+  if (!re || !hass) return null;
+  const room = roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y));
+  const score = (id) => {
+    const st = hass.states[id], d = id.split('.')[0], dc = st?.attributes?.device_class, u = st?.attributes?.unit_of_measurement;
+    const label = `${id} ${st?.attributes?.friendly_name || ''}`;
+    if (!re.test(label) || APP_SIDE_RE.test(label) || dc === 'timestamp') return 0;
+    const main = /status|state|toestand|running|actief|bezig|programm?a?|cycle/i.test(label);
+    if (d === 'binary_sensor') return main ? 6 : 4;
+    if (d === 'sensor' && (dc === 'enum' || isNaN(parseFloat(st.state)))) return main ? 6 : 2;
+    if (d === 'sensor' && (dc === 'power' || /^k?W$/.test(u || ''))) return 3;
+    if (d === 'switch' || d === 'input_boolean') return 1;
+    return 0;
+  };
+  const ids = Object.keys(hass.states).filter((id) => score(id) > 0);
+  const inRoom = room?.area_id ? ids.filter((id) => entityArea(hass, id) === room.area_id) : [];
+  return [...(inRoom.length ? inRoom : ids)].sort((a, b) => score(b) - score(a))[0] || null;
+}
+/** The devices on the plan a drawn dishwasher / washer / dryer stands for (its linked entity, and its plug or sensors by name in the same room): they get no icon of their own. */
+export function applianceAbsorbs(plan, hass) {
+  const out = new Set();
+  for (const f of plan.furniture || []) {
+    const re = APPLIANCE_RE[f.type];
+    if (!re) continue;
+    const id = applianceEntity(plan, f, hass);
+    if (id) out.add(id);
+    const room = roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y));
+    for (const it of plan.items || []) {
+      if (out.has(it.entity_id) || stripPath(it)) continue;
+      if (re.test(`${it.entity_id} ${it.name || ''} ${hass?.states[it.entity_id]?.attributes?.friendly_name || ''}`) && roomAt(plan.rooms, safeNumber(it.x), safeNumber(it.y)) === room) out.add(it.entity_id);
+    }
+  }
+  return out;
+}
+/** Is that appliance running? on/off: on; power (W/kW): above f.on_w (default 8 W); a text status: running, washing, bezig... */
+export function applianceRunning(hass, f, id) {
+  const st = hass?.states[id];
+  if (!st || ['unavailable', 'unknown'].includes(st.state)) return false;
+  const d = id.split('.')[0], u = st.attributes?.unit_of_measurement, v = parseFloat(st.state);
+  if (['binary_sensor', 'switch', 'input_boolean'].includes(d)) return st.state === 'on';
+  if (!isNaN(v) && /^k?W$/.test(u || '')) return v * (u === 'kW' ? 1000 : 1) > (Number.isFinite(+f.on_w) ? +f.on_w : 8);
+  return /run|wash|dry|rins|spin|clean|bezig|aan\b|draait|wassen|drogen|spoel|centrifug|active|actief|on\b/i.test(st.state) && !/idle|off|standby|uit|klaar|done|finished|end/i.test(st.state);
 }
 /** Is a radiator thermostat / heating zone heating right now? */
 export const isHeating = (st) => !!st && (st.attributes?.hvac_action === 'heating' || (st.attributes?.hvac_action == null && st.state === 'heat' && +st.attributes?.current_temperature < +st.attributes?.temperature));
@@ -1491,6 +1551,12 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       for (const ang of roundChairs(f)) { out.push(C(Math.cos(ang) * (w / 2 + 10), Math.sin(ang) * (h / 2 + 10), 11, 11, 0, 0.46, 'soft')); }
       return out;
     }
+    case 'dishwasher': case 'washer': case 'dryer': {
+      // the front is the "h" side; a control strip at the top, the door below it
+      const out = [R(0, 0, w, h, 0, 0.85, 'white'), R(w * 0.06, h - 0.8, w * 0.94, h, 0.74, 0.82, 'soft')];
+      if (f.type !== 'dishwasher') out.push(R(w * 0.22, h - 0.6, w * 0.78, h, 0.2, 0.62, 'dark'));
+      return out;
+    }
     case 'videowall': { const [b0, b1] = videoWallSpan(f); return [R(0, 0, w, h, b0 - 0.04, b1 + 0.04, 'dark')]; }
     case 'speakerbox': return [R(0, 0, w, h, 0, 1, 'dark'), R(1.5, h - 1, w - 1.5, h, 0.08, 0.95, 'soft')];
     case 'radiator': {
@@ -1533,7 +1599,20 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       if (onTop) return [R(w * 0.1, h / 2 - 2.5, w * 0.16, h / 2 + 2.5, 0, 0.05, 'dark'), R(w * 0.84, h / 2 - 2.5, w * 0.9, h / 2 + 2.5, 0, 0.05, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.05, 0.71, 'dark')];
       return [R(w * 0.35, 0, w * 0.65, h, 0, 0.45, 'dark'), R(0, h / 2 - 1.5, w, h / 2 + 1.5, 0.45, 1.15, 'dark')];
     }
-    case 'plant': return [C(0, 0, w / 4, h / 4, 0, 0.35, 'pot'), C(0, 0, w / 2, h / 2, 0.35, 0.9, 'plant')];
+    case 'plant': {
+      // a pot (tapered, with a rim and soil) and leaves that grow out of it and arch outwards: each leaf a blade
+      // in a few steps, every step further out and higher, a little narrower (a spiral, so they don't overlap)
+      const pr = Math.min(w, h) / 2, out = [C(0, 0, pr * 0.34, pr * 0.34, 0, 0.1, 'pot'), C(0, 0, pr * 0.4, pr * 0.4, 0.1, 0.26, 'pot'), C(0, 0, pr * 0.46, pr * 0.46, 0.26, 0.31, 'pot'), C(0, 0, pr * 0.4, pr * 0.4, 0.31, 0.315, 'dark')];
+      const n = 16, blade = (a, r0, r1, wd, z0, z1) => { const c = Math.cos(a), sn = Math.sin(a), px = -sn * wd / 2, py = c * wd / 2; return { poly: [[c * r0 + px, sn * r0 + py], [c * r1 + px * 0.7, sn * r1 + py * 0.7], [c * r1 - px * 0.7, sn * r1 - py * 0.7], [c * r0 - px, sn * r0 - py]], z0, z1, cls: 'plant' }; };
+      for (let i = 0; i < n; i++) {
+        const a = i * 2.39996, inner = i < 5, L = pr * (inner ? 0.45 : 0.62 + 0.3 * ((i * 7) % 5) / 4), top = inner ? 0.95 : 0.62 + 0.25 * ((i * 3) % 4) / 3, steps = 7;
+        for (let k = 0; k < steps; k++) {
+          const t0 = k / steps, t1 = (k + 1) / steps, rise = (t) => 0.31 + (top - 0.31) * Math.sin((t * Math.PI) / 2) ** 0.8;
+          out.push(blade(a, L * t0 * t0, L * t1 * t1 + 0.4, Math.max(1, pr * 0.13 * (1 - t0 * 0.7)), rise(t0) - 0.01, rise(t1) + 0.005));
+        }
+      }
+      return out;
+    }
     default: return [R(0, 0, w, h, 0, FURN_HEIGHT[f.type] || 0.8)];
   }
 }

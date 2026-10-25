@@ -1,6 +1,13 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Vaatwasser, wasmachine en droger als meubel**, met *Gekoppeld aan*: kies de sensor die zegt of hij draait — een status- of draait-sensor, een stroommeter (boven *Draait vanaf* watt, standaard 8 W) of een schakelaar. Automatisch kiest hij een status- of vermogenssensor van dat apparaat boven een stekker die altijd aan staat. In de wandeling een statuslampje dat groen brandt als hij draait (op de kaart een groene gloed); tik = draait / draait niet, met de andere sensoren van het apparaat. De stekker en sensoren met dezelfde naam in die ruimte krijgen geen eigen icoon meer (en een tik schakelt de stekker niet meer).
+- Wandeling: met de muis boven een apparaat (ook een ledmatrix, klok, ledstrip of gordijn) verschijnen icoon én naam; het apparaat dat je echt aanwijst wint (een matrix naast een gordijn wordt niet meer het gordijn).
+- Wandeling: **lang indrukken** op een apparaat opent zijn volledige menu — helderheid, kleur, wit, effect (lamp); modus, ventilator, voorkeur (klimaat); snelheid (ventilator); bron en volume (speler); stand (gordijn); keuzes (select). De rechtermuisknop doet niets meer.
+- Camerawand: het gekozen beeld is twee keer zo groot; geen kruisje — klik op het beeld (of nog eens op het scherm) en het is weg.
+- Lampen boven een tafel, kookeiland of bureau schijnen vooral naar beneden, op het blad. Een lamp die midden in een getekende ruimte zonder Home Assistant-ruimte hangt (bijv. de eettafel naast de keuken) verlicht die ruimte, in plaats van naar de keuken te worden getrokken.
+- Plant: echte bladeren die uit de pot omhoog en naar buiten buigen, in plaats van een groene cilinder.
+- Editor (ruimtes, deuren & meubels, apparaten): **vrij zoomen** met + en −, Ctrl + scrollwiel of knijpen; ingezoomd schuif je met het scrollwiel of de middelste muisknop.
 - **Wandelen of rondleiding**: het wandelmannetje zet je stil in de startruimte (stap 5, anders de grootste) met zicht over de ruimte — geen rondleiding. De rondleiding start met de nieuwe knop ernaast (of *Rondleiding* in de wandeling). De route gaat eerst door open doorgangen (woonkamer → eettafel → keuken …), dan door deuren; in de startruimte kijk je rond bij de deur, zonder om te draaien.
 - Wandeling: licht lekt niet meer door muren — een lamp verlicht precies zijn eigen ruimte (ook een L-vormige), niet de andere kant van de muur. Een kader-ledstrip die bijna recht is staat recht langs de muur.
 - Een tv op een kast of tv-meubel heeft geen voet meer: alleen het scherm op kleine pootjes (wandeling en 2.5D).
