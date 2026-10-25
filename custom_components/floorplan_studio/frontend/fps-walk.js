@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b39';
+} from './fps-core.js?v=1.4.0b40';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -517,8 +517,13 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   /** The room a device is in: where you put it on the plan; on a wall: its Home Assistant area, or the room most of its icon is in. */
   function itemRoom(it) {
     const here = roomAt(plan.rooms, safeNumber(it.x), safeNumber(it.y));
-    if (here) return here;
     const area = entityArea(hass, it.entity_id);
+    if (here && area && here.area_id !== area) {
+      // right on a wall (within 25 cm): it hangs on the side of the room it belongs to in Home Assistant
+      const r = plan.rooms.find((x) => x.area_id === area), x = safeNumber(it.x), y = safeNumber(it.y), lim = 0.25 * S;
+      if (r && r.rects.map(norm).some((q) => x >= q[0] - lim && x <= q[2] + lim && y >= q[1] - lim && y <= q[3] + lim)) return r;
+    }
+    if (here) return here;
     if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
     const x = safeNumber(it.x), y = safeNumber(it.y), half = 0.25 * S;
     let best = roomAt(plan.rooms, x, y), most = 0;
