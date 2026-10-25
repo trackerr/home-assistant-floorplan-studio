@@ -55,6 +55,7 @@ const L = {
     vacuum_opacity: 'Live map opacity', first_on_plan: 'first one on the plan', from_bg: 'the background one',
     segments: 'This room’s number in your vacuum (only if “Clean this room” doesn’t work by itself)', segments_hint: 'e.g. 16 or 16,17',
     yaml: 'Or put the card on a dashboard you already have:', preview: 'Preview', need_save: 'Save first.', loading: 'Loading…', default_name: 'Home',
+    measure_pick: 'Real sizes: pick a room and fill in how wide it really is.', measure_done: 'Sizes are in metres. To correct them: pick a room and change its real width.',
     measure: 'Real width of this room (metres)', measure_hint: 'Fill in the real width of one room. Then the plan knows how big everything is: you see sizes in metres, and the radar knows how far 2 metres is.', dims: 'Size',
     furn_title: 'Furniture and stairs', furn_tip: 'Tap a piece to put it on the plan, then drag it to the right spot. It is only a light outline on your dashboard.',
     f_sofa: 'Sofa', f_bed: 'Bed', f_table: 'Table', f_round: 'Round table', f_desk: 'Desk', f_counter: 'Kitchen counter', f_cabinet: 'Cupboard', f_bath: 'Bath', f_shower: 'Shower', f_toilet: 'Toilet', f_stairs: 'Stairs', f_tv: 'TV', f_plant: 'Plant',
@@ -110,6 +111,7 @@ const L = {
     vacuum_opacity: 'Doorzichtigheid', first_on_plan: 'de eerste op de kaart', from_bg: 'die van stap 1',
     segments: 'Nummer van deze ruimte in je stofzuiger (alleen als “Deze ruimte zuigen” niet vanzelf werkt)', segments_hint: 'bijv. 16 of 16,17',
     yaml: 'Of zet de kaart op een dashboard dat je al hebt:', preview: 'Voorbeeld', need_save: 'Sla eerst op.', loading: 'Laden…', default_name: 'Thuis',
+    measure_pick: 'Echte maten: kies een ruimte en vul in hoe breed die echt is.', measure_done: 'De maten staan in meters. Klopt het niet? Kies een ruimte en pas de echte breedte aan.',
     measure: 'Echte breedte van deze ruimte (meter)', measure_hint: 'Vul bij één ruimte de echte breedte in. Dan weet de plattegrond hoe groot alles is: je ziet maten in meters, en de radar weet hoe ver 2 meter is.', dims: 'Maat',
     furn_title: 'Meubels en trap', furn_tip: 'Tik op een meubel om het neer te zetten en sleep het daarna naar de goede plek. Op je dashboard is het alleen een lichte omtrek.',
     f_sofa: 'Bank', f_bed: 'Bed', f_table: 'Tafel', f_round: 'Ronde tafel', f_desk: 'Bureau', f_counter: 'Aanrecht', f_cabinet: 'Kast', f_bath: 'Bad', f_shower: 'Douche', f_toilet: 'Wc', f_stairs: 'Trap', f_tv: 'Tv', f_plant: 'Plant',
@@ -202,6 +204,10 @@ const CSS = `
   .furnbtns { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-bottom: 10px; }
   .furnbtns button { flex-direction: column; font-size: 12px; padding: 6px 4px; }
   .furnbtns ha-icon { --mdc-icon-size: 22px; }
+  .rsize { fill: #fff; fill-opacity: .8; font-size: 11px; pointer-events: none; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3px; }
+  .dimline line { stroke: #ffd54f; stroke-width: 1.5; pointer-events: none; }
+  .dimline text, .fsize { fill: #ffd54f; font-size: 12px; font-weight: 600; pointer-events: none; paint-order: stroke; stroke: rgba(0,0,0,.75); stroke-width: 3px; }
+  .rrange { fill: rgba(3,169,244,.08); stroke: #03a9f4; stroke-width: 1.5; stroke-dasharray: 6 5; pointer-events: none; }
   .sizeline { font-size: 13px; margin: -4px 0 10px; color: var(--primary-text-color); }
 `;
 
@@ -327,10 +333,36 @@ class FloorplanStudioPanel extends HTMLElement {
     for (const f of p.furniture || []) out.push(`<g data-furn="${esc(f.id)}" class="${this.sel?.type === 'furn' && this.sel.id === f.id ? 'fsel' : ''}">${furnSVG(f)}</g>`);
     for (const w of computeWalls(p.rooms)) out.push(`<line class="wall ${w.kind}" data-wall="${w.x1},${w.y1},${w.x2},${w.y2}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
     for (const o of p.openings) out.push(`<line class="op ${o.type === 'door' ? 'door' : o.type === 'window' ? 'window' : 'open'} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${esc(o.id)}" x1="${safeNumber(o.x1)}" y1="${safeNumber(o.y1)}" x2="${safeNumber(o.x2)}" y2="${safeNumber(o.y2)}"/>`);
+    const sc = planScale(p), m = (v) => (v / sc).toFixed(2).replace('.', ',');
     p.rooms.forEach((r) => {
       const [x0, y0, x1, y1] = roomBBox(r);
       out.push(`<text class="rlabel" x="${(x0 + x1) / 2}" y="${(y0 + y1) / 2}" text-anchor="middle" dominant-baseline="middle">${esc(r.name || '')}</text>`);
+      // real size under the name once one room has been measured
+      if (sc) out.push(`<text class="rsize" x="${(x0 + x1) / 2}" y="${(y0 + y1) / 2 + 17}" text-anchor="middle" dominant-baseline="middle">${m(x1 - x0)} × ${m(y1 - y0)} m</text>`);
     });
+    // the selected room: dimension lines along its top and left side
+    if (sc && this.step === 1 && this.sel?.type === 'room') {
+      const r = this.room(this.sel.id);
+      if (r) {
+        const [x0, y0, x1, y1] = roomBBox(r), o = 16;
+        out.push(`<g class="dimline"><line x1="${x0}" y1="${y0 + o}" x2="${x1}" y2="${y0 + o}"/><line x1="${x0}" y1="${y0 + o - 6}" x2="${x0}" y2="${y0 + o + 6}"/><line x1="${x1}" y1="${y0 + o - 6}" x2="${x1}" y2="${y0 + o + 6}"/>
+          <text x="${(x0 + x1) / 2}" y="${y0 + o - 5}" text-anchor="middle">${m(x1 - x0)} m</text>
+          <line x1="${x0 + o}" y1="${y0}" x2="${x0 + o}" y2="${y1}"/><line x1="${x0 + o - 6}" y1="${y0}" x2="${x0 + o + 6}" y2="${y0}"/><line x1="${x0 + o - 6}" y1="${y1}" x2="${x0 + o + 6}" y2="${y1}"/>
+          <text x="${x0 + o + 6}" y="${(y0 + y1) / 2}" dominant-baseline="middle">${m(y1 - y0)} m</text></g>`);
+      }
+    }
+    // the selected piece of furniture: its size in cm
+    const fs = this.step === 2 && this.sel?.type === 'furn' ? (p.furniture || []).find((f) => f.id === this.sel.id) : null;
+    if (fs) out.push(`<text class="fsize" x="${safeNumber(fs.x)}" y="${safeNumber(fs.y) - Math.max(fs.w, fs.h) / 2 - 10}" text-anchor="middle">${sc ? `${Math.round((fs.w / sc) * 100)} × ${Math.round((fs.h / sc) * 100)} cm` : `${Math.round(fs.w)} × ${Math.round(fs.h)}`}</text>`);
+    // step 4: how far each radar reaches
+    if (sc && this.step === 3) {
+      for (const it of p.items) {
+        if (!it.radar) continue;
+        const st = this._hass.states[it.radar.range], u = (st?.attributes.unit_of_measurement || 'm').toLowerCase();
+        const rm = st ? parseFloat(st.state) / (u === 'mm' ? 1000 : u === 'cm' ? 100 : 1) : 0;
+        if (rm > 0) out.push(`<circle class="rrange" cx="${safeNumber(it.x)}" cy="${safeNumber(it.y)}" r="${rm * sc}"/><text class="fsize" x="${safeNumber(it.x)}" y="${safeNumber(it.y) - rm * sc - 6}" text-anchor="middle">${String(rm).replace('.', ',')} m</text>`);
+      }
+    }
     if (this.sel?.type === 'room' && this.step === 1 && this.tool === 'select') {
       const r = this.room(this.sel.id), q = r && norm(r.rects[this.sel.part] || r.rects[0]);
       if (q) for (const [cx, cy, n] of [[q[0], q[1], 'nw'], [q[2], q[1], 'ne'], [q[0], q[3], 'sw'], [q[2], q[3], 'se']]) out.push(`<rect class="handle ${n}" data-handle="${n}" x="${cx - 6}" y="${cy - 6}" width="12" height="12" rx="3"/>`);
@@ -389,6 +421,7 @@ class FloorplanStudioPanel extends HTMLElement {
       </div>
       ${r ? `<button data-tool="part" class="${this.tool === 'part' ? 'active' : ''}" style="width:100%;margin-bottom:10px"><ha-icon icon="mdi:shape-square-rounded-plus"></ha-icon>${l.tool_part}</button>` : ''}
       <p>${l.rooms_tip}</p>
+      ${!r ? `<p class="hint">${planScale(p) ? l.measure_done : l.measure_pick}</p>` : ''}
       ${r ? `<div class="card">
           <div class="field"><span>${l.room}</span><input id="rname" value="${esc(r.name || '')}"></div>
           <div class="field"><span>${l.area}</span><select id="rarea"><option value="">${l.none}</option>${areas.map((a) => `<option value="${a.area_id}" ${a.area_id === r.area_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
