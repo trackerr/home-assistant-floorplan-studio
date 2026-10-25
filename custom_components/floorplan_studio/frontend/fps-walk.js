@@ -3,10 +3,10 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b31';
+} from './fps-core.js?v=1.4.0b32';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
-const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell']);
+const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
   en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', coffee: 'Coffee table', radiator: 'Radiator', speakerbox: 'Speaker / box', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
@@ -670,6 +670,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
           set([cx + n[0] * 0.06, H - 0.1 - 0.75 * Math.max(down, 0.1), cz + n[1] * 0.06], 0.45, H - 0.15);
           return [cx, H - 0.5, cz];
         }
+        if (k === 'pixeldisplay') { const [cx, cz] = [wallP[0], wallP[1]]; ob(cx, cz, -0.17, 0.17, 0, 0.03, h - 0.1, h + 0.1, DK); for (let i = 0; i < 16; i++) ob(cx, cz, -0.16 + i * 0.02, -0.145 + i * 0.02, 0.03, 0.033, h - 0.06 + (i % 3) * 0.03, h - 0.045 + (i % 3) * 0.03, [[0.9, 0.3, 0.3], [0.3, 0.8, 0.4], [0.3, 0.5, 0.95]][i % 3]); set([cx + n[0] * 0.03, h, cz + n[1] * 0.03], 0.2, h + 0.3); return [cx, h, cz]; }
         if (k === 'thermo') { const [cx, cz] = [wallP[0], wallP[1]]; ob(cx, cz, -0.045, 0.045, 0, 0.022, h - 0.045, h + 0.045, WH); ob(cx, cz, -0.032, 0.032, 0.022, 0.025, h - 0.02, h + 0.03, [0.55, 0.62, 0.58]); set([cx + n[0] * 0.03, h, cz + n[1] * 0.03], 0.13, h + 0.3); return [cx, h, cz]; }
         if (k === 'doorbell') { const [cx, cz] = [wallP[0], wallP[1]]; ob(cx, cz, -0.025, 0.025, 0, 0.025, h - 0.075, h + 0.075, DK); ob(cx, cz, -0.012, 0.012, 0.025, 0.03, h - 0.05, h - 0.026, [0.3, 0.6, 0.9]); set([cx + n[0] * 0.03, h, cz + n[1] * 0.03], 0.14, h + 0.3); return [cx, h, cz]; }
         return null;

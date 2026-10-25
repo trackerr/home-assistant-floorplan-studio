@@ -155,6 +155,8 @@ Klik **Volgende**.
 
 ![Stap 4: ingezoomd op de keuken, de radar geselecteerd met zijn bereik](img/stap4-zoom.png)
 
+**Apparatenoverzicht.** Met de knop *Apparatenoverzicht* zie je elk apparaat uit Home Assistant en wat Floorplan Studio ervan maakt: **op de kaart en herkend** (getekend als wat het is), **op de kaart met alleen een icoon** (een passend icoon of naam helpt vaak), of **nog niet op de kaart** — tik erop en het komt in zijn eigen ruimte te staan.
+
 ### Stap 5 – Instellingen
 
 ![Stap 5: instellingen met live voorbeeld](img/stap5-instellingen.png)

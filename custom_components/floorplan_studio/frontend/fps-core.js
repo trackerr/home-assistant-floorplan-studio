@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b31';
+export const VERSION = '1.4.0b32';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1013,6 +1013,7 @@ const APPLIANCES = [
   ['router', /router|archer|fritz ?box|unifi|access ?point|mesh ?wifi/i],
   ['printer', /brother|epson|canon|laserjet|officejet|mfc|printer|drucker/i],
   ['doorbell', /deurbel|doorbell|t8210|klingel/i],
+  ['pixeldisplay', /ipixel|pixoo|divoom|led ?matrix|matrix ?display|pixel ?display|ulanzi|awtrix/i],
 ];
 /**
  * Radiators you drew, linked to what controls them: a radiator thermostat (TRV) on the plan close by in the
@@ -1118,12 +1119,12 @@ export function deviceKind(it, st, hass) {
 /** Where such a device usually is, in metres above the floor (when you did not give it a height). */
 const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3,
   '3dprinter': 0.25, holofan: 1.7, tree: 0.9, syncbox: 0.03, hood: 1.75, kettle: 0.12, coffee: 0.18, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03,
-  inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35 };
+  inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35, pixeldisplay: 1.6 };
 /** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
 const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer'];
 export const KIND_ICON = { '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
   coffee: 'mdi:coffee-maker', dishwasher: 'mdi:dishwasher', washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', powerstrip: 'mdi:power-socket-eu', inverter: 'mdi:solar-power',
-  nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video',
+  nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video', pixeldisplay: 'mdi:dots-grid',
   vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
 
 export const MEDIA_ICON = { mini: 'mdi:speaker', speaker: 'mdi:speaker', hub: 'mdi:tablet', soundbar: 'mdi:soundbar', player: 'mdi:cast', voice: 'mdi:microphone', group: 'mdi:speaker-multiple' };
@@ -1138,6 +1139,67 @@ export function wledLive(hass, ids, cb) {
   let unsub = null, stopped = false;
   hass.connection.subscribeMessage(cb, { type: 'floorplan_studio/wled_live', entity_ids: list }).then((u) => { if (stopped) u(); else unsub = u; }).catch(() => {});
   return { key: list.join(','), stop: () => { stopped = true; try { unsub?.(); } catch (e) { /* gone already */ } } };
+}
+/**
+ * An overview of the devices in Home Assistant and what Floorplan Studio makes of them: one row per physical
+ * device {name, area, area_id, entity_id, placed, model, what}. model = drawn as the thing it is (3D model,
+ * line, glow...); placed without model = just its icon; not placed = missing from the plan. Phones, services
+ * and pure data (weather, prices, templates) are left out. lang 'nl' or 'en'.
+ */
+const IDX_TXT = {
+  nl: { clock: 'WLED-klok (ledring met de tijd)', lamp: 'lamp', strip: 'ledstrip (lijn)', tv: 'tv, gekoppeld aan het tv-meubel', tvloose: 'tv (geen tv-meubel getekend)', media: 'mediaspeler', mediax: 'mediaspeler (soort onbekend)', ac: 'airco', curtain: 'gordijn/rolluik bij het raam', cover: 'cover (geen raam in de buurt)', presence: 'aanwezigheid (kleurt de ruimte)', door: 'deur/raam-sensor', doorlinked: 'deur/raam-sensor, gekoppeld aan de opening', alert: 'melding', roominfo: 'ruimte-info', switchlamp: 'schakelaar → lamp', icon: 'alleen icoon', radiator: 'radiator, gekoppeld', sensor: 'sensor' },
+  en: { clock: 'WLED clock (LED ring showing the time)', lamp: 'lamp', strip: 'LED strip (line)', tv: 'TV, linked to the TV furniture', tvloose: 'TV (no TV furniture drawn)', media: 'media player', mediax: 'media player (unknown kind)', ac: 'air conditioner', curtain: 'curtain/blind at the window', cover: 'cover (no window nearby)', presence: 'presence (colours the room)', door: 'door/window sensor', doorlinked: 'door/window sensor, linked to the opening', alert: 'alert', roominfo: 'room info', switchlamp: 'switch → lamp', icon: 'icon only', radiator: 'radiator, linked', sensor: 'sensor' },
+};
+export function deviceIndex(plan, hass, lang = 'nl') {
+  const T = IDX_TXT[lang] || IDX_TXT.en, ents = hass?.entities || {}, states = hass?.states || {};
+  const onPlan = new Map((plan.items || []).map((i) => [i.entity_id, i]));
+  const openingEnt = new Set((plan.openings || []).map((o) => o.entity).filter(Boolean));
+  const roomRefs = new Set((plan.rooms || []).flatMap((r) => [r.temperature, r.humidity]).filter(Boolean));
+  const tvl = tvLinks(plan, hass), rads = radiatorLinks(plan, hass);
+  const DOM = ['light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'vacuum', 'lock', 'camera', 'humidifier', 'binary_sensor', 'sensor', 'remote', 'siren', 'valve', 'water_heater', 'lawn_mower', 'alarm_control_panel'];
+  const PRIO = ['light', 'camera', 'climate', 'cover', 'media_player', 'vacuum', 'fan', 'lock', 'humidifier', 'water_heater', 'valve', 'lawn_mower', 'switch', 'remote', 'siren', 'alarm_control_panel', 'binary_sensor', 'sensor'];
+  const SKIP_PLATFORMS = ['mobile_app', 'buienradar', 'met', 'template', 'group', 'energy', 'energyzero', 'time_date', 'sun', 'forecast_solar', 'min_max', 'threshold', 'utility_meter', 'statistics', 'derivative', 'integration', 'battery_sim', 'proximity', 'multiscrape', 'postnl', 'seventeentrack', 'rdw', 'twentemilieu', 'nmap_tracker', 'spook', 'hacs', 'hassio', 'adguard', 'google', 'person', 'zone'];
+  const byDev = new Map();
+  for (const [id, e] of Object.entries(ents)) {
+    if (!states[id] || e.entity_category || e.hidden || !DOM.includes(id.split('.')[0])) continue;
+    if (SKIP_PLATFORMS.includes(e.platform)) continue;
+    const dev = e.device_id ? hass.devices?.[e.device_id] : null;
+    if (dev?.entry_type === 'service') continue;
+    const k = e.device_id || `loose:${id}`;
+    if (!byDev.has(k)) byDev.set(k, []);
+    byDev.get(k).push(id);
+  }
+  const rows = [];
+  for (const [k, ids] of byDev) {
+    const dev = hass.devices?.[k] || null;
+    const placedIds = ids.filter((id) => onPlan.has(id) || openingEnt.has(id) || roomRefs.has(id) || rads.byEntity.has(id));
+    const primary = placedIds.find((id) => onPlan.has(id)) || placedIds[0] || [...ids].sort((a, b) => PRIO.indexOf(a.split('.')[0]) - PRIO.indexOf(b.split('.')[0]))[0];
+    const it = onPlan.get(primary) || { entity_id: primary, x: 0, y: 0 }, st = states[primary], dom = primary.split('.')[0], dc = st?.attributes?.device_class;
+    let what = '', model = false;
+    const lampKind = it.kind !== 'device' && (dom === 'light' || it.kind === 'lamp');
+    if (rads.byEntity.has(primary)) { what = T.radiator; model = true; }
+    else if (ringClock(it, hass)) { what = T.clock; model = true; }
+    else if (lampKind) { const sh = lampShape(plan, it, st, hass); what = sh === 'strip' ? T.strip : `${T.lamp}: ${sh}`; model = true; }
+    else if (dom === 'media_player') { const mk = mediaKind(it, hass); what = tvl.has(primary) ? T.tv : mk === 'tv' ? T.tvloose : mk ? `${T.media}: ${mk}` : T.mediax; model = tvl.has(primary) || (!!mk && !['tv', 'group'].includes(mk)); }
+    else if (isAircon(it, st)) { what = T.ac; model = true; }
+    else if (dom === 'cover' && curtainFor(plan, it, st)) { what = T.curtain; model = true; }
+    else { const dk = deviceKind(it, st, hass); if (dk) { what = dk; model = true; } }
+    if (!what) {
+      if (dom === 'binary_sensor') { what = PRESENCE_DC.includes(dc) ? T.presence : ['door', 'window', 'opening', 'garage_door'].includes(dc) ? (openingEnt.has(primary) ? T.doorlinked : T.door) : ['smoke', 'moisture', 'gas', 'carbon_monoxide', 'heat', 'safety'].includes(dc) ? `${T.alert} (${dc})` : ''; model = PRESENCE_DC.includes(dc) || openingEnt.has(primary); }
+      else if (dom === 'sensor') { what = ['temperature', 'humidity'].includes(dc) ? `${T.roominfo} (${dc})` : ''; }
+      else if (dom === 'cover') what = T.cover;
+      else if (dom === 'switch' && it.kind === 'lamp') { what = T.switchlamp; model = true; }
+      else what = T.icon;
+    }
+    if (!what || /: group$/.test(what)) continue;   // data or a speaker group, not a thing in the house
+    const areaId = dev?.area_id || ents[primary]?.area_id || null;
+    rows.push({ name: (dev && (dev.name_by_user || dev.name)) || st?.attributes?.friendly_name || primary, area: hass.areas?.[areaId]?.name || '', area_id: areaId, entity_id: primary, placed: placedIds.length > 0, model, what });
+  }
+  // the same device seen by a second integration (Music Assistant next to Cast...), or a part of one ("Waterkoker 80"
+  // next to "Waterkoker"): counts as placed when that one is
+  const placedNames = rows.filter((r) => r.placed).map((r) => r.name.trim().toLowerCase());
+  for (const r of rows) { const n = r.name.trim().toLowerCase(); if (!r.placed && placedNames.some((pn) => pn && (n === pn || n.startsWith(`${pn} `)))) { r.placed = true; r.dup = true; } }
+  return rows.filter((r) => !r.dup).sort((a, b) => a.area.localeCompare(b.area) || a.name.localeCompare(b.name));
 }
 /** A WLED ring clock (a WLED light called klok/clock): drawn as its ring of LEDs showing the time. */
 export function ringClock(it, hass) {
@@ -1227,7 +1289,7 @@ export function lampShape(plan, it, st, hass = null) {
   if (speakerBoxes(plan, it, st).length) return 'boxglow';
   if (ambilightTv(plan, it, st)) return 'ambilight';
   const ak = applianceKind(it, st, hass);
-  if (ak) return ak;   // a light that is part of something else: the chamber light of a 3D printer, a Christmas tree, a hologram fan...
+  if (ak && ak !== 'pixeldisplay') return ak;   // a light that is part of something else: the chamber light of a 3D printer, a Christmas tree, a hologram fan...
   if (/keukenblad|aanrecht|onderbouw|kastverlichting|plint|onder ?kast|cabinet ?light/i.test(label) || (/led ?controller|light controller|strip controller/i.test(make) && style !== 'ceiling')) return 'bar';
   if (style === 'pendant') return /chandelier/.test(ic) || /kroonluchter|chandelier/i.test(label) ? 'chandelier' : 'pendant';
   if (style === 'ceiling') return /light-recessed/.test(ic) || /inbouw|downlight|recessed/i.test(label) ? 'downlight' : 'ceiling';

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Apparatenoverzicht** (stap 4): elk apparaat in Home Assistant en wat Floorplan Studio ervan maakt — op de kaart en herkend, op de kaart met alleen een icoon, of nog niet op de kaart (tik = in zijn eigen ruimte zetten). Telefoons, diensten en losse data (weer, prijzen, templates) laat hij weg; hetzelfde apparaat via een tweede integratie telt niet dubbel.
 - **WLED live**: getekende WLED-ledstrips en een WLED-matrix tonen hun echte leds live (kleuren en effecten, per segment), op de kaart, in 2.5D en in de wandeling. De integratie haalt ze zelf op bij WLED (`/json/live`), dus het werkt ook via https/Nabu Casa.
 - **Radiatoren** als meubel; gekoppeld aan de radiatorknop of verwarmingszone van die ruimte (Tado, Netatmo, Eurotronic, Danfoss, Aqara, Fritz!DECT, Homematic, Wiser…), ook als die niet op de kaart staat. Gloeit warm als hij verwarmt; tik voor temperatuur en knoppen.
 - **Speakers/boxen** als meubel; een lamp die "boxen" of "speaker" heet (bijv. "TV Boxen") wordt de gloed van die boxen.
