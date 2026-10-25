@@ -5,7 +5,7 @@ export const VERSION = '1.2.3';
 /* ------------------------------------------------------------------ i18n */
 const STR = {
   en: {
-    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
+    simple: 'Simple', all: 'All', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
     lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
     loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
     on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
@@ -17,7 +17,7 @@ const STR = {
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
-    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
+    simple: 'Eenvoudig', all: 'Alles', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
     lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
     loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
     on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
@@ -416,6 +416,7 @@ export const DEFAULT_SETTINGS = {
   show_tags: true,          // small state label under devices (21°, open, …)
   tap_zoom: true,           // tap a room to zoom in
   hold_ms: 500,             // hold time before details open
+  hold_action: 'quick',     // hold an icon: quick = small window with on/off and sliders | more-info = Home Assistant's own dialog
   sun_before: 45,           // Automatic (sun): minutes before sunrise it starts getting light
   sun_ramp: 120,            // Automatic (sun): minutes the transition takes
   auto_domains: ['light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'vacuum', 'lock', 'camera'],   // "place automatically"
@@ -546,14 +547,22 @@ export function planSVG(plan, { showBackground = false, editor = false } = {}) {
   for (const o of plan.openings || []) {
     const x1 = safeNumber(o.x1), y1 = safeNumber(o.y1), x2 = safeNumber(o.x2), y2 = safeNumber(o.y2);
     const h = y1 === y2;
+    // a door or window can follow a sensor: open = orange and dashed on the plan (the card toggles .isopen)
+    const ent = (o.type === 'door' || o.type === 'window') && typeof o.entity === 'string' ? o.entity : '';
+    out.push(`<g class="opening t-${o.type === 'window' ? 'window' : o.type === 'door' ? 'door' : 'open'}"${ent ? ` data-entity="${esc(ent)}"` : ''}>`);
     out.push(`<line class="gap" data-opening="${esc(o.id)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
     if (o.type === 'door') {
       for (const [x, y] of [[x1, y1], [x2, y2]]) {
         out.push(h ? `<line class="jamb" x1="${x}" y1="${y - 7}" x2="${x}" y2="${y + 7}"/>` : `<line class="jamb" x1="${x - 7}" y1="${y}" x2="${x + 7}" y2="${y}"/>`);
       }
+    } else if (o.type === 'window') {
+      // glass: two thin lines in the wall
+      for (const d of [-2.2, 2.2]) out.push(h ? `<line class="win" x1="${x1}" y1="${y1 + d}" x2="${x2}" y2="${y2 + d}"/>` : `<line class="win" x1="${x1 + d}" y1="${y1}" x2="${x2 + d}" y2="${y2}"/>`);
     } else {
       out.push(`<line class="open-edge" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
     }
+    if (ent) out.push(`<line class="openmark" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
+    out.push('</g>');
   }
   // HUD corner brackets (only visible in the high-tech theme)
   out.push('<g class="deco d-brk">');
@@ -597,6 +606,11 @@ export const PLAN_CSS = `
   .walls { filter: var(--fps-wall-glow); }
   .gap { stroke: var(--fps-floor); stroke-width: 10; stroke-linecap: butt; }
   .jamb { stroke: var(--fps-door); stroke-width: 2.5; }
+  .win { stroke: var(--fps-wall); stroke-width: 1.4; opacity: .9; }
+  .openmark { stroke: #ff9f1c; stroke-width: 5; stroke-dasharray: 6 5; stroke-linecap: round; opacity: 0; transition: opacity .3s; }
+  .opening.isopen .openmark { opacity: 1; animation: fpsOpen 1.6s ease-in-out infinite; }
+  .opening.isopen .jamb, .opening.isopen .win { stroke: #ff9f1c; }
+  @keyframes fpsOpen { 50% { opacity: .45; } }
   .open-edge { stroke: var(--fps-wall); stroke-opacity: .25; stroke-width: 1; stroke-dasharray: 3 5; }
   .bracket { fill: none; stroke: var(--fps-accent); stroke-opacity: .55; stroke-width: 1.4; }
   .deco { display: none; pointer-events: none; }

@@ -20,7 +20,7 @@ const L = {
     rooms_tip: 'Drag a rectangle for each room. L-shaped room? Pick it and tap “Add a piece to the room”. The walls draw themselves.',
     from_areas: 'Take the rooms from Home Assistant', room: 'Room', area: 'Home Assistant area', none: '— none —', temp_sensor: 'Temperature sensor', hum_sensor: 'Humidity sensor', auto: 'automatic',
     delete_room: 'Delete room', delete_part: 'Delete this piece', rooms_list: 'Rooms', no_rooms: 'No rooms yet.',
-    doors_title: 'Doors and openings', door: 'Door', opening: 'Open passage', doors_tip: 'Choose door or opening and tap a wall. An opening removes the wall, e.g. for an open kitchen.',
+    doors_title: 'Doors, windows and openings', door: 'Door', window: 'Window', opening: 'Open passage', doors_tip: 'Choose door, window or opening and tap a wall. An opening removes the wall, e.g. for an open kitchen. Link a door or window to its sensor and it turns orange on the plan while it is open.', o_sensor: 'Sensor (open / closed)', o_none: '— none —',
     length: 'Width', whole: 'Whole wall', delete: 'Delete', no_walls: 'Draw your rooms first; the walls come by themselves.',
     items_title: 'Devices on the map', auto_place: 'Place everything for me', auto_hint: 'Puts lights, switches, heating, curtains and TVs in the room they belong to in Home Assistant.',
     unplaced: 'Not on the map yet', add: 'Add', search: 'Search anything in Home Assistant…', item: 'Device', show_always: 'Always show (also in Simple mode)', color: 'Light colour (for a plug with a coloured lamp)', no_color: 'automatic', icon: 'Icon (optional)', label: 'Name (optional)',
@@ -30,7 +30,7 @@ const L = {
     set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
     default_mode: 'Default view', learning_days: 'Show everything until … days of history exist', plan_size: 'Floor plan size in %', icon_size: 'Icon size', label_size: 'Room text size', glow: 'Glow strength',
     show_temp: 'Temperature', show_hum: 'Humidity', show_lights: 'Lights on (count)', show_tags: 'State labels under devices (21°, open…)',
-    tap_zoom: 'Tap a room to zoom in', hold_ms: 'How long to hold for more info (1000 = 1 second)', sun_before: 'Starts getting light … minutes before sunrise', sun_ramp: 'Transition takes … minutes',
+    tap_zoom: 'Tap a room to zoom in', hold_ms: 'How long to hold for more info (1000 = 1 second)', hold_action: 'Holding an icon opens', hold_quick: 'a small window with on/off and sliders', hold_more: 'Home Assistant’s own window', sun_before: 'Starts getting light … minutes before sunrise', sun_ramp: 'Transition takes … minutes',
     auto_domains: 'Which kinds of devices', reset: 'Reset to defaults', simple: 'Simple', all: 'All',
     theme_entity: 'One theme for the whole house', theme_entity_hint: 'Every screen then shows the same theme, and an automation can switch it. No dropdown list yet? Create one with the button.', make_helper: 'Create the list', own_choice: 'each screen chooses',
     headline: 'Big value', headline_auto: 'temperature', extra_rows: 'Extra rows in the text block', floor: 'Floor', floor_plain: 'plain', floor_tiles: 'tiles', floor_wood: 'wood',
@@ -68,7 +68,7 @@ const L = {
     rooms_tip: 'Sleep een rechthoek voor elke ruimte. Is een ruimte L-vormig? Kies hem en tik op “Stuk aan ruimte toevoegen”. De muren tekenen zichzelf.',
     from_areas: 'Ruimtes overnemen uit Home Assistant', room: 'Ruimte', area: 'Ruimte in Home Assistant', none: '— geen —', temp_sensor: 'Temperatuursensor', hum_sensor: 'Vochtsensor', auto: 'automatisch',
     delete_room: 'Ruimte verwijderen', delete_part: 'Dit stuk verwijderen', rooms_list: 'Ruimtes', no_rooms: 'Nog geen ruimtes.',
-    doors_title: 'Deuren en doorgangen', door: 'Deur', opening: 'Open doorgang', doors_tip: 'Kies deur of doorgang en tik op een muur. Een doorgang haalt de muur weg, bijvoorbeeld bij een open keuken.',
+    doors_title: 'Deuren, ramen en doorgangen', door: 'Deur', window: 'Raam', opening: 'Open doorgang', doors_tip: 'Kies deur, raam of doorgang en tik op een muur. Een doorgang haalt de muur weg, bijvoorbeeld bij een open keuken. Koppel een deur of raam aan zijn sensor: staat hij open, dan wordt hij oranje op de kaart.', o_sensor: 'Sensor (open / dicht)', o_none: '— geen —',
     length: 'Breedte', whole: 'Hele muur', delete: 'Verwijderen', no_walls: 'Teken eerst je ruimtes, dan komen de muren vanzelf.',
     items_title: 'Apparaten op de kaart', auto_place: 'Alles vanzelf neerzetten', auto_hint: 'Zet lampen, schakelaars, verwarming, gordijnen en tv’s neer in de ruimte waar ze in Home Assistant bij horen.',
     unplaced: 'Nog niet op de kaart', add: 'Toevoegen', search: 'Zoek iets uit Home Assistant…', item: 'Apparaat', show_always: 'Altijd laten zien (ook bij Eenvoudig)', color: 'Kleur van het licht (voor een stekker met een gekleurde lamp)', no_color: 'automatisch', icon: 'Ander icoon (mag leeg)', label: 'Andere naam (mag leeg)',
@@ -78,7 +78,7 @@ const L = {
     set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
     default_mode: 'Begint op', learning_days: 'Laat alles zien zolang er minder dan … dagen geschiedenis is', plan_size: 'Grootte plattegrond in %', icon_size: 'Grootte iconen', label_size: 'Grootte tekst bij ruimtes', glow: 'Sterkte van de gloed',
     show_temp: 'Temperatuur', show_hum: 'Vochtigheid', show_lights: 'Aantal lampen aan', show_tags: 'Kleine labels onder apparaten (21°, open…)',
-    tap_zoom: 'Tik op een ruimte om in te zoomen', hold_ms: 'Hoe lang vasthouden voor meer info (1000 = 1 seconde)', sun_before: 'Wordt … minuten voor zonsopkomst licht', sun_ramp: 'Overgang duurt … minuten',
+    tap_zoom: 'Tik op een ruimte om in te zoomen', hold_ms: 'Hoe lang vasthouden voor meer info (1000 = 1 seconde)', hold_action: 'Vasthouden op een icoon opent', hold_quick: 'een klein venster met aan/uit en schuifjes', hold_more: 'het venster van Home Assistant', sun_before: 'Wordt … minuten voor zonsopkomst licht', sun_ramp: 'Overgang duurt … minuten',
     auto_domains: 'Wat zet hij neer', reset: 'Alles terugzetten', simple: 'Eenvoudig', all: 'Alles',
     theme_entity: 'Eén thema voor het hele huis', theme_entity_hint: 'Dan hebben alle schermen hetzelfde thema, en kun je het ook met een automatisering wisselen. Geen keuzelijst? Maak er een met de knop.', make_helper: 'Keuzelijst maken', own_choice: 'elk scherm kiest zelf',
     headline: 'Grote waarde', headline_auto: 'temperatuur', extra_rows: 'Extra regels in het tekstblok', floor: 'Vloer', floor_plain: 'gewoon', floor_tiles: 'tegels', floor_wood: 'hout',
@@ -165,7 +165,7 @@ const CSS = `
   .doors-mode .wall { pointer-events: stroke; cursor: crosshair; stroke-opacity: 1; }
   .doors-mode .wall:hover { stroke: var(--primary-color); }
   .op { stroke-width: 9; cursor: pointer; }
-  .op.door { stroke: #ff6fd8; } .op.open { stroke: #36d399; stroke-dasharray: 8 5; }
+  .op.door { stroke: #ff6fd8; } .op.open { stroke: #36d399; stroke-dasharray: 8 5; } .op.window { stroke: #6fc3ff; stroke-dasharray: 3 3; }
   .op.sel { stroke: #fff; }
   .handle { fill: #fff; stroke: var(--primary-color); stroke-width: 2; cursor: nwse-resize; }
   .handle.ne, .handle.sw { cursor: nesw-resize; }
@@ -302,7 +302,7 @@ class FloorplanStudioPanel extends HTMLElement {
       });
     });
     for (const w of computeWalls(p.rooms)) out.push(`<line class="wall ${w.kind}" data-wall="${w.x1},${w.y1},${w.x2},${w.y2}" x1="${w.x1}" y1="${w.y1}" x2="${w.x2}" y2="${w.y2}"/>`);
-    for (const o of p.openings) out.push(`<line class="op ${o.type === 'door' ? 'door' : 'open'} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${esc(o.id)}" x1="${safeNumber(o.x1)}" y1="${safeNumber(o.y1)}" x2="${safeNumber(o.x2)}" y2="${safeNumber(o.y2)}"/>`);
+    for (const o of p.openings) out.push(`<line class="op ${o.type === 'door' ? 'door' : o.type === 'window' ? 'window' : 'open'} ${this.sel?.type === 'opening' && this.sel.id === o.id ? 'sel' : ''}" data-op="${esc(o.id)}" x1="${safeNumber(o.x1)}" y1="${safeNumber(o.y1)}" x2="${safeNumber(o.x2)}" y2="${safeNumber(o.y2)}"/>`);
     p.rooms.forEach((r) => {
       const [x0, y0, x1, y1] = roomBBox(r);
       out.push(`<text class="rlabel" x="${(x0 + x1) / 2}" y="${(y0 + y1) / 2}" text-anchor="middle" dominant-baseline="middle">${esc(r.name || '')}</text>`);
@@ -395,11 +395,13 @@ class FloorplanStudioPanel extends HTMLElement {
       ${p.rooms.length ? '' : `<p>${l.no_walls}</p>`}
       <div class="row" style="margin-bottom:10px">
         <button data-door="door" class="${this.doorType === 'door' ? 'active' : ''}"><ha-icon icon="mdi:door"></ha-icon>${l.door}</button>
+        <button data-door="window" class="${this.doorType === 'window' ? 'active' : ''}"><ha-icon icon="mdi:window-closed-variant"></ha-icon>${l.window}</button>
         <button data-door="open" class="${this.doorType === 'open' ? 'active' : ''}"><ha-icon icon="mdi:arrow-expand-horizontal"></ha-icon>${l.opening}</button>
       </div>
       <p>${l.doors_tip}</p>
       ${o ? `<div class="card">
-        <div class="field"><span>${l.door} / ${l.opening}</span><select id="otype"><option value="door" ${o.type === 'door' ? 'selected' : ''}>${l.door}</option><option value="open" ${o.type === 'open' ? 'selected' : ''}>${l.opening}</option></select></div>
+        <div class="field"><span>${l.door} / ${l.window} / ${l.opening}</span><select id="otype">${['door', 'window', 'open'].map((k) => `<option value="${k}" ${o.type === k ? 'selected' : ''}>${l[k === 'open' ? 'opening' : k]}</option>`).join('')}</select></div>
+        ${o.type !== 'open' ? `<div class="field"><span>${l.o_sensor}</span><select id="osensor"><option value="">${l.o_none}</option>${this.openSensors().map((id) => `<option value="${esc(id)}" ${o.entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>` : ''}
         <div class="field"><span>${l.length} (${len})</span><input type="range" id="olen" min="20" max="400" step="5" value="${len}"></div>
         <div class="row"><button id="owhole">${l.whole}</button><button class="danger" id="odel">${l.delete}</button></div></div>` : ''}
       ${this.navHTML()}`;
@@ -661,10 +663,12 @@ class FloorplanStudioPanel extends HTMLElement {
 
     const usedOpeningIds = new Set();
     const openings = (data.openings || []).map((opening, index) => {
-      if (!isRecord(opening) || !['door', 'open'].includes(opening.type)) throw bad();
+      if (!isRecord(opening) || !['door', 'open', 'window'].includes(opening.type)) throw bad();
       const coordinates = ['x1', 'y1', 'x2', 'y2'].map((key) => number(opening[key]));
       if (coordinates.some((coordinate) => !Number.isFinite(coordinate))) throw bad();
-      return { ...opening, id: uniqueId(opening.id, 'opening', index, usedOpeningIds), type: opening.type, x1: coordinates[0], y1: coordinates[1], x2: coordinates[2], y2: coordinates[3] };
+      const out = { ...opening, id: uniqueId(opening.id, 'opening', index, usedOpeningIds), type: opening.type, x1: coordinates[0], y1: coordinates[1], x2: coordinates[2], y2: coordinates[3] };
+      if (typeof out.entity !== 'string' || out.type === 'open') delete out.entity;
+      return out;
     });
 
     const usedItems = new Set();
@@ -781,13 +785,22 @@ class FloorplanStudioPanel extends HTMLElement {
     $$('[data-door]').forEach((b) => b.addEventListener('click', () => { this.doorType = b.dataset.door; this.render(); }));
     const o = this.sel?.type === 'opening' ? this.plan.openings.find((x) => x.id === this.sel.id) : null;
     if (!o) return;
-    $('#otype').addEventListener('change', (ev) => this.mut(() => { o.type = ev.target.value; }));
+    $('#otype').addEventListener('change', (ev) => this.mut(() => { o.type = ev.target.value; if (o.type === 'open') delete o.entity; }));
+    $('#osensor')?.addEventListener('change', (ev) => this.mut(() => { if (ev.target.value) o.entity = ev.target.value; else delete o.entity; }));
     $('#olen').addEventListener('change', (ev) => this.mut(() => this.resizeOpening(o, +ev.target.value)));
     $('#owhole').addEventListener('click', () => this.mut(() => {
       const w = this.wallOf(o);
       if (w) Object.assign(o, { x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 });
     }));
     $('#odel').addEventListener('click', () => this.deleteSel());
+  }
+
+  /** Door / window / opening sensors, the ones in a room's area first. */
+  openSensors() {
+    const h = this._hass, areas = new Set(this.plan.rooms.map((r) => r.area_id).filter(Boolean));
+    const ids = Object.keys(h.states).filter((id) => id.startsWith('binary_sensor.') && ['door', 'window', 'opening', 'garage_door'].includes(h.states[id].attributes.device_class));
+    const inArea = (id) => areas.has(entityArea(h, id));
+    return ids.sort((a, b) => (inArea(b) - inArea(a)) || friendly(h, a).localeCompare(friendly(h, b)));
   }
 
   wallOf(o) {
@@ -922,7 +935,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="field"><span>${l.default_mode}</span><select data-set="default_mode"><option value="all" ${s.default_mode === 'all' ? 'selected' : ''}>${l.all}</option><option value="simple" ${s.default_mode === 'simple' ? 'selected' : ''}>${l.simple}</option></select></div>
       ${num('usage_days', 1, 60)}${num('learning_days', 0, 14)}
       <h3>${l.set_behaviour}</h3>${chk('tap_zoom')}
-      <div class="field"><span>${l.room_tap}</span><select data-set="room_tap"><option value="zoom" ${s.room_tap !== 'page' ? 'selected' : ''}>${l.tap_zoom_opt}</option><option value="page" ${s.room_tap === 'page' ? 'selected' : ''}>${l.tap_page_opt}</option></select></div>${num('hold_ms', 250, 1500, 50)}
+      <div class="field"><span>${l.room_tap}</span><select data-set="room_tap"><option value="zoom" ${s.room_tap !== 'page' ? 'selected' : ''}>${l.tap_zoom_opt}</option><option value="page" ${s.room_tap === 'page' ? 'selected' : ''}>${l.tap_page_opt}</option></select></div>${num('hold_ms', 250, 1500, 50)}<div class="field"><span>${l.hold_action}</span><select data-set="hold_action"><option value="quick" ${s.hold_action !== 'more-info' ? 'selected' : ''}>${l.hold_quick}</option><option value="more-info" ${s.hold_action === 'more-info' ? 'selected' : ''}>${l.hold_more}</option></select></div>
       <h3>${l.set_sun}</h3>${num('sun_before', 0, 120, 5)}${num('sun_ramp', 15, 240, 5)}
       <h3>${l.set_text}</h3>
       <div class="field"><span>${l.glow_style}</span><select data-set="glow_style">${['lamp', 'room', 'off'].map((k) => `<option value="${k}" ${s.glow_style === k ? 'selected' : ''}>${l['glow_' + k]}</option>`).join('')}</select></div>

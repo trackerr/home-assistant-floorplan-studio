@@ -216,6 +216,40 @@
    "y1": 460,
    "x2": 820,
    "y2": 460
+  },
+  {
+   "id": "o11",
+   "type": "window",
+   "x1": 120,
+   "y1": 40,
+   "x2": 300,
+   "y2": 40,
+   "entity": "binary_sensor.raam_woonkamer"
+  },
+  {
+   "id": "o12",
+   "type": "door",
+   "x1": 960,
+   "y1": 110,
+   "x2": 960,
+   "y2": 170,
+   "entity": "binary_sensor.achterdeur"
+  },
+  {
+   "id": "o13",
+   "type": "window",
+   "x1": 720,
+   "y1": 660,
+   "x2": 880,
+   "y2": 660
+  },
+  {
+   "id": "o14",
+   "type": "window",
+   "x1": 600,
+   "y1": 40,
+   "x2": 720,
+   "y2": 40
   }
  ],
  "items": [
@@ -328,6 +362,11 @@
    "entity_id": "camera.tuin",
    "x": 270,
    "y": 610
+  },
+  {
+   "entity_id": "media_player.keuken_speaker",
+   "x": 570,
+   "y": 225
   }
  ],
  "settings": {

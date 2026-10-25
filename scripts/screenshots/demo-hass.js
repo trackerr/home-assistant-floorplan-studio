@@ -10,9 +10,10 @@ const AREAS = {
 
 // [entity_id, state, attributes, area]
 const DEF = [
-  ['light.woonkamer_plafond', 'on', { friendly_name: 'Plafondlamp woonkamer', color_temp_kelvin: 2700, brightness: 200 }, 'woonkamer'],
+  ['light.woonkamer_plafond', 'on', { friendly_name: 'Plafondlamp woonkamer', color_temp_kelvin: 2700, brightness: 200, supported_color_modes: ['color_temp'], min_color_temp_kelvin: 2200, max_color_temp_kelvin: 6500 }, 'woonkamer'],
   ['light.staande_lamp', 'on', { friendly_name: 'Staande lamp', rgb_color: [255, 140, 60], brightness: 90 }, 'woonkamer'],
   ['light.leeslamp', 'off', { friendly_name: 'Leeslamp' }, 'woonkamer'],
+  ['media_player.keuken_speaker', 'playing', { friendly_name: 'Speaker keuken', supported_features: 152463, media_title: 'Radio 2', volume_level: 0.3, device_class: 'speaker' }, 'keuken'],
   ['media_player.woonkamer_tv', 'playing', { friendly_name: 'Televisie', supported_features: 152463, media_title: 'Journaal', device_class: 'tv' }, 'woonkamer'],
   ['climate.woonkamer', 'heat', { friendly_name: 'Thermostaat', current_temperature: 21.3, temperature: 21, hvac_modes: ['off', 'heat'] }, 'woonkamer'],
   ['cover.woonkamer_gordijn', 'open', { friendly_name: 'Gordijn', current_position: 100, device_class: 'curtain' }, 'woonkamer'],
@@ -56,6 +57,7 @@ const DEF = [
   ['binary_sensor.rookmelder_keuken', 'off', { friendly_name: 'Rookmelder keuken', device_class: 'smoke' }, 'keuken'],
   ['binary_sensor.lekkage_badkamer', 'off', { friendly_name: 'Lekkagesensor badkamer', device_class: 'moisture' }, 'badkamer'],
   ['binary_sensor.achterdeur', 'off', { friendly_name: 'Achterdeur', device_class: 'door' }, 'berging'],
+  ['binary_sensor.raam_woonkamer', 'off', { friendly_name: 'Raam woonkamer', device_class: 'window' }, 'woonkamer'],
   ['person.anna', 'home', { friendly_name: 'Anna' }, null],
   ['person.tom', 'home', { friendly_name: 'Tom' }, null],
   ['sensor.anna_ruimte', 'Woonkamer', { friendly_name: 'Anna ruimte' }, null],
@@ -74,7 +76,7 @@ const DEF = [
   ['sensor.zonnepanelen_vandaag', '9.4', { friendly_name: 'Zon vandaag', device_class: 'energy', unit_of_measurement: 'kWh' }, null],
 ];
 
-export function makeHass(plan, { sun = 'day', set = {} } = {}) {
+export function makeHass(plan, { sun = 'day', set = {}, extraPlans = [] } = {}) {
   const now = Date.now(), h = 3600e3;
   const sunAttr = sun === 'night'
     ? { next_rising: new Date(now + 7 * h).toISOString(), next_setting: new Date(now + 17 * h).toISOString() }
@@ -88,7 +90,7 @@ export function makeHass(plan, { sun = 'day', set = {} } = {}) {
   for (const [id, state] of Object.entries(set)) if (states[id]) states[id] = { ...states[id], state };
   states['sun.sun'] = S('sun.sun', sun === 'night' ? 'below_horizon' : 'above_horizon', { friendly_name: 'Zon', ...sunAttr });
 
-  const plans = plan ? [plan] : [];
+  const plans = plan ? [plan, ...extraPlans] : [];
   const hass = {
     states, entities, areas, devices: {},
     services: { vacuum: { clean_area: {}, send_command: {}, start: {} }, light: { toggle: {} }, switch: { toggle: {} } },
@@ -101,7 +103,13 @@ export function makeHass(plan, { sun = 'day', set = {} } = {}) {
       const id = data.entity_id, st = hass.states[id];
       if (domain === 'vacuum') { hass.states = { ...hass.states, [id]: { ...st, state: 'cleaning' } }; window.dispatchEvent(new CustomEvent('demo-hass-changed')); return; }
       if (!st) return;
-      const next = { ...st, state: st.state === 'on' || st.state === 'open' ? (domain === 'cover' ? 'closed' : 'off') : (domain === 'cover' ? 'open' : 'on') };
+      let next = { ...st, state: st.state === 'on' || st.state === 'open' ? (domain === 'cover' ? 'closed' : 'off') : (domain === 'cover' ? 'open' : 'on') };
+      const at = { ...st.attributes };
+      if (service === 'turn_on') { next = { ...st, state: 'on' }; if (data.brightness_pct != null) at.brightness = Math.round(data.brightness_pct * 2.55); if (data.color_temp_kelvin) at.color_temp_kelvin = data.color_temp_kelvin; next.attributes = at; }
+      else if (service === 'turn_off') next = { ...st, state: 'off' };
+      else if (service === 'set_cover_position') { at.current_position = data.position; next = { ...st, state: data.position > 0 ? 'open' : 'closed', attributes: at }; }
+      else if (service === 'volume_set') { at.volume_level = data.volume_level; next = { ...st, attributes: at }; }
+      else if (service === 'set_temperature') { at.temperature = data.temperature; next = { ...st, attributes: at }; }
       hass.states = { ...hass.states, [id]: next };
       window.dispatchEvent(new CustomEvent('demo-hass-changed'));
     },

@@ -22,7 +22,13 @@ const CSS = `
   .themesel { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--fps-chip); border: 1px solid var(--fps-line); color: var(--fps-accent); }
   .themesel select { all: unset; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--fps-fg); padding: 3px 8px 3px 0; }
   .themesel option { color: #111; }
-  .viewport { position: relative; overflow: hidden; }
+  .viewport { position: relative; overflow: hidden; touch-action: pan-y; }
+  .viewport.freezoom { touch-action: none; cursor: grab; }
+  .freereset { all: unset; position: absolute; right: 10px; bottom: 10px; z-index: 9; display: none; align-items: center; gap: 6px; cursor: pointer; padding: 7px 12px;
+               border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--fps-bg); color: var(--fps-fg); border: 1px solid var(--fps-line); box-shadow: 0 6px 18px rgba(0,0,0,.4); --mdc-icon-size: 16px; }
+  .freereset ha-icon { color: var(--fps-accent); }
+  .viewport.freezoom .freereset { display: inline-flex; }
+  .zoomed .freereset { display: none !important; }
   .stage { position: relative; width: 100%; transform-origin: 0 0; transition: transform .55s cubic-bezier(.2,.8,.2,1); container-type: inline-size; }
   .stage > svg { position: absolute; inset: 0; }
   .items { position: absolute; inset: 0; pointer-events: none; }
@@ -47,7 +53,15 @@ const CSS = `
   .name { position: absolute; top: 100%; margin-top: .3cqw; white-space: nowrap; font-size: max(10px, .9cqw); padding: .2cqw .6cqw; border-radius: 6px;
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
-  .item:hover { z-index: 9; }   /* the item you point at, with its name, comes to the front */
+  .item:hover { z-index: 9; }
+  /* playing media: a TV gets a soft blue screen glow, a speaker sends out sound waves */
+  .item.playing .bub { position: relative; }
+  .item.tv.playing .bub { background: rgba(70,150,255,.22); color: #9fd0ff; border-color: #5aa9ff; box-shadow: 0 0 1.2cqw rgba(70,150,255,.75), 0 0 3cqw rgba(70,150,255,.35); animation: fpsTv 3s ease-in-out infinite; }
+  .item.speaker.playing .bub::before, .item.speaker.playing .bub::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; border: 2px solid rgba(var(--fps-device-rgb), .7); animation: fpsWave 1.8s ease-out infinite; pointer-events: none; }
+  .item.speaker.playing .bub::after { animation-delay: .9s; }
+  @keyframes fpsTv { 0%, 100% { box-shadow: 0 0 1.2cqw rgba(70,150,255,.75), 0 0 3cqw rgba(70,150,255,.35); } 50% { box-shadow: 0 0 1.6cqw rgba(70,150,255,.95), 0 0 4cqw rgba(70,150,255,.5); } }
+  @keyframes fpsWave { from { transform: scale(1); opacity: .8; } to { transform: scale(2); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .item.tv.playing .bub, .item.speaker.playing .bub::before, .item.speaker.playing .bub::after { animation: none; } }   /* the item you point at, with its name, comes to the front */
   .moving .item { cursor: grab; } .moving .item .bub { outline: 1px dashed var(--fps-accent); outline-offset: 3px; }
   .floor, .glow, .walls { transition: opacity .5s ease; }
   .floor.dim { opacity: .12; } .glow.dim { opacity: 0 !important; } .walls.dim { opacity: .35; }
@@ -166,6 +180,22 @@ const CSS = `
   .home .esub .bar { margin-top: 0; }
   .home .etiles label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @container (max-width: 520px) { .side.home { padding: 14px; } .home .etiles { gap: 8px; } .home .etiles .box { padding: 10px 11px; } .home .etiles label { font-size: 9.5px; letter-spacing: .08em; } .home .etiles b { font-size: 17px; margin-top: 8px; } .home .hello b { font-size: 24px; } }
+  /* quick controls (hold an icon) */
+  .quick { position: absolute; z-index: 16; width: 240px; padding: 12px; border-radius: 16px; background: var(--fps-bg); color: var(--fps-fg); font-family: var(--fps-font);
+           border: 1px solid var(--fps-line); box-shadow: 0 14px 40px rgba(0,0,0,.55); animation: fpsfade .15s ease; }
+  .quick .qh { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .quick .qh ha-state-icon { color: var(--fps-accent); --mdc-icon-size: 26px; }
+  .quick .qh b { display: block; font-size: 14px; line-height: 1.2; } .quick .qh small { font-size: 12px; color: var(--fps-muted); }
+  .quick .qs { display: block; margin: 10px 0 4px; font-size: 12px; color: var(--fps-muted); }
+  .quick .qs span { display: flex; justify-content: space-between; } .quick .qs b { color: var(--fps-fg); font-variant-numeric: tabular-nums; }
+  .quick .qs input { width: 100%; margin: 6px 0 0; accent-color: var(--fps-accent); }
+  .quick .qt { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 8px 0; }
+  .quick .qt b { font-size: 26px; font-weight: 300; min-width: 70px; text-align: center; }
+  .quick .qt button, .quick .qb button { all: unset; cursor: pointer; border: 1px solid var(--fps-line); background: var(--fps-chip); border-radius: 999px; text-align: center; }
+  .quick .qt button { width: 38px; height: 38px; font-size: 22px; line-height: 38px; }
+  .quick .qb { display: flex; gap: 8px; margin-top: 12px; }
+  .quick .qb button { flex: 1; padding: 9px 10px; font-size: 13px; font-weight: 600; }
+  .quick .qb .qon.on { background: var(--fps-accent); border-color: var(--fps-accent); color: #10161d; }
   /* layout: plan + optional side column */
   ha-card { container-type: inline-size; }
   .layout { display: block; }
@@ -244,6 +274,13 @@ const CSS = `
   .toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 25; padding: 8px 14px; border-radius: 999px; font-size: 13px;
            background: rgba(0,0,0,.8); color: #fff; animation: fpsfade .2s ease; pointer-events: none; }
 `;
+
+/** A media player that is a TV (by its type, icon or name); everything else counts as a speaker. */
+function isTv(st, it) {
+  if (st?.attributes?.device_class === 'tv') return true;
+  if (st?.attributes?.device_class === 'speaker') return false;
+  return /tv|television|televisie/i.test(`${it.icon || ''} ${it.name || ''} ${st?.attributes?.friendly_name || ''} ${it.entity_id}`);
+}
 
 class FloorplanStudioCard extends HTMLElement {
   constructor() {
@@ -325,7 +362,15 @@ class FloorplanStudioCard extends HTMLElement {
     if (this.planOverride) { this._plan = this.planOverride; await this._loadUsage(); this._build(); return; }
     try {
       const plans = await loadPlans(this._hass, force);
-      this._plan = (this._config.plan && plans.find((p) => p.id === this._config.plan)) || plans[0] || null;
+      this._plans = plans;
+      let want = this._config.plan;
+      const floors = this._floorIds;
+      if (floors.length) {          // floors: the one this screen showed last, else the card's plan, else the first floor
+        let last = null;
+        try { last = localStorage.getItem(this._floorKey); } catch (e) { /* ignore */ }
+        want = floors.includes(this._plan?.id) ? this._plan.id : floors.includes(last) ? last : floors.includes(want) ? want : floors[0];
+      }
+      this._plan = (want && plans.find((p) => p.id === want)) || plans[0] || null;
     } catch (e) {
       this._message(`Floorplan Studio: ${esc(e.message || e)}`);
       return;
@@ -360,6 +405,7 @@ class FloorplanStudioCard extends HTMLElement {
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
         ${this._greet ? `<div class="title greet"><span class="g1"></span><small class="g2"></small></div>` : `<div class="title">${esc(this._config.title ?? plan.name ?? '')}</div>`}
+        ${this._floorIds.length > 1 ? `<div class="seg floors">${this._floorIds.map((id) => `<button data-floor="${esc(id)}" class="${id === plan.id ? 'active' : ''}"><ha-icon icon="mdi:layers-outline"></ha-icon>${esc(this._floorName(id))}</button>`).join('')}</div>` : ''}
         <div class="seg" id="mode">
           <button data-mode="simple" class="${mode === 'simple' ? 'active' : ''}"><ha-icon icon="mdi:star-outline"></ha-icon>${t(h, 'simple')}</button>
           <button data-mode="all" class="${mode === 'all' ? 'active' : ''}"><ha-icon icon="mdi:view-grid-outline"></ha-icon>${t(h, 'all')}</button>
@@ -394,6 +440,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._stage = root.querySelector('.stage');
     this._compactWire(root);
     this._doubleTapWire(root);
+    this._freeWire(root);
     this._layer = root.querySelector('.items');
     this._items.clear();
     for (const it of plan.items || []) this._addItem(it);
@@ -411,11 +458,13 @@ class FloorplanStudioCard extends HTMLElement {
     });
     root.querySelector('#tempc')?.addEventListener('click', () => { this._setPref('temp', this._tempOn ? 'off' : 'on'); this._build(); });
     root.querySelector('#move')?.addEventListener('click', () => { this._moving = !this._moving; this._build(); });
+    root.querySelectorAll('[data-floor]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); this._setFloor(b.dataset.floor); }));
     root.querySelector('#cmp')?.addEventListener('click', () => { this._setPref('compact', this._compact ? 'off' : 'on'); this._zoomRoom = null; try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, ''); } catch (e) { /* ignore */ } this._build(); });
     const fs = () => toggleFull();
     root.querySelector('#fs')?.addEventListener('click', fs);
     root.querySelector('.kioskstart')?.addEventListener('click', (ev) => { ev.stopPropagation(); ev.currentTarget.remove(); fs(); });
     root.querySelector('svg.plan').addEventListener('click', (ev) => {
+      if (Date.now() - (this._freeDragged || 0) < 350) return;   // that was a drag or pinch, not a tap
       this._roomTap(ev.target.dataset?.room && plan.rooms.find((r) => r.id === ev.target.dataset.room));
     });
     root.addEventListener('pointerdown', (ev) => { if (!ev.composedPath().some((n) => n.classList?.contains('lmenu'))) this._closeLabelMenu(); });
@@ -460,6 +509,7 @@ class FloorplanStudioCard extends HTMLElement {
     const kind = LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
     const el = document.createElement('div');
     el.className = `item ${kind}`;
+    if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     el.style.left = `${(it.x / this._plan.width) * 100}%`;
     el.style.top = `${(it.y / this._plan.height) * 100}%`;
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
@@ -511,17 +561,25 @@ class FloorplanStudioCard extends HTMLElement {
         // lamp_level: fixed = always a small tag, hover = only in the name when you point at the lamp, off = nothing
         const lm = levelMode(this._s);
         rec.el.querySelector('.tag').textContent = lvl != null && lm === 'fixed' ? `${lvl}%` : '';
-        rec.el.querySelector('.name').textContent = lvl != null && lm === 'hover' ? `${rec.label} · ${lvl}%` : rec.label;
+        rec.el.querySelector('.name').textContent = lm === 'off' ? rec.label : `${rec.label} · ${lvl != null ? `${lvl}%` : shortState(h, st)}`;
       } else if (rec.kind === 'sensor') {
         rec.el.querySelector('.bub').textContent = shortState(h, st);
       } else {
-        rec.el.querySelector('.tag').textContent = ['climate', 'cover', 'media_player', 'vacuum'].includes(st.entity_id.split('.')[0]) ? shortState(h, st) : '';
+        const dom = st.entity_id.split('.')[0];
+        rec.el.querySelector('.tag').textContent = ['climate', 'cover', 'media_player', 'vacuum'].includes(dom) ? shortState(h, st) : '';
+        // pointing at a device shows its name and what it is doing ("Televisie · Speelt")
+        const now = shortState(h, st);
+        rec.el.querySelector('.name').textContent = now && now !== rec.label ? `${rec.label} · ${now}` : rec.label;
+        rec.el.classList.toggle('playing', dom === 'media_player' && st.state === 'playing');
       }
     }
     for (const room of this._plan.rooms) this._updateRoom(room);
+    // doors and windows with a sensor: orange and dashed while open
+    this.shadowRoot.querySelectorAll('.opening[data-entity]').forEach((g) => g.classList.toggle('isopen', ['on', 'open', 'opening'].includes(h.states[g.dataset.entity]?.state)));
     if (this._compact) this._compactUpdate();
     this._updateGlows();
     this._updateSide();
+    this._renderQuick();
     if (this._greet) {
       const g = greeting(h), root = this.shadowRoot;
       const g1 = root.querySelector('.g1'), g2 = root.querySelector('.g2');
@@ -1194,6 +1252,7 @@ class FloorplanStudioCard extends HTMLElement {
   _zoom(room, animate = true) {
     if (this._compact) return this._compactZoom(room);
     if (!room && this._zoomRoom) this._zoomOutAt = Date.now();
+    if (room) this._free = { s: 1, x: 0, y: 0 };
     this._zoomRoom = room;
     const plan = this._plan, W = plan.width, H = plan.height;
     this._card.classList.toggle('zoomed', !!room);
@@ -1268,7 +1327,7 @@ class FloorplanStudioCard extends HTMLElement {
       ev.stopPropagation();
       held = false; start = [ev.clientX, ev.clientY];
       if (this._moving && el.classList.contains('item')) { this._startDrag(ev, el, it); return; }
-      timer = setTimeout(() => { held = true; fire(this, 'hass-more-info', { entityId: it.entity_id }); }, this._s.hold_ms);
+      timer = setTimeout(() => { held = true; this._quick(it.entity_id, el); }, this._s.hold_ms);
     });
     const cancel = () => { clearTimeout(timer); timer = null; };
     el.addEventListener('pointerleave', cancel);
@@ -1282,6 +1341,187 @@ class FloorplanStudioCard extends HTMLElement {
     });
     el.addEventListener('click', (ev) => ev.stopPropagation());
     el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  }
+
+  /* ---------------------------------------------------------- floors */
+  /** `floors: [plan, plan, …]` (or `floors: true` for every plan): tabs at the top to switch between floors. */
+  get _floorIds() {
+    const f = this._config.floors;
+    if (!f || this.planOverride) return [];
+    const ids = f === true ? (this._plans || []).map((p) => p.id) : (Array.isArray(f) ? f : []).map((x) => (typeof x === 'object' ? x.plan : x));
+    return ids.filter((id) => (this._plans || []).some((p) => p.id === id));
+  }
+  get _floorKey() { return `fps-floor-${this._floorIds.join('|')}`; }
+  _floorName(id) {
+    const f = Array.isArray(this._config.floors) && this._config.floors.find((x) => typeof x === 'object' && x.plan === id);
+    return f?.name || this._plans?.find((p) => p.id === id)?.name || id;
+  }
+  async _setFloor(id) {
+    const plan = this._plans?.find((p) => p.id === id);
+    if (!plan || plan.id === this._plan?.id) return;
+    try { localStorage.setItem(this._floorKey, id); } catch (e) { /* private mode */ }
+    this._plan = plan; this._zoomRoom = null; this._free = { s: 1, x: 0, y: 0 };
+    this._items = new Map();
+    try { sessionStorage.removeItem(`fps-croom-${id}`); } catch (e) { /* ignore */ }
+    await this._loadUsage();
+    this._build();
+  }
+
+  /* ---------------------------------------------------------- free zoom (pinch / Ctrl+wheel) */
+  /** Pinch with two fingers or Ctrl+scroll to zoom the whole plan, drag to move around; the button resets it. */
+  _freeWire(root) {
+    const vp = root.querySelector('.viewport');
+    if (!vp || this._compact || this._config.room) return;
+    this._free = this._free || { s: 1, x: 0, y: 0 };
+    const btn = document.createElement('button');
+    btn.className = 'freereset';
+    btn.innerHTML = `<ha-icon icon="mdi:magnify-minus-outline"></ha-icon><span>${t(this._hass, 'zoom_reset')}</span>`;
+    btn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); this._freeSet(1, 0, 0); });
+    vp.appendChild(btn);
+    const pts = new Map();
+    let pinch = null, pan = null;
+    const allowed = () => !this._zoomRoom && !this._moving && !this._compact;
+    vp.addEventListener('pointerdown', (ev) => {
+      if (!allowed() || ev.target.closest?.('.freereset')) return;
+      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), ...this._free, cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2 };
+        pan = null;
+      } else if (pts.size === 1 && this._free.s > 1) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
+    }, { capture: true });
+    vp.addEventListener('pointermove', (ev) => {
+      if (!pts.has(ev.pointerId)) return;
+      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+      const r = vp.getBoundingClientRect();
+      if (pinch && pts.size >= 2) {
+        const [a, b] = [...pts.values()];
+        const s = Math.max(1, Math.min(4, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d));
+        const px = pinch.cx - r.left, py = pinch.cy - r.top;       // keep the point between the fingers in place
+        this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
+        this._freeDragged = Date.now();
+      } else if (pan) {
+        const dx = ev.clientX - pan.x0, dy = ev.clientY - pan.y0;
+        if (!pan.moved && Math.hypot(dx, dy) < 8) return;
+        pan.moved = true;
+        this._freeSet(pan.s, pan.x + dx, pan.y + dy);
+        this._freeDragged = Date.now();
+      }
+    }, { capture: true });
+    const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) pan = null; };
+    vp.addEventListener('pointerup', up, { capture: true });
+    vp.addEventListener('pointercancel', up, { capture: true });
+    vp.addEventListener('wheel', (ev) => {
+      if (!allowed() || !(ev.ctrlKey || ev.metaKey)) return;              // plain scrolling keeps scrolling the page
+      ev.preventDefault();
+      const r = vp.getBoundingClientRect(), f = this._free;
+      const s = Math.max(1, Math.min(4, f.s * Math.exp(-ev.deltaY * 0.0011)));
+      const px = ev.clientX - r.left, py = ev.clientY - r.top;
+      this._freeSet(s, px - (px - f.x) * (s / f.s), py - (py - f.y) * (s / f.s));
+    }, { passive: false });
+    this._freeSet(this._free.s, this._free.x, this._free.y);
+  }
+  _freeSet(s, x, y) {
+    const vp = this.shadowRoot.querySelector('.viewport');
+    if (!vp || !this._stage) return;
+    const w = vp.clientWidth, h = vp.clientHeight;
+    s = Math.max(1, Math.min(4, s));
+    x = Math.min(0, Math.max(w - w * s, x)); y = Math.min(0, Math.max(h - h * s, y));
+    this._free = { s, x, y };
+    vp.classList.toggle('freezoom', s > 1.01);
+    if (this._zoomRoom || this._compact) return;
+    this._stage.style.transition = 'none';
+    this._stage.style.transform = s > 1.01 ? `translate(${x}px, ${y}px) scale(${s})` : '';
+    this._stage.style.setProperty('--k', s > 1.01 ? Math.min(1, 1.6 / s).toFixed(3) : 1);
+  }
+
+  /* ---------------------------------------------------------- quick controls (hold) */
+  /**
+   * Hold an icon: a small window right next to it with the controls you use most – on/off, brightness,
+   * colour temperature, position, volume or target temperature – and "More…" for Home Assistant's own dialog.
+   */
+  _quick(entityId, anchor) {
+    const h = this._hass, st = h.states[entityId];
+    if (!st || this._s.hold_action === 'more-info') { fire(this, 'hass-more-info', { entityId }); return; }
+    this._closeQuick();
+    const main = this.shadowRoot.querySelector('.main') || this.shadowRoot.querySelector('ha-card');
+    const q = document.createElement('div');
+    q.className = 'quick';
+    q.dataset.id = entityId;
+    main.appendChild(q);
+    this._qk = q;
+    this._renderQuick(true);
+    // next to the icon, inside the card
+    const mr = main.getBoundingClientRect(), ar = anchor.getBoundingClientRect(), qr = q.getBoundingClientRect();
+    let x = ar.left - mr.left + ar.width / 2 - qr.width / 2, y = ar.bottom - mr.top + 8;
+    if (y + qr.height > main.clientHeight - 6) y = ar.top - mr.top - qr.height - 8;
+    q.style.left = `${Math.max(6, Math.min(main.clientWidth - qr.width - 6, x))}px`;
+    q.style.top = `${Math.max(6, y)}px`;
+    const away = (ev) => { if (!ev.composedPath().includes(q)) this._closeQuick(); };
+    setTimeout(() => this.shadowRoot.addEventListener('pointerdown', away, true), 0);
+    this._qkAway = away;
+    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) { /* ignore */ }
+  }
+  _closeQuick() {
+    if (this._qkAway) this.shadowRoot.removeEventListener('pointerdown', this._qkAway, true);
+    this._qk?.remove(); this._qk = null; this._qkAway = null;
+  }
+  /** (Re)draw the quick window; skipped while a slider is being dragged. */
+  _renderQuick(force = false) {
+    const q = this._qk, h = this._hass;
+    if (!q || (!force && q.dataset.busy)) return;
+    const id = q.dataset.id, st = h.states[id];
+    if (!st) { this._closeQuick(); return; }
+    const key = JSON.stringify([st.state, st.attributes]);
+    if (!force && q.dataset.key === key) return;
+    q.dataset.key = key;
+    const d = id.split('.')[0], a = st.attributes, on = isOn(st), nl = (h.locale?.language || 'en').startsWith('nl');
+    const W = (n, e) => (nl ? n : e);
+    const modes = a.supported_color_modes || [];
+    const rows = [];
+    const slider = (key2, label, min, max, step, value, unit) => rows.push(`<label class="qs"><span>${label}<b data-v="${key2}">${value}${unit}</b></span>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-k="${key2}" data-unit="${unit}"></label>`);
+    if (d === 'light' && on && modes.some((m) => m !== 'onoff')) slider('bri', W('Helderheid', 'Brightness'), 1, 100, 1, Math.max(1, Math.round((a.brightness || 255) / 2.55)), '%');
+    if (d === 'light' && on && modes.includes('color_temp') && a.min_color_temp_kelvin) {
+      slider('ct', W('Kleur', 'Colour'), a.min_color_temp_kelvin, a.max_color_temp_kelvin, 50, a.color_temp_kelvin || Math.round((a.min_color_temp_kelvin + a.max_color_temp_kelvin) / 2), 'K');
+    }
+    if (d === 'cover' && a.current_position != null) slider('pos', W('Positie', 'Position'), 0, 100, 1, a.current_position, '%');
+    if (d === 'fan' && on && a.percentage != null) slider('fan', W('Snelheid', 'Speed'), 0, 100, a.percentage_step || 1, a.percentage, '%');
+    if (d === 'media_player' && a.volume_level != null) slider('vol', W('Volume', 'Volume'), 0, 100, 1, Math.round(a.volume_level * 100), '%');
+    let temp = '';
+    if (d === 'climate' && a.temperature != null) {
+      temp = `<div class="qt"><button data-t="-">−</button><b>${num(a.temperature)}°</b><button data-t="+">+</button></div>`;
+    }
+    const canToggle = ['light', 'switch', 'fan', 'input_boolean', 'humidifier', 'siren', 'cover', 'valve', 'media_player', 'climate'].includes(d);
+    const toggleLabel = d === 'cover' ? (st.state === 'closed' ? W('Openen', 'Open') : W('Sluiten', 'Close')) : on ? W('Uitzetten', 'Turn off') : W('Aanzetten', 'Turn on');
+    q.innerHTML = `<div class="qh"><ha-state-icon></ha-state-icon><div><b>${esc(friendly(h, id))}</b><small>${esc(shortState(h, st))}</small></div></div>
+      ${temp}${rows.join('')}
+      <div class="qb">${canToggle ? `<button class="qon ${on ? 'on' : ''}" data-a="toggle">${toggleLabel}</button>` : ''}<button data-a="more">${W('Meer…', 'More…')}</button></div>`;
+    const ic = q.querySelector('ha-state-icon'); ic.hass = h; ic.stateObj = st;
+    q.querySelectorAll('input[type=range]').forEach((inp) => {
+      inp.addEventListener('pointerdown', () => { q.dataset.busy = '1'; });
+      inp.addEventListener('input', () => { q.querySelector(`[data-v="${inp.dataset.k}"]`).textContent = inp.value + inp.dataset.unit; });
+      inp.addEventListener('change', () => {
+        const v = +inp.value, k = inp.dataset.k;
+        delete q.dataset.busy;
+        if (k === 'bri') h.callService('light', 'turn_on', { entity_id: id, brightness_pct: v });
+        else if (k === 'ct') h.callService('light', 'turn_on', { entity_id: id, color_temp_kelvin: v });
+        else if (k === 'pos') h.callService('cover', 'set_cover_position', { entity_id: id, position: v });
+        else if (k === 'fan') h.callService('fan', 'set_percentage', { entity_id: id, percentage: v });
+        else if (k === 'vol') h.callService('media_player', 'volume_set', { entity_id: id, volume_level: v / 100 });
+      });
+    });
+    q.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
+      const step = a.target_temp_step || (a.temperature % 1 ? 0.5 : 0.5);
+      h.callService('climate', 'set_temperature', { entity_id: id, temperature: +(a.temperature + (b.dataset.t === '+' ? step : -step)).toFixed(1) });
+    }));
+    q.querySelector('[data-a="toggle"]')?.addEventListener('click', () => {
+      if (d === 'climate') h.callService('climate', on ? 'turn_off' : 'turn_on', { entity_id: id });
+      else this._tap(id);
+    });
+    q.querySelector('[data-a="more"]').addEventListener('click', () => { this._closeQuick(); fire(this, 'hass-more-info', { entityId: id }); });
+    function num(v) { return (Math.round(v * 10) / 10).toLocaleString(nl ? 'nl-NL' : 'en-US'); }
   }
 
   _tap(entityId) {

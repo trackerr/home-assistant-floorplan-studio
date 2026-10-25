@@ -97,7 +97,10 @@ if (q.get('noitems')) plan.items = [];
 if (q.get('noopen')) plan.openings = [];
 const set = {};
 for (const kv of (q.get('set') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); set[k] = v; }
-const hass = makeHass(plan, { sun: q.get('sun') || 'day', set });
+// floors=1: a small first floor next to the house, to try the floor tabs
+const upstairs = q.has('floors') ? [{ ...structuredClone(plan), id: 'verdieping', name: 'Verdieping', openings: [], items: plan.items.filter((i) => /slaap|bad/.test(i.entity_id)),
+  rooms: plan.rooms.filter((r) => ['r_slaap', 'r_bad'].includes(r.id)) }] : [];
+const hass = makeHass(plan, { sun: q.get('sun') || 'day', set, extraPlans: upstairs });
 const wrap = document.getElementById('wrap');
 const W = Number(q.get('w') || 1100);
 let el;
@@ -120,6 +123,7 @@ if (q.get('view') === 'panel') {
   if (q.has('side')) cfg.side = true;
   if (q.get('size')) cfg.size = Number(q.get('size'));
   if (q.has('home')) { cfg.home = true; cfg.room_pages = true; }
+  if (q.has('floors')) cfg.floors = [{ plan: 'voorbeeldhuis', name: 'Begane grond' }, { plan: 'verdieping', name: 'Verdieping' }];
   if (q.has('kiosk')) cfg.nav = [{ title: 'Thuis', path: 'thuis', icon: 'mdi:home' }, { title: 'Plattegrond', path: 'demo.html', icon: 'mdi:floor-plan' }, { title: 'Energie', path: 'energie', icon: 'mdi:lightning-bolt' }, { title: 'Buiten', path: 'buiten', icon: 'mdi:pine-tree' }, { title: 'TV', path: 'tv', icon: 'mdi:television' }];
   el.setConfig(cfg);
   wrap.append(el);
