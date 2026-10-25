@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b35';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b35';
+} from './fps-core.js?v=1.4.0b36';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b36';
 
 
 const CSS = `
@@ -376,14 +376,28 @@ class FloorplanStudioCard extends HTMLElement {
   }
   /** Drawn WLED strips show their real LEDs, live (WLED's own colours and effects), while the card is on screen. */
   _wledLiveSync() {
-    const h = this._hass, ids = (this._plan?.items || []).filter((it) => stripPath(it) && h?.entities?.[it.entity_id]?.platform === 'wled').map((it) => it.entity_id);
-    const key = [...new Set(ids)].sort().join(',');
+    const h = this._hass, items = this._plan?.items || [], isW = (it) => h?.entities?.[it.entity_id]?.platform === 'wled';
+    const ids = items.filter((it) => stripPath(it) && isW(it)).map((it) => it.entity_id);
+    const amb = items.filter((it) => isW(it) && ambilightTv(this._plan, it, h.states[it.entity_id])).map((it) => it.entity_id);
+    const key = `${[...new Set(ids)].sort().join(',')}|${[...new Set(amb)].sort().join(',')}`;
     if (this._live?.key === key) return;
     this._live?.stop(); this._live = null;
-    if (key) this._live = wledLive(h, ids, (m) => this._wledLiveShow(m));
+    if (key !== '|') this._live = wledLive(h, ids, (m) => this._wledLiveShow(m), amb);
   }
   _wledLiveShow(m) {
+    // an ambilight: its glow in the average colour of its LEDs right now
+    let amb = false;
     for (const [id, leds] of Object.entries(m.leds || {})) {
+      if (!(m.segments || {})[id]) continue;
+      let r = 0, g = 0, b = 0;
+      for (const hx of leds) { const v = parseInt(hx, 16); r += (v >> 16) & 255; g += (v >> 8) & 255; b += v & 255; }
+      const n = leds.length || 1, mx = Math.max(r, g, b) / n;
+      (this._ambiCol = this._ambiCol || {})[id] = mx > 2 ? [r, g, b].map((v) => Math.round(((v / n) * 255) / mx)).join(',') : null;
+      amb = true;
+    }
+    if (amb) this._tvGlow();
+    for (const [id, leds] of Object.entries(m.leds || {})) {
+      if ((m.segments || {})[id]) continue;
       const g = [...this.shadowRoot.querySelectorAll('svg.plan [data-strip]')].find((n) => n.dataset.strip === id);
       const core = g?.querySelector('.score');
       if (!core || !leds.length) continue;
@@ -698,7 +712,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b35');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b36');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -825,7 +839,7 @@ class FloorplanStudioCard extends HTMLElement {
     for (const [it, f] of ambi) {
       const st = h.states[it.entity_id];
       if (!isOn(st)) continue;
-      const c = lightColor(st) || '255,190,110', r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 14, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 14, fx = safeNumber(f.x), fy = safeNumber(f.y);
+      const c = this._ambiCol?.[it.entity_id] || lightColor(st) || '255,190,110', r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 14, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 14, fx = safeNumber(f.x), fy = safeNumber(f.y);
       const z = p ? ((tvScreen(f, planScale(plan) || 70, plan)[0] + tvScreen(f, planScale(plan) || 70, plan)[1]) / 2) * p.sc * p.lift : 0;
       const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
       out.unshift(`<polygon class="ambi" style="fill:rgb(${c});stroke:rgb(${c})" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);

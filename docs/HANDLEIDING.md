@@ -155,6 +155,8 @@ Klik **Volgende**.
 
 ![Stap 4: ingezoomd op de keuken, de radar geselecteerd met zijn bereik](img/stap4-zoom.png)
 
+**Hoort bij.** Kies je een lamp of mediaspeler, dan zie je *Hoort bij*: koppel een lamp aan een tv (dan is het de ambilight van die tv, ook voor een HDMI-syncbox) of aan speakerboxen (hun gloed), en een mediaspeler aan de getekende tv die hij is. *Automatisch* kiest het dichtstbijzijnde in dezelfde ruimte; *Niets* koppelt los.
+
 **Apparatenoverzicht.** Met de knop *Apparatenoverzicht* zie je elk apparaat uit Home Assistant en wat Floorplan Studio ervan maakt: **op de kaart en herkend** (getekend als wat het is), **op de kaart met alleen een icoon** (een passend icoon of naam helpt vaak), of **nog niet op de kaart** — tik erop en het komt in zijn eigen ruimte te staan.
 
 ### Stap 5 – Instellingen

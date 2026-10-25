@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b35';
+export const VERSION = '1.4.0b36';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1063,10 +1063,13 @@ export function radiatorLinks(plan, hass) {
 const BOXLIGHT_RE = /\bbox(en|es)?\b|speaker|luidspreker|lautsprecher/i;
 export function speakerBoxes(plan, it, st) {
   if (it.entity_id.split('.')[0] !== 'light' || stripPath(it) || it.boxlight === false) return [];
+  // linked by hand (step 4: "Belongs to")
+  if (it.link) { const f = (plan.furniture || []).find((x) => x.id === it.link); return f?.type === 'speakerbox' ? [f] : []; }
   const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
+  if (/sync|hdmi|hue ?sync|ambilight/i.test(label)) return [];
   if (!(it.boxlight || BOXLIGHT_RE.test(label) || /speaker/.test(it.icon || st?.attributes?.icon || ''))) return [];
-  const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.0 * (planScale(plan) || 70);
-  const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox').map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
+  const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.0 * (planScale(plan) || 70), room = roomAt(plan.rooms, x, y);
+  const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox' && (!room || roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) === room)).map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
   if (!near.length) return [];
   return /links|rechts|left|right|\b[lr]\b/i.test(label) ? [near[0][0]] : near.map(([f]) => f);
 }
@@ -1079,12 +1082,13 @@ export const isHeating = (st) => !!st && (st.attributes?.hvac_action === 'heatin
 const AMBI_RE = /\btv\b|ambilight|ambi|achter ?(de )?tv|tv ?back|bias ?light|hyperion|hyperhdr/i;
 export function ambilightTv(plan, it, st) {
   if (it.ambilight === false || it.entity_id.split('.')[0] !== 'light' || stripPath(it)) return null;
+  if (it.link) { const f = (plan.furniture || []).find((x) => x.id === it.link); return f?.type === 'tv' ? f : null; }
   const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   if (!(it.ambilight === true || it.ambilight || (AMBI_RE.test(label) && !BOXLIGHT_RE.test(label)))) return null;
   if (typeof it.ambilight === 'string') return (plan.furniture || []).find((f) => f.id === it.ambilight) || null;
-  const x = safeNumber(it.x), y = safeNumber(it.y);
+  const x = safeNumber(it.x), y = safeNumber(it.y), room = roomAt(plan.rooms, x, y);
   let best = null, bd = 2.0 * (planScale(plan) || 70);
-  for (const f of plan.furniture || []) { if (f.type !== 'tv') continue; const dd = Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y); if (dd < bd) { bd = dd; best = f; } }
+  for (const f of plan.furniture || []) { if (f.type !== 'tv' || (room && roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) !== room)) continue; const dd = Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y); if (dd < bd) { bd = dd; best = f; } }
   return best;
 }
 export function applianceKind(it, st, hass) {
@@ -1137,12 +1141,24 @@ export const MEDIA_ICON = { mini: 'mdi:speaker', speaker: 'mdi:speaker', hub: 'm
  * Live LED colours of WLED lights (see websocket floorplan_studio/wled_live): cb({leds: {entity_id: ['rrggbb', ...]},
  * matrix: {entity_id: [w, h]}}). Returns a function that stops it. Only WLED lights are asked for.
  */
-export function wledLive(hass, ids, cb) {
-  const list = [...new Set(ids)].filter((id) => hass?.entities?.[id]?.platform === 'wled').sort();
-  if (!list.length || !hass?.connection) return null;
+export function wledLive(hass, ids, cb, full = []) {
+  const ok = (id) => hass?.entities?.[id]?.platform === 'wled';
+  const list = [...new Set(ids)].filter(ok).sort(), whole = [...new Set(full)].filter(ok).sort();
+  if ((!list.length && !whole.length) || !hass?.connection) return null;
   let unsub = null, stopped = false;
-  hass.connection.subscribeMessage(cb, { type: 'floorplan_studio/wled_live', entity_ids: list }).then((u) => { if (stopped) u(); else unsub = u; }).catch(() => {});
-  return { key: list.join(','), stop: () => { stopped = true; try { unsub?.(); } catch (e) { /* gone already */ } } };
+  hass.connection.subscribeMessage(cb, { type: 'floorplan_studio/wled_live', entity_ids: list, full: whole }).then((u) => { if (stopped) u(); else unsub = u; }).catch(() => {});
+  return { key: `${list.join(',')}|${whole.join(',')}`, stop: () => { stopped = true; try { unsub?.(); } catch (e) { /* gone already */ } } };
+}
+/**
+ * Where along a strip of LEDs each side of an ambilight frame is (fractions 0..1, in the order left, top, right,
+ * bottom as you look at the TV): from the WLED segments when there are 4, else in proportion to the sides.
+ */
+export function ambilightSides(segLens, wM, hM) {
+  const lens = (segLens || []).filter((n) => n > 0);
+  const parts = lens.length === 4 ? lens : [hM, wM, hM, wM];
+  const tot = parts.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  return parts.map((n) => { const r = [acc / tot, (acc + n) / tot]; acc += n; return r; });
 }
 /**
  * An overview of the devices in Home Assistant and what Floorplan Studio makes of them: one row per physical

@@ -158,7 +158,7 @@ async def ws_wled(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.send_result(msg["id"], {"devices": [r for r in results if r]})
 
 
-@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/wled_live", vol.Required("entity_ids"): [str]})
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/wled_live", vol.Required("entity_ids"): [str], vol.Optional("full", default=[]): [str]})
 @websocket_api.async_response
 async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Live LED colours of WLED lights (WLED's /json/live), per segment, a few times a second while a card or walk shows them.
@@ -175,7 +175,8 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
 
     session = async_get_clientsession(hass)
     reg = er.async_get(hass)
-    wanted = set(msg["entity_ids"])
+    wanted = set(msg["entity_ids"]) | set(msg.get("full") or [])
+    full = set(msg.get("full") or [])   # these want the whole device (all segments), e.g. an ambilight around a TV
     # which device (host) and segment every wanted light is
     hosts: dict[str, dict[str, Any]] = {}
     for entry in hass.config_entries.async_entries("wled"):
@@ -262,7 +263,14 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
                     scale = len(leds) / total if total else 1
                     out: dict[str, list[str]] = {}
                     mat: dict[str, list[int]] = {}
+                    seglens: dict[str, list[int]] = {}
                     for eid, sid in ents.items():
+                        if eid in full:
+                            # the whole strip, and how long each segment is (an ambilight: left, top, right, bottom)
+                            part = leds if len(leds) <= 240 else [leds[int(i * len(leds) / 240)] for i in range(240)]
+                            out[eid] = part
+                            seglens[eid] = [max(0, int(sg.get("stop", 0)) - int(sg.get("start", 0))) for _, sg in sorted(segs[host].items())]
+                            continue
                         seg = segs[host].get(sid) if sid is not None else None
                         if seg is None and sid is None and len(segs[host]) == 1:
                             seg = next(iter(segs[host].values()))
@@ -281,7 +289,7 @@ async def ws_wled_live(hass: HomeAssistant, connection: websocket_api.ActiveConn
                     key = repr((out, mat))
                     if out and last.get(host) != key:
                         last[host] = key
-                        connection.send_message(websocket_api.event_message(msg["id"], {"leds": out, "matrix": mat}))
+                        connection.send_message(websocket_api.event_message(msg["id"], {"leds": out, "matrix": mat, "segments": seglens}))
                 tick += 1
                 await asyncio.sleep(0.3)
         finally:

@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b35';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
+} from './fps-core.js?v=1.4.0b36';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -755,10 +755,33 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
             const rq = (room || roomOf(tx, tz))?.rects?.map(norm)[0];
             if (rq) { const mx = M((rq[0] + rq[2]) / 2) - tx, mz = M((rq[1] + rq[3]) / 2) - tz; if (mx * nx + mz * nz > 0) { nx = -nx; nz = -nz; } }   // n = the back, away from the room
             const q = (a0, a1, d0, d1) => [[tx + ux * a0 + nx * d0, tz + uz * a0 + nz * d0], [tx + ux * a1 + nx * d0, tz + uz * a1 + nz * d0], [tx + ux * a1 + nx * d1, tz + uz * a1 + nz * d1], [tx + ux * a0 + nx * d1, tz + uz * a0 + nz * d1]];
-            const e = 0.035, d0 = 0.03, d1 = 0.045;
-            markers.prism(q(-fw - e, fw + e, d0, d1), s1, s1 + e, GL); markers.prism(q(-fw - e, fw + e, d0, d1), s0 - e, s0, GL);
-            markers.prism(q(-fw - e, -fw, d0, d1), s0, s1, GL); markers.prism(q(fw, fw + e, d0, d1), s0, s1, GL);
-            lightY = (s0 + s1) / 2; lx0 = tx + nx * 0.2; lz0 = tz + nz * 0.2;
+            // around the edge of the screen, just in front of it (a TV against the wall would hide a frame behind it)
+            const e = 0.045, d0 = -0.032, d1 = -0.024;
+            if (isWled(it)) {
+              // WLED ambilight: the frame in small pieces that each show their own LEDs live; the order goes round as you
+              // look at the TV: up the left side, along the top, down the right side, back along the bottom
+              const rx = -nz, rz = nx, lsgn = ux * rx + uz * rz > 0 ? -1 : 1;   // which end of the TV is on the viewer's left
+              const sides = ambilightSides(liveSegs.get(it.entity_id), 2 * fw, s1 - s0), K = [10, 18, 10, 18];
+              const piece = (k, f) => { const p0 = markers.v.length / 10; k(); livePieces.push({ start: p0, count: markers.v.length / 10 - p0, f, amb: true }); };
+              const L0 = lsgn * (fw + e / 2), R0 = -L0;
+              for (let side = 0; side < 4; side++) {
+                const [fa, fb] = sides[side], n = K[side];
+                for (let i = 0; i < n; i++) {
+                  const t0 = i / n, t1 = (i + 1) / n, f = fa + (fb - fa) * ((i + 0.5) / n);
+                  if (side === 0) piece(() => markers.prism(q(Math.min(L0 - e / 2, L0 + e / 2), Math.max(L0 - e / 2, L0 + e / 2), d0, d1), s0 + (s1 - s0) * t0, s0 + (s1 - s0) * t1, GL), f);
+                  else if (side === 2) piece(() => markers.prism(q(Math.min(R0 - e / 2, R0 + e / 2), Math.max(R0 - e / 2, R0 + e / 2), d0, d1), s1 - (s1 - s0) * t1, s1 - (s1 - s0) * t0, GL), f);
+                  else {
+                    // top: from the viewer's left to right; bottom: back from right to left
+                    const a0 = side === 1 ? L0 + (R0 - L0) * t0 : R0 + (L0 - R0) * t0, a1 = side === 1 ? L0 + (R0 - L0) * t1 : R0 + (L0 - R0) * t1;
+                    piece(() => markers.prism(q(Math.min(a0, a1), Math.max(a0, a1), d0, d1), side === 1 ? s1 : s0 - e, side === 1 ? s1 + e : s0, GL), f);
+                  }
+                }
+              }
+            } else {
+              markers.prism(q(-fw - e, fw + e, d0, d1), s1, s1 + e, GL); markers.prism(q(-fw - e, fw + e, d0, d1), s0 - e, s0, GL);
+              markers.prism(q(-fw - e, -fw, d0, d1), s0, s1, GL); markers.prism(q(fw, fw + e, d0, d1), s0, s1, GL);
+            }
+            lightY = (s0 + s1) / 2; lx0 = tx - nx * 0.15; lz0 = tz - nz * 0.15;
             hit = { line: [[tx - ux * fw + nx * 0.04, tz - uz * fw + nz * 0.04], [tx + ux * fw + nx * 0.04, tz + uz * fw + nz * 0.04]], y: s1 + 0.04, r: 0.07 };
             P = [tx, s1 + 0.2, tz];
           }
@@ -1036,12 +1059,19 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   const isWled = (it) => hass?.entities?.[it.entity_id]?.platform === 'wled';
   const liveLeds = new Map();
   let liveSub = null;
+  const liveSegs = new Map();
   function liveSync() {
-    const ids = lamps.filter((l) => l.pieces).map((l) => l.it.entity_id), key = [...new Set(ids)].sort().join(',');
+    const amb = lamps.filter((l) => l.pieces?.some((pc) => pc.amb)).map((l) => l.it.entity_id);
+    const ids = lamps.filter((l) => l.pieces && !amb.includes(l.it.entity_id)).map((l) => l.it.entity_id);
+    const key = `${[...new Set(ids)].sort().join(',')}|${[...new Set(amb)].sort().join(',')}`;
     if (liveSub?.key === key) return;
     liveSub?.stop(); liveSub = null;
-    if (!key) return;
+    if (key === '|') return;
     liveSub = wledLive(hass, ids, (m) => {
+      // the segment lengths of an ambilight decide where each side of the frame is: rebuild once they are known
+      let rebuild = false;
+      for (const [id, lens] of Object.entries(m.segments || {})) { const old = liveSegs.get(id); if (String(old) !== String(lens)) { liveSegs.set(id, lens); rebuild = true; } }
+      if (rebuild) { buildItems(); refreshStates(); }
       for (const [id, leds] of Object.entries(m.leds || {})) {
         liveLeds.set(id, { leds, w: m.matrix?.[id]?.[0], h: m.matrix?.[id]?.[1] });
         // the room is lit in the average colour of its LEDs
@@ -1050,7 +1080,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         const n = leds.length || 1, L = lamps.find((l) => l.it.entity_id === id && l.pieces);
         if (L) { const mx = Math.max(r, g, b) / n; L.liveCol = mx > 2 ? [r / n / mx, g / n / mx, b / n / mx] : null; L.liveK = Math.min(1, mx / 160); L.liveT = Date.now(); if (L.on && L.liveCol) L.col = L.liveCol; }
       }
-    });
+    }, amb);
   }
   function buildAll() {
     world = buildWorld(plan, hass, sel?.type === 'furn' ? sel.id : null);
