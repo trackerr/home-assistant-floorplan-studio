@@ -190,14 +190,25 @@ export function placeModel(model, f, S, emit) {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity], P = model.pos;
   for (let i = 0; i < P.length; i += 3) { const q = up(P[i], P[i + 1], P[i + 2]); for (let c = 0; c < 3; c++) { min[c] = Math.min(min[c], q[c]); max[c] = Math.max(max[c], q[c]); } }
   const w = Math.max(0.05, (+f.w || 60) / S), d = Math.max(0.05, (+f.h || 60) / S), sx = max[0] - min[0] || 1, sy = max[1] - min[1] || 1, sz = max[2] - min[2] || 1;
-  let k = Math.min(w / sx, d / sz);
-  if (+f.z > 0) k = Math.min(k, +f.z / sy);
+  // it fills its width and depth exactly (so the size fields and handles always do something); its height is f.z,
+  // or in proportion to the width and depth
+  const kx = w / sx, kz = d / sz, ky = +f.z > 0 ? +f.z / sy : Math.sqrt(kx * kz);
   const cx = (min[0] + max[0]) / 2, cz = (min[2] + max[2]) / 2, r = ((+f.rot || 0) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = (+f.x || 0) / S, fz = (+f.y || 0) / S;
   const N = model.nor, C = model.col, base = Math.max(0, +f.elev || 0);
   for (let i = 0; i < P.length; i += 3) {
-    const q = up(P[i], P[i + 1], P[i + 2]), n = up(N[i], N[i + 1], N[i + 2]);
-    const x = (q[0] - cx) * k, z = (q[2] - cz) * k, y = (q[1] - min[1]) * k + base;
-    emit(fx + x * cr - z * sr, y, fz + x * sr + z * cr, n[0] * cr - n[2] * sr, n[1], n[0] * sr + n[2] * cr, C[i], C[i + 1], C[i + 2]);
+    const q = up(P[i], P[i + 1], P[i + 2]), n0 = up(N[i], N[i + 1], N[i + 2]);
+    const x = (q[0] - cx) * kx, z = (q[2] - cz) * kz, y = (q[1] - min[1]) * ky + base;
+    // a stretched shape: its normals lean the other way
+    let nx = n0[0] / kx, ny = n0[1] / ky, nz = n0[2] / kz; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    emit(fx + x * cr - z * sr, y, fz + x * sr + z * cr, nx * cr - nz * sr, ny, nx * sr + nz * cr, C[i], C[i + 1], C[i + 2]);
   }
-  return { height: sy * k + base };
+  return { height: sy * ky + base };
+}
+
+/** The model's own proportions (upright as f.up says): width, depth and height in its own units. */
+export function modelSize(model, up = '') {
+  const tf = up === 'z' ? (x, y, z) => [x, z, -y] : up === '-z' ? (x, y, z) => [x, -z, y] : (x, y, z) => [x, y, z];
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity], P = model.pos;
+  for (let i = 0; i < P.length; i += 3) { const q = tf(P[i], P[i + 1], P[i + 2]); for (let c = 0; c < 3; c++) { min[c] = Math.min(min[c], q[c]); max[c] = Math.max(max[c], q[c]); } }
+  return { w: max[0] - min[0], h: max[1] - min[1], d: max[2] - min[2] };
 }
