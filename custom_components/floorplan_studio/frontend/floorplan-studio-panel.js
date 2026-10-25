@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b12';
+import './floorplan-studio-card.js?v=1.3.0b13';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b12';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b12';
+} from './fps-core.js?v=1.3.0b13';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b13';
 
 const L = {
   en: {
@@ -666,6 +666,7 @@ class FloorplanStudioPanel extends HTMLElement {
       await this._hass.connection.sendMessagePromise({ type: 'floorplan_studio/plan/delete', plan_id: p.id });
       await this.removeDashboards(p.id);   // ook het dashboard (en de link in de zijbalk) dat bij deze plattegrond hoort
       this.plans = await loadPlans(this._hass, true);
+      window.__fpsPlansRev = (window.__fpsPlansRev || 0) + 1;
       window.dispatchEvent(new CustomEvent('fps-plans-changed'));
       this.plan = this.plans[0] ? structuredClone(this.plans[0]) : newPlan(this.L.default_name);
       this.history = []; this.dirty = !this.plans[0]; this.render();

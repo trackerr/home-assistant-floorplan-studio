@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b12';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b12';
+} from './fps-core.js?v=1.3.0b13';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b13';
 
 
 const CSS = `
@@ -334,6 +334,8 @@ class FloorplanStudioCard extends HTMLElement {
   connectedCallback() {
     this._onChanged = (ev) => { if (!this._dragging && !this.planOverride) this._load(true); };
     window.addEventListener('fps-plans-changed', this._onChanged);
+    // back on screen (e.g. from a room page): the plan may have been changed elsewhere in the meantime
+    if (this._built && !this.planOverride && (window.__fpsPlansRev || 0) !== this._rev) this._load(true);
     this._fsHook = this._fsHook || (() => { if (this._built) this._build(); });
     window.addEventListener('fps-fullscreen', this._fsHook);
     this._usageTimer = setInterval(() => this._loadUsage(), 10 * 60 * 1000);
@@ -391,6 +393,7 @@ class FloorplanStudioCard extends HTMLElement {
     }
     if (!this._plan) this._message(t(this._hass, 'loading'));
     const shown = this._plan;
+    this._rev = window.__fpsPlansRev || 0;
     try {
       const plans = await loadPlans(this._hass, force);
       this._plans = plans;

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b12';
+export const VERSION = '1.3.0b13';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -984,6 +984,7 @@ export async function loadPlans(hass, force = false) {
 export async function savePlan(hass, plan) {
   const r = await hass.connection.sendMessagePromise({ type: 'floorplan_studio/plan/save', plan });
   plansCache = null;
+  window.__fpsPlansRev = (window.__fpsPlansRev || 0) + 1;   // cards that are not on screen now catch up when they come back
   window.dispatchEvent(new CustomEvent('fps-plans-changed', { detail: r.plan }));
   return r.plan;
 }
