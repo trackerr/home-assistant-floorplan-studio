@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0
+**2.5D en echte maten**
+- **2.5D-weergave**: één knop kantelt de plattegrond. Muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte. Draaien per 45° of vrij (rechtermuisknop/Shift + slepen, of twee vingers draaien), kantelen en zoomen. Elk scherm onthoudt zijn eigen weergave; werkt ook ruimte per ruimte op de telefoon. Hoogte instelbaar (echte maat of eigen percentage).
+- **Meubels en trap** tekenen bij stap 3 (bank, bed, tafel, bureau, aanrecht, kast, bad, douche, wc, trap, tv, plant), met breedte, diepte en hoogte.
+- **Echte maten**: vul bij één ruimte de echte breedte of lengte in; daarna maten in meters en m² op de tekening, meubels in cm.
+- **Hoogte per apparaat** voor 2.5D; boven een tafel of kast hangt een apparaat vanzelf net daarboven. Optionele hulplijntjes naar de vloer.
+
+**Bediening**
+- **Snelmenu** bij vasthouden: aan/uit en schuifjes (helderheid, kleurtemperatuur, gordijnstand, ventilator, volume, verwarming − / +).
+- **Vrij zoomen** met knijpen of Ctrl + scrollwiel, met een korte hint bij gewoon scrollen.
+- **Verdiepingen**: tabjes bovenin met `floors:`.
+- Ingezoomd op een ruimte: lijst **In deze ruimte** ingeklapt, paneel **klein te maken** (kamertekst komt dan op de kaart), en iconen verplaatsen kan ook daar.
+
+**Sensoren en apparaten**
+- **Ramen** tekenen; **deuren en ramen koppelen aan hun sensor**: open = oranje en gestippeld.
+- **mmWave-radar**: ring op de gemeten afstand (Tuya 24G, LD2410) of een stip per persoon (LD2450), met plafondhoogte.
+- **Beweging dooft uit**: het icoontje kleurt na de laatste beweging langzaam terug naar grijs.
+- **Wat zit eraan?** bij stekkers en schakelaars: een lamp of een apparaat. **Stroom via een slimme schakelaar** voor een slimme lamp aan een slimme schakelaar.
+- Aanwijzen toont naam en status; een tv die aan staat gloeit blauw, een speaker die speelt zendt golfjes uit.
+
+**Editor en integratie**
+- Instellingen in **inklapbare onderdelen**, en alleen wat er op dat moment toe doet; zelden gebruikte opties onder **Meer opties**.
+- **Inzoomen op een ruimte** in de editor om precies te plaatsen.
+- **Floorplan uit de zijbalk** halen via de opties van de integratie (Configureren).
+- **Sneller starten**: de kaart is meteen aangemeld (geen "configuratiefout" meer tijdens het laden), toont direct de laatst bekende plattegrond, en de browser bewaart de bestanden.
+- Kaarten die even niet zichtbaar waren laden een gewijzigde plattegrond opnieuw zodra ze terugkomen.
+
 ## 1.2.3
 - Floorplan Studio staat nu als **dienst** op de integratiepagina, met de versie en een knop **Bezoek** naar de GitHub-pagina van het project.
 

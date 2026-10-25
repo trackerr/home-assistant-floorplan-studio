@@ -13,7 +13,7 @@ Met Floorplan Studio maak je een interactieve plattegrond van je huis voor je Ho
 2. [Je plattegrond maken – stap voor stap](#2-je-plattegrond-maken--stap-voor-stap)
 3. [Het dashboard](#3-het-dashboard)
 4. [De kaart gebruiken](#4-de-kaart-gebruiken)
-5. [Extra's: zijkolom, tekstblokken, temperatuur, aanwezigheid, meldingen, stofzuiger](#5-extras)
+5. [Extra's: zijkolom, tekstblokken, temperatuur, aanwezigheid, radar, meldingen, stofzuiger](#5-extras)
 6. [Thema's](#6-themas)
 7. [Uitproberen met het voorbeeldhuis](#7-uitproberen-met-het-voorbeeldhuis)
 8. [Tips](#8-tips)
@@ -90,36 +90,58 @@ Klik **Volgende**.
    - **Grote waarde**: wat groot in het tekstblok staat. Standaard de temperatuur, maar het kan elke sensor zijn (bijv. het vermogen van de zonnepanelen bij het kantoor).
    - **Extra regels in het tekstblok**: tot drie apparaten of sensoren uit die area, bijv. de vaatwasser of de 3D-printer.
    - **Vloer**: gewoon, tegels (badkamer, wc) of hout.
-5. **Koppel elke ruimte aan een Home Assistant-area.** Dat is de belangrijkste stap. Daardoor:
+
+   Deze staan onder **Meer opties**, zodat het rustig blijft.
+5. **Echte maten:** vul bij één ruimte de **echte breedte of lengte** in meters in. Daarna staat bij elke ruimte de maat op de tekening (bijv. "4,00 × 3,15 m"), krijgt de gekozen ruimte maatlijnen, en zie je de oppervlakte in m². Meubels krijgen hun maat in cm en de radar weet hoe ver een meter is. Klopt de ene kant wel en de andere niet, dan is de ruimte scheef getekend: maak hem groter of kleiner met de hoekjes.
+6. **Koppel elke ruimte aan een Home Assistant-area.** Dat is de belangrijkste stap. Daardoor:
    - weet de ruimte welke lampen en apparaten erbij horen;
    - zoekt hij automatisch de **temperatuur** en **vochtigheid** (zijn er meerdere sensoren, dan kies je er hier één);
    - werken aanwezigheid, meldingen en "deze ruimte zuigen" vanzelf.
 
 **Muren hoef je niet te tekenen.** Waar twee ruimtes elkaar raken komt een binnenmuur, waar niets naast ligt een buitenmuur.
 
+> **Inzoomen:** boven de tekening kies je een ruimte om op in te zoomen (of dubbelklik op een ruimte bij stap 4). Handig om precies te werken.
+
 > **Snel beginnen:** met **Ruimtes overnemen uit Home Assistant** krijg je voor elke area alvast een rechthoek. Die schuif en rek je daarna op de goede plek.
 
-### Stap 3 – Deuren
+### Stap 3 – Deuren, ramen en meubels
 
-![Stap 3: deuren (roze) en een open doorgang (groen)](img/stap3-deuren.png)
+![Stap 3: deuren (roze), ramen (blauw) en een open doorgang (groen)](img/stap3-deuren.png)
 
-1. Kies **Deur** of **Open doorgang** en **klik op een muur**.
+1. Kies **Deur**, **Raam** of **Open doorgang** en **klik op een muur**.
    - Een **deur** maakt een opening met kleine deurposten.
-   - Een **open doorgang** haalt de muur weg, bijvoorbeeld tussen woonkamer en open keuken. Met **Hele wand** wordt de complete muur open.
-2. Klik op een deur om de **breedte** of de soort aan te passen, of om hem te verwijderen.
+   - Een **raam** tekent glas in de muur.
+   - Een **open doorgang** haalt de muur weg, bijvoorbeeld tussen woonkamer en open keuken. Met **Hele muur** wordt de complete muur open.
+2. Klik op een deur of raam om de **breedte** of de soort aan te passen, of om hem te verwijderen.
+3. **Koppel een deur of raam aan zijn sensor** (open/dicht). Staat hij open, dan wordt hij oranje en gestippeld op de kaart en verschijnt er een melding.
+
+![Ramen en een deur met sensor die open staan](img/raam-open.png)
+
+**Meubels en trap.** Onder de deuren staan knoppen voor een bank, bed, tafel, ronde tafel, bureau, aanrecht, kast, bad, douche, wc, trap, tv en plant. Tik erop om het neer te zetten en sleep het naar de goede plek. Daarna kun je de soort, de **breedte**, **diepte** en **hoogte** aanpassen (in cm zodra je de echte maat bij stap 2 hebt ingevuld) en het een kwartslag draaien. Op het dashboard is het een lichte omtrek; in 2.5D worden het blokken.
+
+![Stap 3: een bank geselecteerd, met zijn maat](img/stap3-meubels.png)
 
 ### Stap 4 – Apparaten
 
 ![Stap 4: apparaten op de kaart](img/stap4-apparaten.png)
 
 1. Klik op **Alles vanzelf neerzetten**. Alle lampen, schakelaars, thermostaten, gordijnen, mediaspelers, camera's enz. uit de gekoppelde areas komen in hun kamer te staan.
-2. **Sleep** de iconen naar de plek waar ze echt staan.
+2. **Sleep** de iconen naar de plek waar ze echt staan. Dubbelklik op een ruimte (of kies hem boven de tekening) om in te zoomen en precies te plaatsen; dubbelklik nog eens voor de hele plattegrond.
 3. Mist er iets? Zoek een entiteit in het zoekveld, of klik bij **Nog niet op de kaart** op een apparaat.
 4. Klik op een icoon om:
-   - een eigen **naam** of **icoon** te kiezen;
-   - een vaste **gloedkleur** te geven (handig voor een slimme stekker met een gekleurde lamp erin);
+   - een eigen **naam** te kiezen;
    - **Altijd tonen** aan te zetten (zie *Eenvoudig* in hoofdstuk 4);
+   - bij een stekker of schakelaar te kiezen **wat eraan zit**: *een lamp* (lampicoon en gloed, voor een gewone lamp aan een slimme stekker) of *een apparaat, geen licht* (geen gloed, bijv. de vaatwasser);
    - het van de kaart te halen.
+
+   Onder **Meer opties**:
+   - een eigen **icoon**;
+   - een vaste **gloedkleur** (voor een stekker met een gekleurde lamp erin);
+   - de **hoogte** in meters voor de 2.5D-weergave (leeg = gebruikelijk: plafondlamp hoog, thermostaat op borsthoogte, stofzuiger op de vloer). Staat een apparaat boven een tafel of kast, dan hangt het in 2.5D vanzelf net daarboven;
+   - bij een lamp: **Stroom via een slimme schakelaar**. Zit een slimme lamp aan een slimme schakelaar? Kies die hier. Je ziet dan één lamp, en tikken zet de stroom aan of uit.
+5. **Radar (mmWave):** zet je een aanwezigheidssensor met radar neer (bijv. Tuya 24G, LD2410 of LD2450), dan verschijnt de optie **Radar: laat zien waar iemand is**. De bijbehorende afstand- en bereiksensoren worden vanzelf gevonden. Hangt hij aan het plafond, vul dan de hoogte in. Zie [Radar](#radar-mmwave) in hoofdstuk 5.
+
+![Stap 4: ingezoomd op de keuken, de radar geselecteerd met zijn bereik](img/stap4-zoom.png)
 
 ### Stap 5 – Instellingen
 
@@ -127,20 +149,23 @@ Klik **Volgende**.
 
 Alles wat je hier instelt geldt voor elke kaart die deze plattegrond toont. Rechts zie je meteen een live voorbeeld.
 
+De instellingen zitten in onderdelen die je openklapt; alleen **Uiterlijk** staat open. Instellingen die er op dat moment niet toe doen, zie je niet: zo verschijnt de uitdooftijd van beweging pas als aanwezigheid aan staat, en het onderdeel stofzuiger alleen als je een stofzuiger hebt.
+
 | Onderdeel | Wat stel je in |
 |---|---|
-| **Uiterlijk** | Standaardthema, **één thema voor het hele huis** (keuzelijst, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina, alles op de kaart schaalt mee), **kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), grootte van iconen en kamertekst, sterkte van de gloed. |
-| **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan en statuslabels onder apparaten, elk los aan of uit. |
-| **Eenvoudig-modus** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
-| **Bediening** | Tikken op een ruimte aan/uit, wat er dan gebeurt (**inzoomen** of de **eigen pagina** van de ruimte openen) en hoe lang je moet vasthouden voor de details. |
-| **Automatisch (zon)** | Hoeveel minuten vóór zonsopkomst het licht wordt, en hoe lang de overgang duurt. |
-| **Tekstblok en licht** | Lichtvlek per lamp, hele ruimte laten gloeien of geen gloed; welke regels het tekstblok toont (CO2, gordijnen, verwarming/airco, wat er speelt) en hoeveel; het kompas; de begroeting. |
-| **Zijkolom** | Weer, de grote knop, drie knoppen, de energiesensoren en de statuslijst. Leeg laten = automatisch gekozen. |
+| **Uiterlijk** | Standaardthema, **één thema voor het hele huis** (keuzelijst, zie hoofdstuk 6), grootte van de plattegrond (kleiner = compactere pagina), grootte van iconen en kamertekst. |
+| **Licht** | Lichtvlek per lamp, hele ruimte laten gloeien of geen gloed, de sterkte van de gloed, en hoe de sterkte van een lamp getoond wordt. |
+| **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan, CO2, gordijnen, verwarming/airco, wat er speelt, labels onder apparaten, hoeveel regels, de begroeting en het kompas. |
+| **Telefoon, tablet en 2.5D** | **Kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), de **hoogte in de 2.5D-weergave** (echte maat of een eigen percentage) en of er hulplijntjes van de vloer naar de iconen komen. |
+| **Tikken en vasthouden** | Tikken op een ruimte aan/uit en wat er dan gebeurt (**inzoomen** of de **eigen pagina** openen), wat vasthouden opent (het **snelmenu** of het venster van Home Assistant) en hoe lang. |
+| **Eenvoudig** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
+| **Thema Automatisch (zon)** | Alleen bij dat thema: hoeveel minuten vóór zonsopkomst het licht wordt, en hoe lang de overgang duurt. |
 | **Kleur op temperatuur** | Standaard aan of uit, en bij welke temperatuur een ruimte blauw (koud) en rood (warm) is. |
-| **Aanwezigheid** | Bewegingsicoontje bij bezette ruimtes aan/uit, en per persoon de sensor die zegt in welke ruimte hij of zij is. |
+| **Aanwezigheid** | Bewegingsicoontje aan/uit, hoe lang het **uitdooft** na de laatste beweging, en per persoon de sensor die zegt in welke ruimte hij of zij is. |
 | **Meldingen** | Alarm (rook, gas, koolmonoxide, lekkage) en open deuren/ramen, elk los aan of uit. |
-| **Stofzuiger** | Welke stofzuiger, wanneer de live kaart verschijnt, welke kaart-entiteit en hoe doorzichtig. |
-| **Automatisch plaatsen** | Welke soorten apparaten *Alles vanzelf neerzetten* meeneemt. |
+| **Stofzuiger** | Welke stofzuiger, wanneer de live kaart verschijnt en wat je dan ziet. |
+| **Zijkolom** | Weer, de grote knop, drie knoppen, de energiesensoren, de statuslijst en de **slimme knop**. Leeg laten = automatisch gekozen. |
+| **Alles vanzelf neerzetten** | Welke soorten apparaten *Alles vanzelf neerzetten* meeneemt. |
 
 Met **Alles terugzetten** zet je alles in één keer terug.
 
@@ -213,21 +238,29 @@ Zonder `?kiosk` in het adres is de menubalk onzichtbaar; dan gebruik je gewoon d
 |---|---|
 | **Tik op een lamp of apparaat** | Aan/uit (lampen, schakelaars, gordijnen, mediaspelers). Andere apparaten openen de details. |
 | **Tik op een camera** | Live beeld over de kaart. Tik op het beeld om het te sluiten. |
-| **Houd een icoon vast** | De details openen, zoals helderheid, kleur, temperatuur of grafieken. |
+| **Houd een icoon vast** | Het **snelmenu**: aan/uit en schuifjes voor helderheid, kleurtemperatuur, stand van gordijnen, ventilator of volume; bij de verwarming − en +. Met **Meer…** open je het venster van Home Assistant. (Bij stap 5 kun je kiezen dat vasthouden meteen dat venster opent.) |
+| **Wijs een icoon aan** (muis) | Naam en wat hij doet, bijv. "Televisie · Speelt" of "Plafondlamp · 78%". |
 | **Tik op een kamer** | Inzoomen op die kamer, of de eigen pagina van de kamer openen (instelling bij stap 5). |
 | **Terug / tik buiten de kamer** | Weer uitzoomen. |
 | **Eenvoudig / Alles** | Alleen wat jullie de laatste tijd gebruiken, of alles. |
+| **Knijpen** (telefoon) of **Ctrl + scrollwiel** (pc) | Vrij in- en uitzoomen op de plattegrond; daarna slepen om te schuiven. Met **Hele plattegrond** terug. |
+| **2.5D** | De plattegrond schuin, met muren en meubels in 3D. Zie [2.5D](#25d-schuin-van-opzij). |
+| **Begane grond / Verdieping** | Wisselen tussen verdiepingen (als de kaart er meer heeft). |
 | **🌡 (thermometer)** | Ruimtes kleuren op temperatuur aan/uit. |
 | **Grote knop in de zijkolom** | Alles uit (of je eigen script/scène). |
 | **⛶ (volledig scherm)** | De hele pagina op volledig scherm, zonder de balken van Home Assistant, met een menubalk. Blijft aan als je van tabblad wisselt; **Esc** of nog eens ⛶ = terug. |
 | **Tekstblok slepen / vasthouden** (alleen beheerders) | Slepen = verplaatsen, het oranje hoekje = groter/kleiner, vasthouden = menu. Zie [De tekstblokken bij de ruimtes](#de-tekstblokken-bij-de-ruimtes). |
-| **Iconen verplaatsen** (alleen beheerders) | Iconen (en tekstblokken) direct op de kaart verslepen. Ze worden meteen opgeslagen. |
+| **Iconen verplaatsen** (alleen beheerders) | Iconen (en tekstblokken) direct op de kaart verslepen. Ze worden meteen opgeslagen. Kan ook ingezoomd op een ruimte (knop in het paneel). In 2.5D schakelt de kaart daarvoor even naar 2D. |
+
+![Het snelmenu na vasthouden op een lamp](img/snelmenu.png)
 
 ### Inzoomen op een ruimte
 
 ![Ingezoomd op de woonkamer](img/ruimte-zoom.png)
 
 De rest van het huis wordt gedimd, zodat alleen de ruimte zelf helder blijft (ook muren en licht van andere ruimtes vallen weg), de ruimte komt groot in beeld en rechts staat alles uit die area: temperatuur, vocht, wie er is, meldingen, en een lijst van alle apparaten en sensoren. Tik op een regel om iets te schakelen, houd vast voor de details.
+
+De lijst **In deze ruimte** staat ingeklapt; tik op de kop om hem te openen. Met het knopje rechtsboven in het paneel maak je het paneel **klein**: dan krijgt de ruimte de hele breedte en staat de kamertekst op de kaart.
 
 Terug naar de hele plattegrond: **dubbeltik op de ruimte**, of tik op **Terug**. Dat werkt ook op de eigen pagina van een ruimte, en volledig scherm blijft aan.
 
@@ -248,6 +281,30 @@ Op een smal scherm (standaard smaller dan 560 pixels, dus de meeste telefoons) i
 Wil je dit ook op een tablet of pc? Tik in de werkbalk op het knopje **Per ruimte** (het icoon met de kaartjes). Nog een keer tikken geeft weer de **hele plattegrond**. Elk apparaat onthoudt zijn eigen keuze, dus je tablet kan per ruimte staan terwijl je pc de hele kaart laat zien.
 
 Bij stap 5 stel je onder *Kleine schermen* in vanaf welke breedte dit vanzelf gebeurt, of zet je het altijd aan of uit. Per kaart kan dat ook met `compact: on` of `compact: off`.
+
+### 2.5D: schuin van opzij
+
+![2.5D: het voorbeeldhuis 45° gedraaid](img/25d.png)
+
+Met de knop **2.5D** in de werkbalk kantelt de plattegrond. De muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte (een plafondlamp hoog, een thermostaat op borsthoogte). Muren aan de voorkant en binnenmuren blijven laag, zodat je in elke ruimte kijkt. Lichtvlekken, de radar, open ramen en tikken op een ruimte werken gewoon mee.
+
+| 2.5D recht | 2.5D in het thema Rock | Ingezoomd op een ruimte |
+|---|---|---|
+| ![](img/25d-recht.png) | ![](img/25d-rock.png) | ![](img/25d-ruimte.png) |
+
+- **Draaien:** het draaiknopje springt per 45°. Vrij draaien en kantelen: met de muis de **rechtermuisknop** (of **Shift**) ingedrukt houden en slepen — links/rechts draait, omhoog/omlaag kantelt. Op telefoon of tablet: **twee vingers draaien**, en twee vingers samen omhoog of omlaag om te kantelen.
+- **Zoomen:** Ctrl + scrollwiel of knijpen, net als in 2D.
+- Elk scherm onthoudt zelf of het 2D of 2.5D gebruikt en onder welke hoek.
+- **Iconen verplaatsen** gebeurt in 2D (precies); daarna staat alles meteen goed in 2.5D.
+- Hoe hoog muren en iconen zijn stel je in bij stap 5 → *Telefoon, tablet en 2.5D*: de **echte maat** of een eigen percentage.
+
+![2.5D op de telefoon, ruimte per ruimte](img/telefoon-25d.png)
+
+### Verdiepingen
+
+![Tabjes voor de verdiepingen](img/verdiepingen.png)
+
+Heb je per verdieping een eigen plattegrond, zet dan in de kaart `floors: true` (alle plattegronden) of een lijst, bijv. `floors: [{ plan: thuis, name: Begane grond }, { plan: boven, name: Verdieping }]`. Bovenaan komen tabjes; elk scherm onthoudt de laatste.
 
 ### Camera
 
@@ -326,6 +383,8 @@ Een lamp die aan is geeft een zachte lichtvlek in zijn eigen kleur op de vloer. 
 
 Een dimbare lamp laat ook zien hoe fel hij staat: hoe lager de lamp staat, hoe zachter de knop en de lichtvlek, en het percentage staat erbij. Bij stap 5 kies je bij *Sterkte van lampen*: *altijd onder de lamp*, *alleen bij aanwijzen* (dan zie je het percentage naast de naam als je met de muis op de lamp staat) of *niet tonen*.
 
+Een **tv** die aan staat gloeit zacht blauw, een **speaker** die speelt zendt kleine geluidsgolfjes uit.
+
 ### Ruimtes kleuren op temperatuur
 
 ![Ruimtes gekleurd op temperatuur](img/temperatuur.png)
@@ -338,6 +397,20 @@ Tik op de **thermometer** in de werkbalk. Elke ruimte kleurt dan van **blauw** (
 
 - **Icoontje bij de naam:** staat er in de area van een ruimte een **beweging-, aanwezigheids- of bezettingssensor** aan, dan krijgt de naam een bewegingsicoontje (ook op de kamertegel van de startpagina). Detectie van dieren of auto's door camera's (bijv. Frigate `…_dog_occupancy`) telt niet mee.
 - **Personen per ruimte:** heb je per persoon een sensor die zegt in welke ruimte iemand is (bijv. [Bermuda](https://github.com/agittins/bermuda) of [ESPresense](https://espresense.com)), koppel die dan bij stap 5 → **Aanwezigheid**. De waarde van de sensor moet de naam van de ruimte of de area zijn. Er verschijnt dan een rondje met de foto of de initialen van die persoon in de ruimte. Wie op "niet thuis" staat, wordt niet getoond.
+
+- **Uitdoven:** na de laatste beweging kleurt het icoontje in een paar minuten (instelbaar, standaard 5) langzaam terug naar grijs. Zo zie je ook waar *net* iemand was.
+
+### Radar (mmWave)
+
+![De radar in de keuken: een ring op de gemeten afstand](img/radar.png)
+
+Aanwezigheidssensoren met radar kunnen meer dan aan/uit:
+
+- Sensoren die alleen een **afstand** geven (zoals Tuya 24G en LD2410) tonen een **ring** rond de sensor op de gemeten afstand, met het bereik als lichte gestippelde cirkel. De afstand staat er klein bij.
+- Sensoren die een **plek** geven (LD2450, tot drie personen) tonen een **stip per persoon**. Bij stap 4 stel je in naar welke kant de sensor kijkt.
+- De radar ziet alleen binnen zijn eigen ruimte.
+- Hangt de sensor aan het plafond, vul dan bij stap 4 de **hoogte** in: dan rekent hij de afstand over de vloer uit (een plafondsensor meet schuin naar beneden).
+- Voor de juiste afstand moet de plattegrond zijn echte maat kennen (stap 2).
 
 ### Meldingen op de kaart
 
@@ -411,7 +484,8 @@ Met **Exporteren** maak je zo'n bestand van je eigen plattegrond, bijvoorbeeld a
 
 ## 8. Tips
 
-- **Meerdere verdiepingen:** maak met **+** een tweede plattegrond en zet in de kaart `plan: <id>`.
+- **Meerdere verdiepingen:** maak met **+** een tweede plattegrond en zet in de kaart `floors: true` voor tabjes, zie [Verdiepingen](#verdiepingen).
+- **Editor uit de zijbalk:** gebruik je de editor zelden, of wil je hem niet in de zijbalk van iedereen? Ga naar Instellingen → Apparaten & diensten → Floorplan Studio → **Configureren** en zet *Floorplan in de zijbalk laten zien* uit. De kaart blijft werken; de editor open je dan via het adres `/floorplan-studio`.
 - **Groepen:** heb je een lampengroep, bijvoorbeeld "Woonkamer sfeer"? Zet dan de groep op de kaart, of juist de losse lampen. Voor de gloed van een kamer tellen alleen echte lampen mee.
 - **Een plattegrond verwijderen:** met het prullenbak-icoon in de editor. Heb je bij stap 6 een dashboard laten maken, dan verdwijnt dat dashboard (en de link in de zijbalk) automatisch mee. Dashboards waarin je de kaart zelf hebt geplaatst blijven staan.
 - **Back-up:** alles staat in `.storage/floorplan_studio.*` en zit dus in je gewone HA-back-up.
@@ -432,5 +506,7 @@ Met **Exporteren** maak je zo'n bestand van je eigen plattegrond, bijvoorbeeld a
 | "Deze ruimte zuigen" ontbreekt | Er moet een stofzuiger op de kaart staan (of gekozen zijn bij stap 5), en de ruimte moet aan een area hangen. Op oudere HA: vul de segmenten in bij stap 2. |
 | Menubalk in kiosk ontbreekt | Staat `?kiosk` achter het adres? Maak het dashboard opnieuw (stap 6) als het met een oudere versie gemaakt is. |
 | Oude versie na update | Ververs de browser met Ctrl+F5, of in de app: Instellingen → App-configuratie → Frontend-cache wissen. |
+| De radar-ring is veel te groot | Vul bij stap 2 de echte maat van een ruimte in, en bij een plafondsensor bij stap 4 de hoogte. Zet het icoon waar de sensor echt hangt. |
+| In 2.5D staat iets aan de verkeerde kant van een muur | Stuur een screenshot met de hoek erbij via een issue. Met het draaiknopje (45°-standen) ziet het er altijd goed uit. |
 
 Vragen of ideeën? Open een issue op [GitHub](https://github.com/trackerr/home-assistant-floorplan-studio/issues).

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b21';
+export const VERSION = '1.3.0b22';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -758,7 +758,8 @@ export function raisedSVG(plan, walls, proj) {
       const ph = pc.door ? wallH * 0.06 : h, key = Math.max(A[1], B[1]);
       const cls = pc.win ? 'w3 win3' : pc.door ? 'w3 door3' : `w3 ${w.kind}`;
       const ent = pc.ent ? ` data-entity="${esc(pc.ent)}"` : '';
-      parts.push({ key, svg: `<g class="${pc.ent ? 'opening ' : ''}${cls}"${ent}><polygon class="w3face" points="${pts([A, B, up(B, ph), up(A, ph)])}"/><line class="w3cap" x1="${A[0].toFixed(1)}" y1="${(A[1] + dz(ph)).toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${(B[1] + dz(ph)).toFixed(1)}" style="stroke-width:${((w.kind === 'outer' ? 8 : 4) * s).toFixed(1)}"/></g>` });
+      const top = Math.min(A[1], B[1]) + dz(ph);
+      parts.push({ key, wall: { hor, at: hor ? w.y1 : w.x1, lo: pc.lo, hi: pc.hi }, sb: [Math.min(A[0], B[0]) - 4, top - 4, Math.max(A[0], B[0]) + 4, key + 4], svg: `<g class="${pc.ent ? 'opening ' : ''}${cls}"${ent}><polygon class="w3face" points="${pts([A, B, up(B, ph), up(A, ph)])}"/><line class="w3cap" x1="${A[0].toFixed(1)}" y1="${(A[1] + dz(ph)).toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${(B[1] + dz(ph)).toFixed(1)}" style="stroke-width:${((w.kind === 'outer' ? 8 : 4) * s).toFixed(1)}"/></g>` });
     }
   }
   for (const f of plan.furniture || []) {
@@ -775,7 +776,25 @@ export function raisedSVG(plan, walls, proj) {
       if (nxs * ((p[0] + q[0]) / 2 - ccx) + nys * ((p[1] + q[1]) / 2 - ccy) < 0) { nxs = -nxs; nys = -nys; }
       if (nys > 0) sides.push(`<polygon class="f3side" points="${pts([p, q, up(q, hh), up(p, hh)])}"/>`);
     }
-    parts.push({ key: Math.max(...base.map((p) => p[1])), svg: `<g class="f3">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/><g transform="translate(0 ${dz(hh).toFixed(1)}) matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">${furnSVG(f)}</g></g>` });
+    const allp = [...base, ...top];
+    parts.push({ key: Math.max(...base.map((p) => p[1])), box: [safeNumber(f.x), safeNumber(f.y)], sb: [Math.min(...allp.map((p) => p[0])), Math.min(...allp.map((p) => p[1])), Math.max(...allp.map((p) => p[0])), Math.max(...allp.map((p) => p[1]))], svg: `<g class="f3">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/><g transform="translate(0 ${dz(hh).toFixed(1)}) matrix(${proj.m.map((v) => +v.toFixed(5)).join(' ')})">${furnSVG(f)}</g></g>` });
+  }
+  // a block against a wall: which side of that wall it stands on decides who is drawn first
+  // (comparing only how far forward things are goes wrong for a desk right behind a low wall)
+  const vx = proj.si, vy = proj.co;   // the direction towards the viewer, on the floor
+  const walls3 = parts.filter((p) => p.wall);
+  for (const b of parts.filter((p) => p.box)) {
+    let behind = -Infinity, front = Infinity;
+    for (const w of walls3) {
+      if (w.sb[0] > b.sb[2] || w.sb[2] < b.sb[0] || w.sb[1] > b.sb[3] || w.sb[3] < b.sb[1]) continue;   // not overlapping on screen
+      const { hor, at } = w.wall, side = hor ? b.box[1] - at : b.box[0] - at, view = hor ? vy : vx;
+      if (Math.abs(view) < 1e-3) continue;
+      if (side * view > 0) behind = Math.max(behind, w.key); else front = Math.min(front, w.key);
+    }
+    let k = b.key;
+    if (behind > -Infinity) k = Math.max(k, behind + 0.01);
+    if (front < Infinity && k >= front && front - 0.01 > behind) k = front - 0.01;
+    b.key = k;
   }
   parts.sort((p, q) => p.key - q.key);
   return `<g class="raised">${parts.map((p) => p.svg).join('')}</g>`;

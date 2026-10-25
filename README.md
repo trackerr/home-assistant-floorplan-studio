@@ -24,10 +24,13 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 
 ## What you get
 
-- **A real floorplan.** You draw rooms as rectangles. Walls are created automatically: outer walls where nothing borders a room, inner walls where rooms touch. You can then add doors and open passages, for example to an open kitchen.
+- **A real floorplan.** You draw rooms as rectangles. Walls are created automatically: outer walls where nothing borders a room, inner walls where rooms touch. You can then add doors, windows and open passages, plus furniture and stairs. Fill in the real width of one room and everything gets real sizes (metres, m², furniture in cm).
+- **2.5D.** One button tilts the plan: walls rise, furniture becomes blocks and icons hang at their height. Turn it in 45° steps or freely (right mouse button / Shift + drag, or twist two fingers), tilt it, zoom in. Every screen remembers its own view; also room by room on phones.
 - **Live data in every room.** Temperature and humidity come from the room's Home Assistant area, together with a count of how many lights are on. When a light is on, its room softly glows in that light's colour.
 - **Lights and devices on the map.** Lamps show as round icons that glow in their own colour. Other devices (climate, covers, media players, vacuums…) show as rounded squares with their state underneath.
-  - **Tap** to switch a device on or off. **Hold** to open the details.
+  - **Tap** to switch a device on or off. **Hold** for a quick menu with sliders (brightness, colour temperature, cover position, fan, volume, heating − / +) or Home Assistant's own dialog.
+  - Point at an icon to see its name and what it is doing; a TV that is on glows blue, a playing speaker sends out waves.
+  - A plain lamp on a smart plug can show as a lamp; a smart bulb on a smart switch shows as one lamp that switches the power.
   - **Cameras** can be placed too: tap one for a full-screen live view, then tap the picture to close it.
   - Smart plugs with a coloured lamp in them can be given a fixed glow colour.
 - **A dashboard, not just a map.** Next to the plan: a clock, the weather, one big *All off* button (or your own script, or a **smart button** that changes per part of the day: *Good morning*, *Coming home*, *Bedtime*, and *All off* while lights are on), quick buttons for scenes, an energy tile (solar, grid, price, solar today) and a short status list. On top: *Good afternoon · Home: Anna & Tom*.
@@ -35,8 +38,9 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 - **Soft light per lamp** in the lamp's own colour, tiled or wooden floors, and a compass.
 - **Room view.** Tap a room: the rest of the house fades away, the room zooms in and a side panel lists everything in its area. Or choose that a tap opens the room's **own page** (same look, with its own link).
 - **Temperature colours.** One tap on the thermometer colours every room from blue (cold) to red (warm).
-- **Presence.** Rooms with active motion/occupancy/presence sensors get a softly blinking motion icon next to their name; people tracked per room (Bermuda, ESPresense…) show as avatars.
-- **Alerts on the map.** Smoke, gas, CO or water leak: the room flashes red and a banner appears (also in kiosk). Open doors and windows turn the room orange.
+- **Presence.** Rooms with active motion/occupancy/presence sensors get a softly blinking motion icon next to their name, which fades back to grey over a few minutes after the last movement; people tracked per room (Bermuda, ESPresense…) show as avatars.
+- **mmWave radar.** Distance-only sensors (Tuya 24G, LD2410) draw a ring at the measured distance with their range; position sensors (LD2450) draw a dot per person. Ceiling height is taken into account.
+- **Alerts on the map.** Smoke, gas, CO or water leak: the room flashes red and a banner appears (also in kiosk). Open doors and windows turn the room orange, and a door or window linked to its sensor turns orange and dashed on the plan.
 - **Vacuum.** While it cleans, the vacuum icon drives over your plan to where the robot really is, with a trail (or show the vacuum's own live map instead), lined up with the background you traced. *Vacuum this room* in the room view uses `vacuum.clean_area` (or Roborock segment ids on older HA).
 - **Simple / All.** *Simple* only shows the devices that someone in the household actually operated in the last 14 days, by dashboard, app or voice assistant. Changes made by automations don't count. The list keeps adapting itself, and you can pin devices so they always show.
 - **Themes.** All are selectable from a dropdown in the card editor, or by everyone from the toolbar.
@@ -53,6 +57,9 @@ An interactive floorplan of your home for your Home Assistant dashboards. You dr
 - **Editor in the sidebar** (*Floorplan*). It walks you through six steps, and the plan is stored inside Home Assistant itself (`.storage`), so no YAML files are involved. Plans can be imported and exported as JSON.
 - **Full screen that stays.** ⛶ puts the whole page in full screen, hides Home Assistant's header and sidebar and shows a menu bar; switching tabs keeps you in full screen.
 - **Phones: room by room.** On a narrow screen the card shows a bar with your rooms: an overview with names and temperatures, or one room filling the width with big, easy-to-tap icons. Swipe for the next room; everything outside the room is dimmed. Tablets and PCs get the same view with the *Room by room* button in the toolbar (each device remembers its choice).
+- **Zoom and floors.** Pinch or Ctrl + scroll to zoom into the plan; floor tabs when a card shows several plans.
+- **Editor zoom.** Zoom into one room in the editor to place devices precisely. Settings fold away and only show when they matter.
+- **Starts fast.** The card registers at once and shows the last plan straight away while the fresh one loads. The editor can be hidden from the sidebar (integration options).
 - Works on tablets, wall panels and TVs too.
 
 ## Installation
@@ -121,6 +128,9 @@ compact: auto         # optional: auto (room by room below 560 px, see the plan 
 size: 90              # optional: the plan uses 90% of the width – a more compact page (overrides the plan setting)
 greeting: true        # optional: "Good afternoon · Home: …" instead of the title (default: on with side)
 home: true            # optional: show the start page (greeting, smart button, room tiles, energy) instead of the plan
+view: 2.5d            # optional: start in 2.5D (each screen can still switch and remembers its choice)
+rotation: 45          # optional: starting angle for 2.5D in degrees
+floors: true          # optional: floor tabs for every plan, or a list: [{ plan: home, name: Ground floor }, { plan: upstairs, name: First floor }]
 room: keuken          # optional: show only this room (room id, area id or name) – a "room page"
 room_pages: true      # set by Create dashboard: tapping a room may open its ruimte-<name> page
 nav:                  # optional menu bar, shown in kiosk (?kiosk in the address)

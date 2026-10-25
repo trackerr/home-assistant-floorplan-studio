@@ -1,6 +1,6 @@
 // Floorplan Studio – tiny starter. Home Assistant loads this first: it registers the cards at once
 // (so the dashboard never shows "configuration error" while waiting) and fetches the real card code.
-const IMPL = './floorplan-studio-card.js?v=1.3.0b21';
+const IMPL = './floorplan-studio-card.js?v=1.3.0b22';
 let loading = null;
 const load = () => (loading = loading || import(IMPL));
 load();   // start right away, before any card asks for it
