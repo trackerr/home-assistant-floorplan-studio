@@ -26,6 +26,10 @@
       "name": "Place a device",
       "description": "Moves a device on the floorplan to a spot described in plain words (also used by AI assistants).",
       "fields": {
+        "text": {
+          "name": "Sentence",
+          "description": "Instead of the fields below: one plain sentence, e.g. 'hang Kitchen lamp above the dining table at 1.8 m'. No AI needed."
+        },
         "device": {
           "name": "Device",
           "description": "Name or entity id of the device."

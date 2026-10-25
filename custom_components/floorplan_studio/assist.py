@@ -14,7 +14,7 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN, SIGNAL_PLAN_SAVED
-from .placement import describe, place
+from .placement import describe, parse_request, place
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +41,14 @@ async def async_place(hass: HomeAssistant, data: dict[str, Any]) -> tuple[bool, 
     plans = list(hass.data[DOMAIN]["plans"].plans.values())
     # work on a copy, so a request that fails halfway changes nothing
     copies = json.loads(json.dumps(plans))
+    if not data.get("device") and data.get("text"):
+        # a plain sentence, no AI needed: find the device and room in it
+        parsed = parse_request(hass, copies, data["text"])
+        nl = (hass.config.language or "en").startswith("nl")
+        if not parsed:
+            return False, ("Ik weet niet welk apparaat je bedoelt. Noem de naam zoals hij in Home Assistant heet, bijv. 'zet Keukenlamp boven de eettafel'."
+                           if nl else "I don't know which device you mean. Use its name as in Home Assistant, e.g. 'put Kitchen lamp above the dining table'.")
+        data = {**parsed, **{k: v for k, v in data.items() if k in ("height", "mount", "room") and v}}
     plan, msg = place(hass, copies, data["device"], data.get("room", ""), data.get("spot", ""), data.get("height"), data.get("mount"))
     if plan is None:
         return False, msg
@@ -102,7 +110,11 @@ async def async_setup(hass: HomeAssistant) -> None:
     async def _describe(call: ServiceCall) -> ServiceResponse:
         return describe(hass, list(hass.data[DOMAIN]["plans"].plans.values()))
 
-    hass.services.async_register(DOMAIN, "place_device", _place, schema=vol.Schema(PLACE_SCHEMA), supports_response=SupportsResponse.OPTIONAL)
+    service_schema = vol.Schema(vol.All(
+        {**{vol.Optional(k.schema if hasattr(k, "schema") else k): v for k, v in PLACE_SCHEMA.items()}, vol.Optional("text"): cv.string},
+        cv.has_at_least_one_key("device", "text"),
+    ))
+    hass.services.async_register(DOMAIN, "place_device", _place, schema=service_schema, supports_response=SupportsResponse.OPTIONAL)
     hass.services.async_register(DOMAIN, "describe", _describe, schema=vol.Schema({}), supports_response=SupportsResponse.ONLY)
     intent.async_register(hass, PlaceDeviceIntent())
     intent.async_register(hass, DescribeIntent())

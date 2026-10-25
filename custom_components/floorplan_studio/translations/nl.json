@@ -26,6 +26,10 @@
       "name": "Apparaat plaatsen",
       "description": "Zet een apparaat op de plattegrond op een plek die je in gewone woorden beschrijft (ook voor AI-assistenten).",
       "fields": {
+        "text": {
+          "name": "Zin",
+          "description": "In plaats van de velden hieronder: één gewone zin, bijv. 'hang Keukenlamp boven de eettafel op 1,8 m'. Geen AI nodig."
+        },
         "device": {
           "name": "Apparaat",
           "description": "Naam of entity id van het apparaat."

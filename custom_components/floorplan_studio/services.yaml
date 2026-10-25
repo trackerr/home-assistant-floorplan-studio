@@ -1,7 +1,10 @@
 place_device:
   fields:
+    text:
+      example: "hang Keukentafel 1 boven de eettafel op 1,8 m"
+      selector:
+        text:
     device:
-      required: true
       example: "Keukentafel 1"
       selector:
         text:

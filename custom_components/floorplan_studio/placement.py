@@ -161,7 +161,14 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
     if plan is None:
         return None, ("Er is nog geen plattegrond." if nl else "There is no floorplan yet.")
     item = next((i for i in plan.get("items", []) if i["entity_id"] == entity_id), None)
-    room = found[1] if found else (item and _room_of(plan, float(item.get("x", 0)), float(item.get("y", 0))))
+    room = found[1] if found else None
+    if room is None and spot:
+        # "boven de eettafel" without a room: the room that piece of furniture stands in
+        f = _find_furniture(plan, None, spot)
+        if f:
+            room = _room_of(plan, float(f.get("x", 0)), float(f.get("y", 0)))
+    if room is None and item:
+        room = _room_of(plan, float(item.get("x", 0)), float(item.get("y", 0)))
     if room is None:
         # no room given and the device is not on the plan yet: its Home Assistant area
         ent = er.async_get(hass).async_get(entity_id)
@@ -180,7 +187,8 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
     if furn:
         fx, fy = float(furn.get("x", 0)), float(furn.get("y", 0))
         beside = any(w in s for w in (" naast ", " next to ", " beside ", " bij ", " near ", " by "))
-        on = any(w in s for w in (" op ", " on ", " on top of "))
+        above = any(w in s for w in (" boven ", " above ", " over ", " hangend", " hanging"))
+        on = not above and any(w in s for w in (" op de ", " op het ", " op een ", " on top of ", " on the ", " on a "))
         if beside:
             # next to it, on the side towards the middle of the room
             half = max(float(furn.get("w", 100)), float(furn.get("h", 60))) / 2 + 0.3 * S
@@ -248,6 +256,52 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
     hs = f", {item['height']:.2f} m".replace(".", "," if nl else ".") if height is not None else ""
     msg = f"{name} staat nu in {room.get('name', '')} {where}{hs}." if nl else f"{name} is now in {room.get('name', '')} {where}{hs}."
     return plan, msg
+
+
+def parse_request(hass: HomeAssistant, plans: list[dict[str, Any]], text: str) -> dict[str, Any] | None:
+    """Understand a plain sentence without any AI: find the device and the room named in it; the rest is the spot.
+
+    "hang keukentafel 1 boven de eettafel op 1,8 m" -> device Keukentafel 1, room (from the furniture/area), spot "boven de eettafel op 1,8 m".
+    """
+    t = f" {_norm(text)} "
+    names: list[tuple[str, str]] = []
+    on_plan = {i["entity_id"] for p in plans for i in p.get("items", [])}
+    for plan in plans:
+        for it in plan.get("items", []):
+            if it.get("name"):
+                names.append((_norm(it["name"]), it["entity_id"]))
+    for st in hass.states.async_all():
+        fn = _norm(st.attributes.get("friendly_name") or "")
+        if fn and (st.entity_id in on_plan or st.domain in ("light", "switch", "sensor", "binary_sensor", "media_player", "climate", "cover", "fan", "camera", "lock", "vacuum")):
+            names.append((fn, st.entity_id))
+        names.append((_norm(st.entity_id), st.entity_id))
+    # the longest name that appears as whole words in the sentence (devices on the plan win a tie)
+    best = None
+    for n, eid in names:
+        if len(n) < 2 or f" {n} " not in t:
+            continue
+        key = (len(n), eid in on_plan)
+        if best is None or key > best[0]:
+            best = (key, n, eid)
+    if not best:
+        return None
+    rest = t.replace(f" {best[1]} ", " ", 1)
+    room_text = ""
+    for plan in plans:
+        for room in plan.get("rooms", []):
+            rn = _norm(room.get("name", ""))
+            if rn and f" {rn} " in rest and len(rn) > len(room_text):
+                room_text = rn
+    if not room_text:
+        areas = ar.async_get(hass)
+        for plan in plans:
+            for room in plan.get("rooms", []):
+                area = room.get("area_id") and areas.async_get_area(room["area_id"])
+                for n in ([area.name] + list(area.aliases or [])) if area else []:
+                    if _norm(n) and f" {_norm(n)} " in rest and len(_norm(n)) > len(room_text):
+                        room_text = _norm(n)
+    # the spot keeps every word (a room can share its name with furniture: "Eettafel")
+    return {"device": best[2], "room": room_text, "spot": rest.strip()}
 
 
 def describe(hass: HomeAssistant, plans: list[dict[str, Any]]) -> dict[str, Any]:
