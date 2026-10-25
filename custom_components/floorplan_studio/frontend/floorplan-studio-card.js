@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b3';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b3';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b4';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b4';
 
 
 const CSS = `
@@ -600,7 +600,8 @@ class FloorplanStudioCard extends HTMLElement {
    */
   _place(el, it, st) {
     const p = this._proj, under = p ? furnAt(this._plan, it.x, it.y) : null, own = it.height != null && it.height !== '';
-    const hm = !p ? 0 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
+    // a hanging lamp over the dining table hangs well above it (on its cord), other things just above
+    const hm = !p ? 0 : under && !own ? furnHeight(under) + (ceilingMount(it, st) === 'hanging' ? 0.85 : 0.35) : itemHeight(it, st);
     [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
     el._hm = hm;
     if (!p) return;
@@ -634,7 +635,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b3');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b4');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }

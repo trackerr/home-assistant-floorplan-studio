@@ -1,9 +1,9 @@
 // Floorplan Studio – walk through your own home (first person, WebGL).
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
-  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp,
+  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b3';
+} from './fps-core.js?v=1.4.0b4';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -534,7 +534,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
       // what kind of lamp: on the ceiling, hanging over a table, standing on the floor, on a table or desk, or a strip/other
       const strip = lampKind ? stripPath(it) : null;
-      const lampType = !lampKind ? null : strip ? 'strip' : ceil ? 'ceiling'
+      const mount = lampKind ? ceilingMount(it, st) : null;
+      const lampType = !lampKind ? null : strip ? 'strip' : mount === 'hanging' ? 'pendant' : ceil ? 'ceiling'
         : /vloer|staand|floor|standing|stalamp/i.test(label) ? 'floor'
           : under && ['table', 'round', 'island'].includes(under.type) && !own ? 'pendant'
             : /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i.test(label) || (under && !own) ? 'table'
@@ -542,7 +543,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       let h;
       if (own) h = itemHeight(it, st);
       else if (lampType === 'ceiling') h = H - 0.12;
-      else if (lampType === 'pendant') h = furnHeight(under) + 0.85;
+      else if (lampType === 'pendant') h = under ? furnHeight(under) + 0.85 : itemHeight(it, st);
       else if (lampType === 'floor') h = 1.5;
       else if (lampType === 'table') h = (under ? furnHeight(under) : 0.75) + 0.3;
       else h = under ? furnHeight(under) + 0.35 : itemHeight(it, st);

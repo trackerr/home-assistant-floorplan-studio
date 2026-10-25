@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Hanglampen**: *Plafondlamp? → Ja, hangend* met een eigen hoogte; plafondlamp-icoon, in 2.5D en de wandeling aan een snoer op die hoogte.
 - **Ledstrips als lijn**: bij stap 4 een lamp als lijn tekenen (punt voor punt, 45° of vrij, met lengtes in meters). Gloeit op de kaart in de kleur van de lamp, ook in 2.5D en de wandeling.
 - **Bewerken in de wandeling**: apparaten slepen en hun hoogte aanpassen, ledstrips op de muur tekenen, meubels slepen, draaien en weghalen; opslaan of annuleren.
 - Wandeling: apparaten in hun eigen ruimte, echte lampen (plafond, hanglamp, staande lamp, tafellamp), en nooit meer door muren lopen.

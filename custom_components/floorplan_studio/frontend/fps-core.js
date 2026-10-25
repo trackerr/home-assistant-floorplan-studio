@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b3';
+export const VERSION = '1.4.0b4';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -756,11 +756,20 @@ export function pathMid(path) {
  */
 const CEIL_RE = /plafond|ceiling|hanglamp|hanglight|pendant|spot|downlight|inbouw|kroonluchter|chandelier|lustre|deckenl|plafonnier/i;
 export function isCeilingLamp(it, st) {
+  if (it.ceiling === 'hanging') return true;
   if (it.ceiling === true || it.ceiling === false) return it.ceiling;
   const d = it.entity_id.split('.')[0];
   if (!(d === 'light' || it.kind === 'lamp')) return false;
   if (/ceiling/.test(it.icon || st?.attributes?.icon || '')) return true;
   return CEIL_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
+}
+/** A ceiling lamp hanging on a cord (its own height) or flat against the ceiling: 'hanging', 'flush' or null. */
+const HANG_RE = /hanglamp|hanglight|pendant|pendel|hanging|kroonluchter|chandelier/i;
+export function ceilingMount(it, st) {
+  if (it.ceiling === 'hanging') return 'hanging';
+  if (!isCeilingLamp(it, st)) return null;
+  if (it.ceiling === true) return 'flush';
+  return HANG_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`) ? 'hanging' : 'flush';
 }
 /**
  * How high a device sits, in metres, for the 2.5D view: its own height (step 4) or a sensible one
@@ -769,6 +778,7 @@ export function isCeilingLamp(it, st) {
 export function itemHeight(it, st) {
   if (it.height != null && it.height !== '' && Number.isFinite(+it.height)) return Math.max(0, +it.height);
   if (it.radar?.height) return +it.radar.height;
+  if (ceilingMount(it, st) === 'hanging') return 2.0;   // a lamp on a cord hangs lower than one against the ceiling
   const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
   if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(dc)) return 2.3;
   return { light: 2.2, fan: 2.3, cover: 2.0, camera: 2.3, climate: 1.5, sensor: 1.5, binary_sensor: 1.4, lock: 1.1, switch: 1.0, input_boolean: 1.0, media_player: 1.0, vacuum: 0, lawn_mower: 0 }[d] ?? 1.0;
