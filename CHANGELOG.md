@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Meer vanzelf herkend**, met een eigen model in de wandeling: knopdrukker (Fingerbot, SwitchBot Bot) op de lichtschakelaar, IR-hub / universele afstandsbediening (Harmony, Broadlink, IR-ontvanger), alarmbasis (Eufy HomeBase, Ajax…) en sirene (rood, gloeit als hij gaat). Een bedsensor wordt *bed bezet* in plaats van een bewegingsmelder.
+- Apparatenoverzicht: de Zigbee2MQTT/Z-Wave-bridge en Frigate-zones (detecties van een camera) staan er niet meer in; een wasmachine of droger met alleen status-entiteiten wel. Een als meubel getekende vaatwasser, wasmachine of droger telt als *op de kaart*, en tikken op een ontbrekende zet hem als meubel in zijn ruimte (gekoppeld aan zijn status).
 - Projectiescherm: *open* (of een hogere stand) is nu uitgerold, dicht/0 % opgerold — zoals de meeste schermmotoren het melden. Werkt het bij jou andersom, kies dan bij stap 4 *Projectiescherm: open betekent* → *Opgerold*.
 - Eigen 3D-model: breedte, diepte en hoogte werken nu altijd (in de editor en in de wandeling); het model vult precies de maat die je geeft. Na het uploaden of kiezen nemen diepte en hoogte vanzelf de verhouding van het model aan; de knop *Eigen verhouding* zet ze later weer terug.
 - **Hologramfan (P56) toont wat hij speelt**: zijn beeld-entiteit (bijv. `image.…_shown`) hoort vanzelf bij de fan. In de wandeling staat het beeld op de draaiende schijf (zwart = doorzichtig, zoals een echte hologramfan; gedimd als hij uit staat), op de kaart wordt het icoon dat beeld zolang hij aan staat. Tik op de fan (niet meer aan/uit): het beeld groot, de clip die speelt, een andere clip kiezen, afspelen/pauze en aan/uit. Werkt voor elk apparaat met een beeld-entiteit dat als hologramfan herkend wordt.

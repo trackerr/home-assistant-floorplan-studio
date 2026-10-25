@@ -4,10 +4,10 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b53';
+} from './fps-core.js?v=1.4.0b54';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
-const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
+const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
   en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', coffee: 'Coffee table', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camera wall', dishwasher: 'Dishwasher', washer: 'Washing machine', dryer: 'Dryer', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', model: '3D model', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
@@ -727,7 +727,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
        */
       const drawThing = (k, lit) => {
         const fr = wallFrame(room, px, pz), near = !fr.free && fr.d < 0.45, u = near ? [fr.ux, fr.uz] : [1, 0], n = near ? [fr.nx, fr.nz] : [0, 1];
-        const kh = { '3dprinter': 0.25, syncbox: 0.03, kettle: 0.12, coffee: 0.18, nas: 0.1, router: 0.04, printer: 0.15, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03, tree: 0.9 }[k];
+        const kh = { irhub: 0.03, alarmhub: 0.05, '3dprinter': 0.25, syncbox: 0.03, kettle: 0.12, coffee: 0.18, nas: 0.1, router: 0.04, printer: 0.15, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03, tree: 0.9 }[k];
         let base = kh != null ? Math.max(0, h - kh) : 0; const glow = lit ? markers : fixtures, GLW = lit ? [1, 1, 1] : [0.85, 0.85, 0.8];
         // an upright box: centre (cx, cz), a0..a1 along the wall, d0..d1 out from it
         const ob = (cx, cz, a0, a1, d0, d1, y0, y1, col, mesh = fixtures) => mesh.prism([[cx + u[0] * a0 + n[0] * d0, cz + u[1] * a0 + n[1] * d0], [cx + u[0] * a1 + n[0] * d0, cz + u[1] * a1 + n[1] * d0], [cx + u[0] * a1 + n[0] * d1, cz + u[1] * a1 + n[1] * d1], [cx + u[0] * a0 + n[0] * d1, cz + u[1] * a0 + n[1] * d1]], y0, y1, col);
@@ -809,6 +809,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         if (k === 'nas') { const [cx, cz] = at(0.23); ob(cx, cz, -0.05, 0.05, -0.115, 0.115, base, base + 0.17, DK); for (let i = 0; i < 3; i++) ob(cx, cz, -0.035 + i * 0.03, -0.025 + i * 0.03, 0.115, 0.118, base + 0.13, base + 0.14, [0.3, 0.75, 0.4]); set([cx, base + 0.09, cz], 0.15, base + 0.35); return [cx, base, cz]; }
         if (k === 'router') { const [cx, cz] = at(0.16); ob(cx, cz, -0.12, 0.12, -0.08, 0.08, base, base + 0.035, WH); for (const a0 of [-0.1, -0.035, 0.035, 0.1]) ob(cx, cz, a0 - 0.006, a0 + 0.006, -0.085, -0.075, base + 0.035, base + 0.2, DK); set([cx, base + 0.08, cz], 0.18, base + 0.4); return [cx, base, cz]; }
         if (k === 'printer') { const [cx, cz] = at(0.4); ob(cx, cz, -0.22, 0.22, -0.2, 0.2, base, base + 0.3, [0.3, 0.3, 0.32]); ob(cx, cz, -0.18, 0.18, 0.2, 0.32, base + 0.08, base + 0.1, [0.85, 0.85, 0.86]); set([cx, base + 0.15, cz], 0.3, base + 0.5); return [cx, base, cz]; }
+        // a universal remote / IR hub (Harmony, Broadlink): a small dark puck with a blue light
+        if (k === 'irhub') { const [cx, cz] = at(0.12); fixtures.prism(circle(cx, cz, 0.055, 14), base, base + 0.03, DK); glow.prism(circle(cx, cz, 0.012, 8), base + 0.03, base + 0.033, [0.4, 0.6, 1]); set([cx, base + 0.02, cz], 0.12, base + 0.25); return [cx, base + 0.03, cz]; }
+        // an alarm base station (Eufy HomeBase, Ajax hub...): a white box with a light ring on top
+        if (k === 'alarmhub') { const [cx, cz] = at(0.14); ob(cx, cz, -0.07, 0.07, -0.07, 0.07, base, base + 0.05, WH); glow.prism(circle(cx, cz, 0.04, 14), base + 0.05, base + 0.054, lit ? [1, 1, 1] : [0.35, 0.75, 0.45]); set([cx, base + 0.03, cz], 0.13, base + 0.28); return [cx, base + 0.05, cz]; }
+        // a button pusher (Fingerbot, SwitchBot Bot): a little box on the wall switch
+        if (k === 'fingerbot') { const [cx, cz] = [wallP[0], wallP[1]]; ob(cx, cz, -0.022, 0.022, 0, 0.03, h - 0.02, h + 0.02, WH); ob(cx, cz, -0.008, 0.008, 0.03, 0.036, h - 0.012, h + 0.004, DK); set([cx + n[0] * 0.03, h, cz + n[1] * 0.03], 0.08, h + 0.2); return [cx, h, cz]; }
+        // a siren: a red dome on the wall, glowing while it sounds
+        if (k === 'siren') { const [cx, cz] = [wallP[0], wallP[1]], on = st?.state === 'on'; ob(cx, cz, -0.06, 0.06, 0, 0.02, h - 0.06, h + 0.06, WH); for (let i = 0; i < 4; i++) ob(cx, cz, -0.045 + i * 0.008, 0.045 - i * 0.008, 0.02 + i * 0.012, 0.032 + i * 0.012, h - 0.045 + i * 0.008, h + 0.045 - i * 0.008, on ? [1, 0.25, 0.2] : [0.7, 0.12, 0.1], on ? markers : fixtures); set([cx + n[0] * 0.05, h, cz + n[1] * 0.05], 0.1, h + 0.25); return [cx, h, cz]; }
         if (k === 'syncbox') { fixtures.box(px - 0.08, pz - 0.05, px + 0.08, pz + 0.05, base, base + 0.03, DK); set([px, base + 0.02, pz], 0.12, base + 0.25); return [px, base, pz]; }
         if (k === 'screen') {
           const [cx, cz] = [wallP[0], wallP[1]], down = screenDown(it, st), W = 0.9;

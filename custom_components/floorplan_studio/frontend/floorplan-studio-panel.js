@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b53';
+import './floorplan-studio-card.js?v=1.4.0b54';
 import {
   VERSION, isScreenLabel, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b53';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b53';
+} from './fps-core.js?v=1.4.0b54';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b54';
 
 const L = {
   en: {
@@ -740,7 +740,7 @@ class FloorplanStudioPanel extends HTMLElement {
     return `<div class="card idx">
       <p class="hint">${l.idx_hint}</p>
       ${groups.map(([k, title, list]) => `<details ${k !== 'model' ? 'open' : ''} style="margin-top:6px"><summary style="cursor:pointer"><b style="display:inline">${title}</b> (${list.length})</summary>
-        <div class="list">${list.map((r) => `<div class="li" ${k === 'missing' && roomFor(r) ? `data-additem="${esc(r.entity_id)}" data-room="${esc(roomFor(r).id)}"` : ''} title="${esc(r.entity_id)}"><ha-state-icon data-sid="${esc(r.entity_id)}"></ha-state-icon><span>${esc(r.name)}<small style="display:block;opacity:.7">${esc([r.area, r.what].filter(Boolean).join(' · '))}</small></span>${k === 'missing' && roomFor(r) ? `<small>+ ${l.add}</small>` : ''}</div>`).join('') || `<p class="hint">${l.idx_none}</p>`}</div></details>`).join('')}
+        <div class="list">${list.map((r) => `<div class="li" ${k === 'missing' && roomFor(r) ? (['dishwasher', 'washer', 'dryer'].includes(r.what) ? `data-idxfurn="${r.what}" data-room="${esc(roomFor(r).id)}"` : `data-additem="${esc(r.entity_id)}" data-room="${esc(roomFor(r).id)}"`) : ''} title="${esc(r.entity_id)}"><ha-state-icon data-sid="${esc(r.entity_id)}"></ha-state-icon><span>${esc(r.name)}<small style="display:block;opacity:.7">${esc([r.area, r.what].filter(Boolean).join(' · '))}</small></span>${k === 'missing' && roomFor(r) ? `<small>+ ${l.add}</small>` : ''}</div>`).join('') || `<p class="hint">${l.idx_none}</p>`}</div></details>`).join('')}
       ${groups[1][2].length ? `<p class="hint">${l.idx_icon_tip}</p>` : ''}
     </div>`;
   }
@@ -1356,6 +1356,12 @@ class FloorplanStudioPanel extends HTMLElement {
     $('#autoplace').addEventListener('click', () => this.mut((pl) => this.autoPlace(pl)));
     $('#wledauto')?.addEventListener('click', () => this.autoWled());
     $('#idxbtn')?.addEventListener('click', () => { this._showIdx = !this._showIdx; this.render(); });
+    // a washing machine, dryer or dishwasher becomes furniture in its room (it finds its status entity itself)
+    $$('[data-idxfurn]').forEach((el) => el.addEventListener('click', () => this.mut((pl) => {
+      const r = this.room(el.dataset.room), [x0, y0, x1, y1] = roomBBox(r), t = el.dataset.idxfurn, ft = FURN_TYPES[t], sc = planScale(pl) || 70;
+      const f = { id: uid('f'), type: t, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2), w: Math.round((ft.w / 100) * sc), h: Math.round((ft.h / 100) * sc), rot: 0 };
+      pl.furniture = [...(pl.furniture || []), f];
+    })));
     $$('[data-additem]').forEach((el) => el.addEventListener('click', () => this.mut((pl) => {
       const r = this.room(el.dataset.room), [x0, y0, x1, y1] = roomBBox(r);
       pl.items.push({ entity_id: el.dataset.additem, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2) });

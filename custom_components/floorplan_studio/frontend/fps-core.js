@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b53';
+export const VERSION = '1.4.0b54';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1079,6 +1079,9 @@ const PLUG_RE = /plug|stekker|stopcontact|outlet|socket|\bwcd\b|tasmota|shelly ?
  * 'router', 'printer', 'screen' (projection screen), 'thermo' (thermometer display), 'doorbell', 'syncbox'.
  */
 const APPLIANCES = [
+  ['fingerbot', /fingerbot|switchbot ?bot|button ?pusher|knopdrukker/i],
+  ['irhub', /harmony|broadlink|ir ?blaster|ir.?hub|ir.?receiver|ir.?remote|smart ?ir\b|universal ?remote|sensibo/i],
+  ['alarmhub', /homebase|home ?base|alarm ?hub|base ?station|ajax ?hub|ring ?alarm|t80[13]0/i],
   ['3dprinter', /bambu|prusa|creality|elegoo|anycubic|voron|(x1c|x1e|p1s|p1p|a1 ?mini|h2d)|3d.?print/i],
   ['holofan', /holoscope|hologram|pov.?fan|p56/i],
   ['tree', /kerstboom|christmas ?tree|xmas ?tree|weihnachtsbaum/i],
@@ -1272,16 +1275,22 @@ export function deviceKind(it, st, hass) {
   if (d === 'humidifier') return 'purifier';
   if (d === 'fan') return PURIFIER_RE.test(t) ? 'purifier' : CEILFAN_RE.test(t) ? 'ceiling_fan' : 'fan';
   if (d === 'switch' && (a.device_class === 'outlet' || PLUG_RE.test(t))) return 'plug';
+  if (d === 'siren') return 'siren';
+  if (d === 'alarm_control_panel') return 'alarmhub';
+  if (d === 'remote') return 'irhub';
+  // a bed sensor (pressure strip under the mattress): whether the bed is taken, not movement in the room
+  if (d === 'binary_sensor' && ['occupancy', 'presence', 'pressure', 'motion'].includes(a.device_class) && /\bbed\b|bed[_ -]?(bezet|occup|sensor|presence)|\bfsr\b|matras|mattress/i.test(t)) return 'bedsensor';
   if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(a.device_class)) return 'motion';
   return null;
 }
 /** Where such a device usually is, in metres above the floor (when you did not give it a height). */
 const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3,
   '3dprinter': 0.25, holofan: 1.7, tree: 0.9, syncbox: 0.03, hood: 1.75, kettle: 0.12, coffee: 0.18, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03,
-  inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35, pixeldisplay: 1.6 };
+  inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35, pixeldisplay: 1.6,
+  fingerbot: 1.1, irhub: 0.03, alarmhub: 0.05, siren: 2.3, bedsensor: 0.5 };
 /** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
-const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer'];
-export const KIND_ICON = { '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
+const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer', 'irhub', 'alarmhub'];
+export const KIND_ICON = { fingerbot: 'mdi:gesture-tap-button', irhub: 'mdi:remote', alarmhub: 'mdi:shield-home', siren: 'mdi:alarm-light', bedsensor: 'mdi:bed', '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
   coffee: 'mdi:coffee-maker', dishwasher: 'mdi:dishwasher', washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', powerstrip: 'mdi:power-socket-eu', inverter: 'mdi:solar-power',
   nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video', pixeldisplay: 'mdi:dots-grid',
   vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
@@ -1331,19 +1340,28 @@ export function deviceIndex(plan, hass, lang = 'nl') {
   const PRIO = ['light', 'camera', 'climate', 'cover', 'media_player', 'vacuum', 'fan', 'lock', 'humidifier', 'water_heater', 'valve', 'lawn_mower', 'switch', 'remote', 'siren', 'alarm_control_panel', 'binary_sensor', 'sensor'];
   const SKIP_PLATFORMS = ['mobile_app', 'buienradar', 'met', 'template', 'group', 'energy', 'energyzero', 'time_date', 'sun', 'forecast_solar', 'min_max', 'threshold', 'utility_meter', 'statistics', 'derivative', 'integration', 'battery_sim', 'proximity', 'multiscrape', 'postnl', 'seventeentrack', 'rdw', 'twentemilieu', 'nmap_tracker', 'spook', 'hacs', 'hassio', 'adguard', 'google', 'person', 'zone'];
   const byDev = new Map();
+  // a washing machine or dryer often has only status/diagnostic entities: those count for it
+  const APP_DEV = /vaatwasser|afwasmachine|dishwasher|sp[üu]lmaschine|(?<!af)wasmachine|washing ?machine|\bwasher\b|waschmaschine|(?<!filament )droger|\bdryer\b|trockner/i;
+  const camDevs = new Set(Object.values(ents).filter((e) => e.entity_id.startsWith('camera.') && e.device_id).map((e) => e.device_id));
   for (const [id, e] of Object.entries(ents)) {
-    if (!states[id] || e.entity_category || e.hidden || !DOM.includes(id.split('.')[0])) continue;
+    if (!states[id] || e.hidden || !DOM.includes(id.split('.')[0])) continue;
     if (SKIP_PLATFORMS.includes(e.platform)) continue;
     const dev = e.device_id ? hass.devices?.[e.device_id] : null;
+    if (e.entity_category && !APP_DEV.test(`${dev?.name_by_user || dev?.name || ''} ${id}`)) continue;
     if (dev?.entry_type === 'service') continue;
+    // the system itself (the Zigbee or Z-Wave bridge), and Frigate's zones (detections of a camera, not a thing in the house)
+    if (/zigbee2mqtt|z-?wave ?js|matter ?server|zha ?coordinator/i.test(`${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name || ''}`) || /permit_join/.test(id)) continue;
+    if (e.platform === 'frigate' && !camDevs.has(e.device_id)) continue;
     const k = e.device_id || `loose:${id}`;
     if (!byDev.has(k)) byDev.set(k, []);
     byDev.get(k).push(id);
   }
+  // appliances you drew as furniture (dishwasher, washer, dryer): their linked entity's device is on the plan
+  const drawnApp = applianceAbsorbs(plan, hass), drawnDev = new Set([...drawnApp].map((id) => ents[id]?.device_id).filter(Boolean));
   const rows = [];
   for (const [k, ids] of byDev) {
     const dev = hass.devices?.[k] || null;
-    const placedIds = ids.filter((id) => onPlan.has(id) || openingEnt.has(id) || roomRefs.has(id) || rads.byEntity.has(id));
+    const placedIds = ids.filter((id) => onPlan.has(id) || openingEnt.has(id) || roomRefs.has(id) || rads.byEntity.has(id) || drawnApp.has(id) || drawnDev.has(k));
     const primary = placedIds.find((id) => onPlan.has(id)) || placedIds[0] || [...ids].sort((a, b) => PRIO.indexOf(a.split('.')[0]) - PRIO.indexOf(b.split('.')[0]))[0];
     const it = onPlan.get(primary) || { entity_id: primary, x: 0, y: 0 }, st = states[primary], dom = primary.split('.')[0], dc = st?.attributes?.device_class;
     let what = '', model = false;
