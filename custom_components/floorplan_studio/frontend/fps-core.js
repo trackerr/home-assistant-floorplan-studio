@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b37';
+export const VERSION = '1.4.0b38';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1000,7 +1000,7 @@ const APPLIANCES = [
   ['3dprinter', /bambu|prusa|creality|elegoo|anycubic|voron|(x1c|x1e|p1s|p1p|a1 ?mini|h2d)|3d.?print/i],
   ['holofan', /holoscope|hologram|pov.?fan|p56/i],
   ['tree', /kerstboom|christmas ?tree|xmas ?tree|weihnachtsbaum/i],
-  ['syncbox', /sync ?box|hdmi ?sync|ambilight ?box|hue ?sync/i],
+  ['syncbox', /sync ?box|hdmi ?sync|ambilight ?box|hue ?sync/i],   // only when there is no TV drawn to light (then it is that TV's ambilight)
   ['hood', /afzuigkap|dampkap|cooker ?hood|range ?hood|extractor ?hood|dunstabzug/i],
   ['kettle', /waterkoker|kettle|wasserkocher/i],
   ['coffee', /koffie|coffee|espresso|senseo|nespresso|dolce ?gusto|kaffee/i],
@@ -1079,7 +1079,7 @@ export const isHeating = (st) => !!st && (st.attributes?.hvac_action === 'heatin
  * A light behind a TV (ambilight, a WLED strip called "TV"): the TV furniture it lights, or null.
  * Only when it is not drawn as its own line and stands within 2 m of a TV you drew (it.ambilight: false = never).
  */
-const AMBI_RE = /\btv\b|ambilight|ambi|achter ?(de )?tv|tv ?back|bias ?light|hyperion|hyperhdr/i;
+const AMBI_RE = /\btv\b|ambilight|ambi|achter ?(de )?tv|tv ?back|bias ?light|hyperion|hyperhdr|sync ?box|hdmi ?sync|hue ?sync|gradient ?lightstrip/i;
 export function ambilightTv(plan, it, st) {
   if (it.ambilight === false || it.entity_id.split('.')[0] !== 'light' || stripPath(it)) return null;
   if (it.link) { const f = (plan.furniture || []).find((x) => x.id === it.link); return f?.type === 'tv' ? f : null; }

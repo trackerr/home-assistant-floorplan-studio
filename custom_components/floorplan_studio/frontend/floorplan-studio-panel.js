@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b37';
+import './floorplan-studio-card.js?v=1.4.0b38';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex,
-} from './fps-core.js?v=1.4.0b37';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b37';
+} from './fps-core.js?v=1.4.0b38';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b38';
 
 const L = {
   en: {
@@ -1253,7 +1253,11 @@ class FloorplanStudioPanel extends HTMLElement {
     $('#ilink')?.addEventListener('change', (ev) => this.mut(() => {
       const v = ev.target.value;
       if (it.entity_id.startsWith('media_player.')) { if (v === 'none') it.tvlink = false; else if (v) it.tvlink = v; else delete it.tvlink; }
-      else if (v) it.link = v; else delete it.link;
+      else if (v) {
+        it.link = v;
+        // linked to a TV or speaker boxes: it is drawn as their light, not as its own line
+        if (v !== 'none') { delete it.path; if (it.shape === 'strip') delete it.shape; }
+      } else delete it.link;
     }));
     $('#iheight').addEventListener('change', (ev) => this.mut((pl) => { const v0 = parseFloat(String(ev.target.value).replace(',', '.')), v = v0 > 6 ? v0 / 100 : v0; if (setLinkedTvHeight(pl, this._hass, it, v >= 0 && ev.target.value !== '' ? v : null)) return; if (v >= 0 && ev.target.value !== '') it.height = Math.round(v * 100) / 100; else delete it.height; }));
     $$('details.sec').forEach((d) => d.addEventListener('toggle', () => { this._secOpen = this._secOpen || {}; this._secOpen[d.dataset.sec] = d.open; }));
