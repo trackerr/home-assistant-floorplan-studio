@@ -1,6 +1,6 @@
 // Floorplan Studio – tiny starter. Home Assistant loads this first: it registers the cards at once
 // (so the dashboard never shows "configuration error" while waiting) and fetches the real card code.
-const IMPL = './floorplan-studio-card.js?v=1.3.0b23';
+const IMPL = './floorplan-studio-card.js?v=1.3.0b24';
 let loading = null;
 const load = () => (loading = loading || import(IMPL));
 load();   // start right away, before any card asks for it
@@ -36,8 +36,17 @@ function stand(tag, impl, size) {
     }
   });
 }
-stand('floorplan-studio-card', 'floorplan-studio-card-impl', 9);
-stand('floorplan-studio-nav', 'floorplan-studio-nav-impl', 0);
+const register = () => {
+  stand('floorplan-studio-card', 'floorplan-studio-card-impl', 9);
+  stand('floorplan-studio-nav', 'floorplan-studio-nav-impl', 0);
+};
+register();
+// Home Assistant can swap its element registry while it starts, which drops what was registered before;
+// check a few times (cheap) and register again in the new one
+let tries = 0;
+const again = setInterval(() => { register(); if (++tries > 100) clearInterval(again); }, 100);
+load().then(register).catch(() => {});
+window.addEventListener('load', register);
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((c) => c.type === 'floorplan-studio-card')) {
