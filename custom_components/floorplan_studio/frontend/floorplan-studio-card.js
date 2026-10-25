@@ -1,11 +1,11 @@
 // Floorplan Studio card – live floorplan with lights, devices, room zoom and themes.
 import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
-  PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
+  PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b24';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b24';
+} from './fps-core.js?v=1.3.0b25';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b25';
 
 
 const CSS = `
@@ -1351,9 +1351,8 @@ class FloorplanStudioCard extends HTMLElement {
       b.classList.toggle('active', on);
       if (on) b.parentElement.scrollTo({ left: b.offsetLeft - (b.parentElement.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' });
     });
-    const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
     this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && el.dataset.room !== room.id));
-    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
+    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && this._itemRoom(rec.it) !== room);
     this._ghost(room);
     this._compactLayout();
     this._compactUpdate(true);
@@ -1424,6 +1423,26 @@ class FloorplanStudioCard extends HTMLElement {
    * Room view: the room is isolated (everything else dims away), zoomed into the left part of
    * the card, and a side panel shows the room's data and everything in its area.
    */
+  /**
+   * The room a device belongs to: the room of its Home Assistant area; without an area, the room
+   * most of its icon stands in (an icon on a wall goes to the side it mostly sits on).
+   */
+  _itemRoom(it) {
+    const plan = this._plan, area = entityArea(this._hass, it.entity_id);
+    if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
+    const half = safeNumber(plan.width, 1000) * 0.0145;
+    let best = null, most = 0;
+    for (const r of plan.rooms) {
+      let a = 0;
+      for (const q of r.rects) {
+        const [x0, y0, x1, y1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])];
+        a += Math.max(0, Math.min(x1, it.x + half) - Math.max(x0, it.x - half)) * Math.max(0, Math.min(y1, it.y + half) - Math.max(y0, it.y - half));
+      }
+      if (a > most) { most = a; best = r; }
+    }
+    return best;
+  }
+
   get _canMove() { return this._isAdmin && !this.planOverride; }
   /** "Move icons" on/off; a zoomed-in room stays zoomed in. */
   _toggleMove() { this._moving = !this._moving; this._build(); }
@@ -1472,9 +1491,8 @@ class FloorplanStudioCard extends HTMLElement {
     this._stage.style.setProperty('--k', k);
     this._card.classList.toggle('pmin', !!room && !!this._panelMin);
     this.shadowRoot.querySelectorAll('.rinfo').forEach((el) => el.classList.toggle('cur', !!room && el.dataset.room === room.id));
-    const inside = (x, y) => room && room.rects.some((q) => { const [a0, b0, a1, b1] = [Math.min(q[0], q[2]), Math.min(q[1], q[3]), Math.max(q[0], q[2]), Math.max(q[1], q[3])]; return x >= a0 && x <= a1 && y >= b0 && y <= b1; });
     this.shadowRoot.querySelectorAll('.floor, .glow').forEach((el) => el.classList.toggle('dim', !!room && el.dataset.room !== room.id));
-    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && !inside(rec.it.x, rec.it.y));
+    for (const rec of this._items.values()) rec.el.classList.toggle('out', !!room && this._itemRoom(rec.it) !== room);
     this._ghost(room);
     // the room's text moves to the side panel while zoomed (.zoomed .rinfo hides it)
   }
