@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.3.0b14';
+import './floorplan-studio-card.js?v=1.3.0b15';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight,
-} from './fps-core.js?v=1.3.0b14';
-import { buildDashboard } from './fps-dashboard.js?v=1.3.0b14';
+} from './fps-core.js?v=1.3.0b15';
+import { buildDashboard } from './fps-dashboard.js?v=1.3.0b15';
 
 const L = {
   en: {
@@ -1064,7 +1064,7 @@ class FloorplanStudioPanel extends HTMLElement {
 
   mountPreview($) {
     const p = this.plan;
-    const card = document.createElement('floorplan-studio-card');
+    const card = document.createElement('floorplan-studio-card-impl');
     card.planOverride = p;   // live preview of the unsaved plan and settings
     card.setConfig({ plan: p.id, show_theme_toggle: false });
     card.hass = this._hass;

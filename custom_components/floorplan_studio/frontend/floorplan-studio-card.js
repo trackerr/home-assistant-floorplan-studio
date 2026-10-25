@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b14';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b14';
+} from './fps-core.js?v=1.3.0b15';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b15';
 
 
 const CSS = `
@@ -1907,11 +1907,10 @@ class FloorplanStudioCardEditor extends HTMLElement {
   }
 }
 
-if (!customElements.get('floorplan-studio-card')) {
-  customElements.define('floorplan-studio-card', FloorplanStudioCard);
+// the real card; dashboards use custom:floorplan-studio-card, which the small starter (fps-loader.js) fills with this
+if (!customElements.get('floorplan-studio-card-impl')) {
+  customElements.define('floorplan-studio-card-impl', FloorplanStudioCard);
   customElements.define('floorplan-studio-card-editor', FloorplanStudioCardEditor);
-  customElements.define('floorplan-studio-nav', FloorplanStudioNav);
-  window.customCards = window.customCards || [];
-  window.customCards.push({ type: 'floorplan-studio-card', name: 'Floorplan Studio', description: 'Interactive floorplan with live lights, devices and room zoom.', preview: false, documentationURL: 'https://github.com/trackerr/home-assistant-floorplan-studio' });
+  customElements.define('floorplan-studio-nav-impl', FloorplanStudioNav);
   console.info(`%c FLOORPLAN-STUDIO %c ${VERSION} `, 'background:#f2a541;color:#111;font-weight:700', 'background:#151b24;color:#eee');
 }

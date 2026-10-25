@@ -117,7 +117,7 @@ if (q.get('view') === 'panel') {
 } else {
   await import('../../custom_components/floorplan_studio/frontend/floorplan-studio-card.js');
   wrap.style.width = W + 'px';
-  el = document.createElement('floorplan-studio-card');
+  el = document.createElement('floorplan-studio-card-impl');
   const cfg = { plan: 'voorbeeldhuis', theme: q.get('theme') || 'warm', show_theme_toggle: q.get('toggle') === '1' };
   if (q.get('mode')) cfg.mode = q.get('mode');
   if (q.get('room')) cfg.room = q.get('room');
