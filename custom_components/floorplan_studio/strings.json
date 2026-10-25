@@ -9,5 +9,16 @@
     "abort": {
       "already_configured": "Floorplan Studio is already installed."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Floorplan Studio",
+        "description": "Choose whether the Floorplan editor is in the sidebar. The floorplan card on your dashboards always keeps working. Hidden? Then open the editor at the address /floorplan-studio.",
+        "data": {
+          "show_in_sidebar": "Show Floorplan in the sidebar"
+        }
+      }
+    }
   }
 }

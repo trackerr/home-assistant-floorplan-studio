@@ -9,5 +9,16 @@
     "abort": {
       "already_configured": "Floorplan Studio is al geïnstalleerd."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Floorplan Studio",
+        "description": "Kies of de Floorplan-editor in de zijbalk staat. De plattegrondkaart op je dashboards blijft altijd werken. Verborgen? Dan open je de editor via het adres /floorplan-studio.",
+        "data": {
+          "show_in_sidebar": "Floorplan in de zijbalk laten zien"
+        }
+      }
+    }
   }
 }

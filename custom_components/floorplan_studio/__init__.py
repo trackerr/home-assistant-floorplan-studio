@@ -62,12 +62,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_COMPONENT,
-        sidebar_title="Floorplan",
-        sidebar_icon="mdi:floor-plan",
+        # hidden from the sidebar when the user chose so in the options; still reachable at /floorplan-studio
+        sidebar_title="Floorplan" if entry.options.get("show_in_sidebar", True) else None,
+        sidebar_icon="mdi:floor-plan" if entry.options.get("show_in_sidebar", True) else None,
         module_url=f"{STATIC_URL}/{PANEL_FILE}?v={VERSION}",
         require_admin=True,
         config={"version": VERSION},
     )
+
+    # changing the options (sidebar on/off) reloads the integration
+    entry.async_on_unload(entry.add_update_listener(_options_changed))
 
     async def _backfill(_=None) -> None:
         await usage.async_backfill()
@@ -77,6 +81,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _backfill)
     return True
+
+
+async def _options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
