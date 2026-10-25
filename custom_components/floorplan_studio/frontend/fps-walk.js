@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b47';
+} from './fps-core.js?v=1.4.0b48';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -472,7 +472,7 @@ button ha-icon { --mdc-icon-size: 22px; }
  * Open the walk-through on top of the page. host = the card (for more-info and toggling).
  * Returns { setHass, close }.
  */
-export function openWalk(host, { plan: original, hass, onClose, canEdit = false, loop = false }) {
+export function openWalk(host, { plan: original, hass, onClose, canEdit = false, loop = false, tour = false }) {
   let plan = JSON.parse(JSON.stringify(original));   // changes stay here until you press Save
   const lang = ((hass?.locale?.language || hass?.language || 'en').slice(0, 2) === 'nl') ? 'nl' : 'en', T = TXT[lang];
   const wrap = document.createElement('div');
@@ -1275,7 +1275,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     const start = ent?.room || rooms.slice().sort((a, b) => area(b) - area(a))[0].id;
     // visit every room: go deeper first, and walk back through the doors when needed
     const order = [], seen = new Set();
-    const visit = (r) => { seen.add(r); order.push(r); for (const e of graph.edges) { const n = e.a === r ? e.b : e.b === r ? e.a : null; if (n && !seen.has(n)) visit(n); } };
+    // from each room: first through open passages (the room flows on), then through doors, nearest first
+    const centre = (id) => graph.spot.get(id) || [0, 0];
+    const visit = (r) => {
+      seen.add(r); order.push(r);
+      const next = graph.edges.map((e) => ({ e, n: e.a === r ? e.b : e.b === r ? e.a : null })).filter((x) => x.n && !x.e.ghost)
+        .sort((x, y) => (x.e.door ? 1 : 0) - (y.e.door ? 1 : 0) || Math.hypot(centre(x.n)[0] - centre(r)[0], centre(x.n)[1] - centre(r)[1]) - Math.hypot(centre(y.n)[0] - centre(r)[0], centre(y.n)[1] - centre(r)[1]));
+      for (const { n } of next) if (!seen.has(n)) visit(n);
+      for (const e of graph.edges) { const n = e.a === r ? e.b : e.b === r ? e.a : null; if (n && !seen.has(n)) visit(n); }   // rooms only joined by a shared wall
+    };
     visit(start);
     for (const r of rooms) if (!seen.has(r.id)) visit(r.id);
     if (ent) { cam.x = ent.inside[0]; cam.z = ent.inside[1]; cam.yaw = Math.atan2(ent.inside[0] - ent.outside[0], ent.inside[1] - ent.outside[1]); }
@@ -1283,6 +1291,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     route = [];
     let cur = start, px = cam.x, pz = cam.z;
     for (const id of order) {
+      // the room you start in: look around where you came in (no walking to the back and turning round)
+      if (id === start && ent) { route.push({ x: cam.x, z: cam.z, look: true, lookYaw: cam.yaw, room: id }); continue; }
       const r = rooms.find((x) => x.id === id), sp = nav?.spot(r) || { x: graph.spot.get(id)[0], z: graph.spot.get(id)[1], look: 0 };
       const way = pathTo(px, pz, sp.x, sp.z);
       if (!way) continue;   // no door into this room drawn: skip it rather than walk through a wall
@@ -2155,7 +2165,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   }
 
   buildAll();
-  startTour();
+  if (tour || loop) startTour();
+  else {
+    // just looking: stand in the start room (step 5, else the biggest) with a view over it, and stay there
+    const rooms = plan.rooms || [], want = plan.settings?.walk_start, r = rooms.find((x) => x.id === want) || rooms.slice().sort((a, b) => area(b) - area(a))[0];
+    const sp = r ? nav?.spot(r) : null;
+    if (sp) { cam.x = sp.x; cam.z = sp.z; cam.yaw = sp.look; }
+    route = []; tourDone = true; setTouring(false);
+  }
   showRoom(roomOf(cam.x, cam.z));
   lastRoom = roomOf(cam.x, cam.z)?.id || null;
   setTimeout(() => { const hEl = $('.hint'); if (hEl) hEl.style.opacity = '0'; }, 7000);

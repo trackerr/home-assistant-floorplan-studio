@@ -1,11 +1,11 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b47';
+export const VERSION = '1.4.0b48';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
   en: {
-    simple: 'Simple', all: 'All', none_mode: 'None', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
+    simple: 'Simple', all: 'All', none_mode: 'None', walk_tour: 'Tour through your home', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
     lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
     loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
     on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
@@ -17,7 +17,7 @@ const STR = {
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
-    simple: 'Eenvoudig', all: 'Alles', none_mode: 'Geen', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
+    simple: 'Eenvoudig', all: 'Alles', none_mode: 'Geen', walk_tour: 'Rondleiding door je huis', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
     lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
     loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
     on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
