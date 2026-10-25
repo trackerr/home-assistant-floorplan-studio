@@ -74,7 +74,8 @@ customElements.define('ha-state-icon', HaStateIcon);
 if (!customElements.get('ha-card')) customElements.define('ha-card', class extends HTMLElement { connectedCallback() { this.style.display = 'block'; } });
 
 const q = new URLSearchParams(location.search);
-const plan = await (await fetch('../../examples/voorbeeldhuis.json')).json();
+// ?file=name loads examples/name.json instead (e.g. your own exported plan, only on your computer)
+const plan = await (await fetch(`../../examples/${(new URLSearchParams(location.search).get('file') || 'voorbeeldhuis').replace(/[^\w-]/g, '')}.json`)).json();
 // the editor only keeps PNG/JPEG backgrounds (it converts uploads itself), so turn the demo's SVG map into a PNG first
 async function pngFrom(url, w, h) {
   const img = new Image(); img.src = url; await img.decode();
