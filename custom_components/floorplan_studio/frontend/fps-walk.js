@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON,
-} from './fps-core.js?v=1.4.0b24';
+} from './fps-core.js?v=1.4.0b25';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -491,6 +491,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   };
 
   let editing = false, sel = null, stripDraft = null, stripY = 1, aimFor = null, menu = null, openMode = null;
+  let lastVP = null;
   let obstacles = [], clocks = [], tvFurn = new Map(), clockBuf = null, clockSec = -1;
   let world, graph, nav, buf = {}, lamps = [], items = [], doorSig = '';
   const S = planScale(plan) || 70, M = (v) => v / S;
@@ -683,6 +684,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       iconsEl.appendChild(el);
       if (sel?.type === 'item' && sel.id === it.entity_id) el.classList.add('sel');
       if (tvf) rec.hidden = true;   // the TV furniture itself is the TV
+      if (ringN) rec.hideWalk = true;   // the clock on the wall is the clock (its icon only shows while editing)
       items.push(rec);
     }
     for (const [k, m] of [['markers', markers], ['fixtures', fixtures]]) { if (buf[k]) gl.deleteBuffer(buf[k].b); buf[k] = m.v.length ? upload(m) : null; }
@@ -923,6 +925,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     }
     if (!tap) return;
     if (infoIt) { infoIt = null; $('.sheet').classList.remove('show'); return; }
+    // a tap on a wall clock: the clock's own buttons
+    for (const ck of lastVP ? clocks : []) {
+      const r0 = canvas.getBoundingClientRect(), x = ck.fr.cx, y = ck.h, z = ck.fr.cz;
+      const cxp = lastVP[0] * x + lastVP[4] * y + lastVP[8] * z + lastVP[12], cyp = lastVP[1] * x + lastVP[5] * y + lastVP[9] * z + lastVP[13], cw = lastVP[3] * x + lastVP[7] * y + lastVP[11] * z + lastVP[15];
+      if (cw <= 0.1) continue;
+      const sx = ((cxp / cw + 1) / 2) * r0.width + r0.left, sy = ((1 - cyp / cw) / 2) * r0.height + r0.top, rad = Math.max(24, (0.18 / cw) * r0.height);
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < rad) { showInfo(ck.it); return; }
+    }
     const hitF = pickFurniture(ev.clientX, ev.clientY);
     if (hitF && tvFurn.has(hitF.f.id)) { showInfo(tvFurn.get(hitF.f.id)); return; }   // the TV: what it plays, and its buttons
     // walking (the tour, or on the way somewhere): a click stops right here; standing still: a click walks there
@@ -1391,6 +1401,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     const eye = [cam.x, eyeY(), cam.z], f = fwd();
     const VP = mul(perspective(fov, w / h, 0.05, 200), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
     gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
+    lastVP = VP;
     gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);
     gl.uniform1f(U.uAmb, 0.24 + 0.36 * day); gl.uniform1f(U.uSun, 0.38 * day); gl.uniform3fv(U.uSunDir, nrm([0.45, 0.8, 0.35]));
     // the lamps that are on, nearest first
@@ -1436,7 +1447,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     // the icons on top, where their device is (hidden behind walls)
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     for (const I of items) {
-      if (I.hidden) { if (I.el.style.display !== 'none') I.el.style.display = 'none'; continue; }
+      if (I.hidden || (I.hideWalk && !editing)) { if (I.el.style.display !== 'none') I.el.style.display = 'none'; continue; }
       const [x, y, z] = I.P, dist = Math.hypot(x - cam.x, z - cam.z, y - eye[1]);
       const cx = VP[0] * x + VP[4] * y + VP[8] * z + VP[12], cy = VP[1] * x + VP[5] * y + VP[9] * z + VP[13], cwv = VP[3] * x + VP[7] * y + VP[11] * z + VP[15];
       // the room you are in, plus anything close by in the next room (keeps it calm)
