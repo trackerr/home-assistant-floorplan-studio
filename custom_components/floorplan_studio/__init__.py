@@ -12,7 +12,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from . import websocket
+from . import assist, websocket
 from .const import (
     CARD_FILE,
     DOMAIN,
@@ -71,6 +71,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config={"version": VERSION},
     )
 
+    # actions and AI-assistant tools: "put the kitchen lamp above the dining table"
+    await assist.async_setup(hass)
+
     # changing the options (sidebar on/off) reloads the integration
     entry.async_on_unload(entry.add_update_listener(_options_changed))
 
@@ -90,6 +93,7 @@ async def _options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload the integration."""
+    assist.async_unload(hass)
     data = hass.data.pop(DOMAIN, None)
     if data:
         data["usage"].async_unload()

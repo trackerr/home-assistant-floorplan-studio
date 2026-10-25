@@ -20,5 +20,48 @@
         }
       }
     }
+  },
+  "services": {
+    "place_device": {
+      "name": "Place a device",
+      "description": "Moves a device on the floorplan to a spot described in plain words (also used by AI assistants).",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Name or entity id of the device."
+        },
+        "room": {
+          "name": "Room",
+          "description": "Room or area on the floorplan (empty = the room it is in now, or its area)."
+        },
+        "spot": {
+          "name": "Spot",
+          "description": "Where in the room, e.g. 'above the dining table', 'next to the sofa', 'left wall', 'top right corner', 'middle'."
+        },
+        "height": {
+          "name": "Height",
+          "description": "Metres above the floor (for 2.5D and the walk-through)."
+        },
+        "mount": {
+          "name": "Mounting",
+          "description": "Ceiling lamp, hanging lamp, on a wall, on the floor or on a table."
+        }
+      }
+    },
+    "describe": {
+      "name": "Describe the floorplan",
+      "description": "Returns rooms, furniture and devices with their positions in metres."
+    }
+  },
+  "selector": {
+    "mount": {
+      "options": {
+        "ceiling": "Against the ceiling",
+        "hanging": "Hanging (pendant)",
+        "wall": "On a wall",
+        "floor": "On the floor",
+        "table": "On a table"
+      }
+    }
   }
 }

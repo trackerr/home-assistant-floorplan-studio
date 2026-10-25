@@ -1,7 +1,7 @@
 """Constants for Floorplan Studio."""
 
 DOMAIN = "floorplan_studio"
-VERSION = "1.4.0b4"
+VERSION = "1.4.0b5"
 REPO_URL = "https://github.com/trackerr/home-assistant-floorplan-studio"
 
 STORAGE_KEY = "floorplan_studio.plans"
@@ -13,6 +13,8 @@ CARD_FILE = "fps-loader.js"   # tiny starter; it loads floorplan-studio-card.js
 PANEL_FILE = "floorplan-studio-panel.js"
 PANEL_URL_PATH = "floorplan-studio"
 PANEL_COMPONENT = "floorplan-studio-panel"
+
+SIGNAL_PLAN_SAVED = "floorplan_studio_plan_saved"
 
 DEFAULT_USAGE_DAYS = 14
 USAGE_KEEP_DAYS = 60

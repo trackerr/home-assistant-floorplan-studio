@@ -1,0 +1,30 @@
+place_device:
+  fields:
+    device:
+      required: true
+      example: "Keukentafel 1"
+      selector:
+        text:
+    room:
+      example: "Keuken"
+      selector:
+        text:
+    spot:
+      example: "boven de eettafel"
+      selector:
+        text:
+    height:
+      example: 1.8
+      selector:
+        number:
+          min: 0
+          max: 6
+          step: 0.05
+          unit_of_measurement: m
+          mode: box
+    mount:
+      selector:
+        select:
+          options: [ceiling, hanging, wall, floor, table]
+          translation_key: mount
+describe:

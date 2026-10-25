@@ -9,8 +9,9 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
-from .const import DEFAULT_USAGE_DAYS, DOMAIN
+from .const import DEFAULT_USAGE_DAYS, DOMAIN, SIGNAL_PLAN_SAVED
 
 
 def _data(hass: HomeAssistant) -> dict[str, Any]:
@@ -23,6 +24,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save)
     websocket_api.async_register_command(hass, ws_delete)
     websocket_api.async_register_command(hass, ws_usage)
+    websocket_api.async_register_command(hass, ws_subscribe)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/plans"})
@@ -63,6 +65,7 @@ async def ws_save(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     """Create or update a floorplan (admins only)."""
     plan = await _data(hass)["plans"].async_save_plan(msg["plan"])
     hass.bus.async_fire("floorplan_studio_updated", {"plan_id": plan["id"]})
+    async_dispatcher_send(hass, SIGNAL_PLAN_SAVED, plan)
     connection.send_result(msg["id"], {"plan": plan})
 
 
@@ -94,3 +97,16 @@ def ws_usage(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
             "tracking_days": round((time.time() - tracker.since) / 86400, 1),
         },
     )
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/subscribe"})
+@callback
+def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Tell open cards when a plan changed elsewhere (another screen, an assistant, an action)."""
+
+    @callback
+    def _saved(plan: dict[str, Any]) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], {"plan_id": plan.get("id"), "updated": plan.get("updated")}))
+
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_PLAN_SAVED, _saved)
+    connection.send_result(msg["id"])

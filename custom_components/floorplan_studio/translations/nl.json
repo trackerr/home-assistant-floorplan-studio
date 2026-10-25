@@ -20,5 +20,48 @@
         }
       }
     }
+  },
+  "services": {
+    "place_device": {
+      "name": "Apparaat plaatsen",
+      "description": "Zet een apparaat op de plattegrond op een plek die je in gewone woorden beschrijft (ook voor AI-assistenten).",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Naam of entity id van het apparaat."
+        },
+        "room": {
+          "name": "Ruimte",
+          "description": "Ruimte of area op de plattegrond (leeg = de ruimte waar het nu staat, of zijn area)."
+        },
+        "spot": {
+          "name": "Plek",
+          "description": "Waar in de ruimte, bijv. 'boven de eettafel', 'naast de bank', 'linker muur', 'rechtsboven in de hoek', 'midden'."
+        },
+        "height": {
+          "name": "Hoogte",
+          "description": "Meter boven de vloer (voor 2.5D en de wandeling)."
+        },
+        "mount": {
+          "name": "Montage",
+          "description": "Plafondlamp, hanglamp, aan de muur, op de vloer of op een tafel."
+        }
+      }
+    },
+    "describe": {
+      "name": "Plattegrond beschrijven",
+      "description": "Geeft ruimtes, meubels en apparaten met hun plek in meters."
+    }
+  },
+  "selector": {
+    "mount": {
+      "options": {
+        "ceiling": "Tegen het plafond",
+        "hanging": "Hangend (hanglamp)",
+        "wall": "Aan de muur",
+        "floor": "Op de vloer",
+        "table": "Op een tafel"
+      }
+    }
   }
 }

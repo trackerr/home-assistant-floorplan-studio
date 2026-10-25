@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b4';
+export const VERSION = '1.4.0b5';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1224,7 +1224,20 @@ export function safeSvgId(value) {
 
 /* ------------------------------------------------------------ data api */
 let plansCache = null;
+// plans changed somewhere else (another screen, an AI assistant, the place_device action): reload the cards
+let plansSub = null;
+const ownSaves = new Set();
+function watchPlans(hass) {
+  if (plansSub || !hass?.connection?.subscribeMessage) return;
+  plansSub = hass.connection.subscribeMessage((ev) => {
+    if (ev?.updated != null && ownSaves.has(ev.updated)) return;   // our own save: already shown
+    plansCache = null;
+    window.__fpsPlansRev = (window.__fpsPlansRev || 0) + 1;
+    window.dispatchEvent(new CustomEvent('fps-plans-changed', { detail: null }));
+  }, { type: 'floorplan_studio/subscribe' }).catch(() => { plansSub = null; });
+}
 export async function loadPlans(hass, force = false) {
+  watchPlans(hass);
   if (!plansCache || force) {
     plansCache = hass.connection.sendMessagePromise({ type: 'floorplan_studio/plans' }).then((r) => r.plans).catch((e) => { plansCache = null; throw e; });
   }
@@ -1232,6 +1245,7 @@ export async function loadPlans(hass, force = false) {
 }
 export async function savePlan(hass, plan) {
   const r = await hass.connection.sendMessagePromise({ type: 'floorplan_studio/plan/save', plan });
+  if (r.plan?.updated != null) { ownSaves.add(r.plan.updated); if (ownSaves.size > 20) ownSaves.delete(ownSaves.values().next().value); }
   plansCache = null;
   window.__fpsPlansRev = (window.__fpsPlansRev || 0) + 1;   // cards that are not on screen now catch up when they come back
   window.dispatchEvent(new CustomEvent('fps-plans-changed', { detail: r.plan }));
