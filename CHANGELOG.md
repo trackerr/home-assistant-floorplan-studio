@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- AI-hulp werkt met elke AI-assistent, zonder tools of functies in te stellen: de assistent krijgt de plattegrond en antwoordt met een lijstje verplaatsingen dat de integratie uitvoert.
+- Ledstrip langs de muur van twee ruimtes blijft in de wandeling heel (elk stuk net binnen de dichtstbijzijnde ruimte).
 - Wandeling: zoomen met Ctrl + scrollwiel of knijpen (de ruimte, niet de iconen); gewoon scrollen = stapje vooruit/achteruit.
 - **WLED automatisch instellen** (stap 4): leest leds, segmenten en matrix van elke WLED uit en deelt een getekende strip over de segmenten, zet strips zonder lijn langs de muur, en ziet WLED nooit als plafondlamp.
 - Wandeling, bewerken: een apparaat slepen gaat in één richting per keer (opzij = over de vloer, omhoog/omlaag = hoogte).

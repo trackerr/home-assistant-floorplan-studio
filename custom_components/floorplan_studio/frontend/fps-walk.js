@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b12';
+} from './fps-core.js?v=1.4.0b13';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -507,6 +507,17 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     }
     return best;
   }
+  /** A point on a wall line, moved just inside whichever room is nearest (for LED strips along walls). */
+  function nearestInside(x, z, inset) {
+    let best = [x, z], bd = Infinity;
+    for (const r of plan.rooms || []) for (const q of r.rects.map(norm)) {
+      const x0 = M(q[0]) + inset, z0 = M(q[1]) + inset, x1 = M(q[2]) - inset, z1 = M(q[3]) - inset;
+      if (x1 < x0 || z1 < z0) continue;
+      const cx = Math.max(x0, Math.min(x, x1)), cz = Math.max(z0, Math.min(z, z1)), dd = Math.hypot(cx - x, cz - z);
+      if (dd < bd) { bd = dd; best = [cx, cz]; }
+    }
+    return bd < 0.5 ? best : [x, z];
+  }
   /** The nearest point inside a room, at least `inset` metres from its walls. */
   function insideRoom(room, x, z, inset) {
     let best = [x, z], bd = Infinity;
@@ -548,7 +559,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         if (lampType === 'strip') {
           // an LED strip: a thin glowing band along the drawn line, lighting the room at a few points along it
           // a strip drawn on a wall line runs just in front of that wall, inside its own room
-          const pts = strip.map(([sx, sy]) => (room ? insideRoom(room, M(sx), M(sy), 0.13) : [M(sx), M(sy)])), tw = 0.014;
+          // (per point the nearest room: a strip along the wall of two rooms stays whole)
+          const pts = strip.map(([sx, sy]) => nearestInside(M(sx), M(sy), 0.13)), tw = 0.014;
           for (let i = 1; i < pts.length; i++) {
             const [ax, az] = pts[i - 1], [bx, bz] = pts[i], L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw;
             markers.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], h - 0.012, h + 0.012, [1, 1, 1]);
