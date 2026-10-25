@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b15';
+} from './fps-core.js?v=1.4.0b16';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -11,8 +11,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -781,6 +781,13 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       return;
     }
     if (!tap) return;
+    // walking (the tour, or on the way somewhere): a click stops right here; standing still: a click walks there
+    if (route.length) {
+      if (touring) pausedTour = route;
+      route = [];
+      setTouring(false);
+      return;
+    }
     const r = canvas.getBoundingClientRect(), nx = ((ev.clientX - r.left) / r.width) * 2 - 1, ny = 1 - ((ev.clientY - r.top) / r.height) * 2;
     const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(fov / 2), tx = ty * (r.width / r.height);
     const dir = [f[0] + right[0] * nx * tx + up[0] * ny * ty, f[1] + right[1] * nx * tx + up[1] * ny * ty, f[2] + right[2] * nx * tx + up[2] * ny * ty];

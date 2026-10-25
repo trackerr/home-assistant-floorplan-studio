@@ -310,6 +310,7 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
 - De **rondleiding** begint vanzelf: bij de voordeur naar binnen, dan ruimte voor ruimte, door de deuren, om meubels heen. In elke ruimte kijkt hij even rond. Bovenin zie je de naam van de ruimte met temperatuur, vocht en hoeveel lampen er aan zijn.
 - **Zoomen:** Ctrl + scrollwiel (of knijpen op touchpad of telefoon) zoomt de ruimte in en uit; de iconen blijven even groot. Gewoon scrollen = een stapje vooruit of achteruit.
 - **Zelf rondkijken:** slepen. **Lopen:** tik op de vloer waar je heen wilt (hij loopt om muren en meubels heen), of gebruik de pijltjes of W A S D (Shift = sneller). Op een telefoon kun je ook de knoppen **Lopen** en terug ingedrukt houden. Tik op het kaartje rechtsboven om daarheen te lopen.
+- **Klik = stoppen:** loop je (rondleiding, of op weg naar een plek), dan stopt een klik je meteen waar je bent. Sta je stil, dan loop je met een klik op de vloer daarheen.
 - Zodra je zelf iets doet, pauzeert de rondleiding; met **Verder** gaat hij door waar hij was.
 - **Iconen** van de ruimte waar je bent (en wat dichtbij is) hangen op hun plek; tik op een lamp of schakelaar om hem aan of uit te zetten.
 - Een deur met een sensor staat open of dicht zoals hij echt is. Ramen zijn glas met een kozijn; je kijkt naar buiten.
