@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b36';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b36';
+} from './fps-core.js?v=1.4.0b37';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b37';
 
 
 const CSS = `
@@ -61,6 +61,7 @@ const CSS = `
   .item.onfurn .bub { opacity: 0; } .item.onfurn .tag { display: none; } .item.onfurn:hover .bub { opacity: .35; }
   svg.plan .tvglows polygon { fill: rgba(80, 160, 255, .7); filter: url(#fps-stripblur); pointer-events: none; }
   svg.plan .tvglows polygon.ambi { opacity: .5; stroke-width: 6; }
+  svg.plan .tvglows polygon.ambi.frame { fill: none; opacity: .9; stroke-width: 7; stroke-linejoin: round; }
   .item.ringclock .bub { padding: 0; } .item.ringclock .ring { width: 100%; height: 100%; display: block; }
   .item.ringclock .ring circle { fill: currentColor; opacity: .25; } .item.ringclock.on .bub { background: rgba(10, 12, 16, .85); color: #ddd; }
   .item.ringclock .ring circle.h { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.6px; } .item.ringclock .ring circle.m { fill: rgb(var(--c, 255, 120, 60)); opacity: 1; r: 1.25px; } .item.ringclock .ring circle.s { fill: #fff; opacity: .9; }
@@ -712,7 +713,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b36');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b37');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -840,6 +841,14 @@ class FloorplanStudioCard extends HTMLElement {
       const st = h.states[it.entity_id];
       if (!isOn(st)) continue;
       const c = this._ambiCol?.[it.entity_id] || lightColor(st) || '255,190,110', r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2 + 14, d = Math.max(safeNumber(f.h, 12), 10) / 2 + 14, fx = safeNumber(f.x), fy = safeNumber(f.y);
+      if (p && f.type === 'tv') {
+        // 2.5D: a standing frame of light all round the screen
+        const [s0, s1] = tvScreen(f, planScale(plan) || 70, plan), k = p.sc * p.lift, hw = safeNumber(f.w, 100) / 2 + 3;
+        const at = (u, z) => p.P(fx + u * Math.cos(r), fy + u * Math.sin(r), z * k);
+        const fr = [at(-hw, s0 - 0.04), at(hw, s0 - 0.04), at(hw, s1 + 0.04), at(-hw, s1 + 0.04)];
+        out.unshift(`<polygon class="ambi frame" style="stroke:rgb(${c})" points="${fr.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
+        continue;
+      }
       const z = p ? ((tvScreen(f, planScale(plan) || 70, plan)[0] + tvScreen(f, planScale(plan) || 70, plan)[1]) / 2) * p.sc * p.lift : 0;
       const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
       out.unshift(`<polygon class="ambi" style="fill:rgb(${c});stroke:rgb(${c})" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);

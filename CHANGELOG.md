@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
-- **WLED-ambilight live** rond de tv: met 4 segmenten worden dat links, boven, rechts en onder (zoals je naar de tv kijkt), elk met zijn eigen leds live; anders verdeeld over de randen. Op de kaart gloeit de tv in de gemiddelde kleur. Uit of offline = gewoon de tv.
+- **WLED-ambilight live** rond de tv: met 4 segmenten worden dat links, boven, rechts en onder (zoals je naar de tv kijkt), elk met zijn eigen leds live; anders verdeeld over de randen. Op de kaart gloeit de tv in de gemiddelde kleur; in 2.5D als een lijst van licht rondom het scherm. Uit of offline = gewoon de tv.
 - **Hoort bij** (stap 4): een lamp koppel je zelf aan een tv (ambilight, ook een HDMI-syncbox) of aan speakerboxen; een mediaspeler aan een getekende tv. Automatisch koppelen gebeurt alleen nog binnen dezelfde ruimte, en een syncbox telt nooit als speakerbox.
 - Wandeling: alles aan de muur (matrix, thermostaat, wandlampen, deurbel, klok, airco…) hangt nu op het muuroppervlak in plaats van in een dikke buitenmuur. Een WLED-matrix toont zijn pixels (uit = een zacht raster); het licht van een live WLED knippert niet meer tussen zijn ingestelde kleur en de live kleur.
 - **Apparatenoverzicht** (stap 4): elk apparaat in Home Assistant en wat Floorplan Studio ervan maakt — op de kaart en herkend, op de kaart met alleen een icoon, of nog niet op de kaart (tik = in zijn eigen ruimte zetten). Telefoons, diensten en losse data (weer, prijzen, templates) laat hij weg; hetzelfde apparaat via een tweede integratie telt niet dubbel.
