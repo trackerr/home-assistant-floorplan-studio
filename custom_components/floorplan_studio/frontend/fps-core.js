@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b40';
+export const VERSION = '1.4.0b41';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -826,6 +826,8 @@ export function ownHeight(it) {
   return v > 6 ? v / 100 : v;
 }
 /** A drawn LED strip: its points (plan units), or null when the lamp is just an icon. */
+/** The top of a standing strip or a frame (it.strip_dir 'up' / 'frame'), in metres; the bottom is its height. */
+export const stripTop = (it) => (Number.isFinite(+it?.top) && it.top !== '' && it.top != null ? Math.min(+it.top, WALL_H) : Math.min((ownHeight(it) ?? 1) + 0.6, WALL_H));
 export const stripPath = (it) => (it?.shape === 'strip' && Array.isArray(it.path) && it.path.length >= 2 ? it.path.map(([x, y]) => [safeNumber(x), safeNumber(y)]) : null);
 /** Length of a line through these points, and the point halfway along it. */
 export function pathLength(path) { let L = 0; for (let i = 1; i < path.length; i++) L += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); return L; }
@@ -1474,7 +1476,13 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
     case 'coffee': return [...legs(0.36, Math.min(5, Math.min(w, h) * 0.08)), R(0, 0, w, h, 0.36, 0.42), R(5, 5, w - 5, h - 5, 0.08, 0.11)];
     case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft')];
     case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)];
-    case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
+    case 'cabinet': {
+      // a cupboard, optionally on legs (f.legs in metres): the body starts above them
+      // (the model is stretched to the cupboard's height afterwards, so the legs are given in model units)
+      const lg = Math.max(0, Math.min(1.5, safeNumber(f.legs, 0))) / (furnStretch(f) || 1), t = Math.min(4, w * 0.1, h * 0.15);
+      if (!lg) return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
+      return [...[[t, t], [w - 2 * t, t], [w - 2 * t, h - 2 * t], [t, h - 2 * t]].map(([a, b2]) => R(a, b2, a + t, b2 + t, 0, lg, 'dark')), R(0, 0, w, h, lg, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, lg + 0.05, 1.95, 'dark')];
+    }
     case 'sink': return [...(onTop ? [] : [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)]), R(w * 0.12, h * 0.25, w * 0.88, h * 0.88, 0.9, 0.902, 'dark'), C(0, y0 + h * 0.13, 3, 3, 0.9, 1.15, 'dark')];
     case 'hob': return [...(onTop ? [] : [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)]), R(0, 0, w, h, 0.9, 0.912, 'dark'),
       ...[0, 1].flatMap((i) => [0, 1].map((j) => C(x0 + w * (0.28 + i * 0.44), y0 + h * (0.28 + j * 0.44), Math.min(w, h) * 0.15, Math.min(w, h) * 0.15, 0.912, 0.914, 'soft')))];
@@ -1612,8 +1620,13 @@ function stripsSVG(plan, proj) {
     if (!sp) continue;
     let pts = sp, w = 1;
     if (proj) {
-      const z = Math.min(ownHeight(it) ?? itemHeight(it, null), WALL_H - 0.05) * proj.sc * proj.lift;
-      pts = sp.map(([x, y]) => proj.P(x, y, z)); w = proj.s;
+      const z = Math.min(ownHeight(it) ?? itemHeight(it, null), WALL_H - 0.05) * proj.sc * proj.lift, zt = stripTop(it) * proj.sc * proj.lift;
+      if (it.strip_dir === 'frame') { const a = sp[0], b = sp[sp.length - 1]; pts = [proj.P(a[0], a[1], z), proj.P(a[0], a[1], zt), ...sp.map(([x, y]) => proj.P(x, y, zt)), proj.P(b[0], b[1], zt), proj.P(b[0], b[1], z), ...sp.slice().reverse().map(([x, y]) => proj.P(x, y, z))]; }
+      else if (it.strip_dir === 'up') {
+        // standing strips: an upright line at every point (drawn as one line, there and back)
+        pts = sp.flatMap(([x, y]) => [proj.P(x, y, z), proj.P(x, y, zt), proj.P(x, y, z)]);
+      } else pts = sp.map(([x, y]) => proj.P(x, y, z));
+      w = proj.s;
     }
     const pl = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     out.push(`<g class="strip" data-strip="${esc(it.entity_id)}"><polyline class="sglow" points="${pl}" style="stroke-width:${(16 * w).toFixed(1)}"/><polyline class="score" points="${pl}" style="stroke-width:${(4 * w).toFixed(1)}"/></g>`);

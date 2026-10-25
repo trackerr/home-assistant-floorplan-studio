@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b40';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, tableChairs, roundChairs, sofaParts,
+} from './fps-core.js?v=1.4.0b41';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -13,8 +13,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' } },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' } },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' } },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' } },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -373,14 +373,14 @@ function buildNav(plan, world, S, extra = []) {
 const VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute float aM;
 uniform mat4 uVP; varying vec3 vP; varying vec3 vN; varying vec3 vC; varying float vM;
 void main(){ vP=aP; vN=aN; vC=aC; vM=aM; gl_Position=uVP*vec4(aP,1.0); }`;
-const FS = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+const FS = (N) => `#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
 #endif
 varying vec3 vP; varying vec3 vN; varying vec3 vC; varying float vM;
 uniform vec3 uEye; uniform vec3 uSky; uniform float uAmb; uniform float uSun; uniform vec3 uSunDir;
-uniform int uNL; uniform vec4 uLP[${MAX_LIGHTS}]; uniform vec3 uLC[${MAX_LIGHTS}]; uniform vec4 uLB[${MAX_LIGHTS}]; uniform vec4 uLD[${MAX_LIGHTS}];
+uniform int uNL; uniform vec4 uLP[${N}]; uniform vec3 uLC[${N}]; uniform vec4 uLB[${N}]; uniform vec4 uLD[${N}];
 uniform float uAlpha; uniform float uEmis; uniform vec3 uTint;
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main(){
@@ -400,7 +400,7 @@ void main(){
   }
   vec3 N = normalize(vN); vec3 V = uEye - vP; if (dot(N, V) < 0.0) N = -N;
   vec3 light = vec3(uAmb) * (0.8 + 0.2 * N.y * N.y) + uSun * max(dot(N, uSunDir), 0.0) * vec3(1.0, 0.96, 0.9);
-  for (int i = 0; i < ${MAX_LIGHTS}; i++) {
+  for (int i = 0; i < ${N}; i++) {
     if (i >= uNL) break;
     vec3 L = uLP[i].xyz - vP; float d = length(L); vec3 l = L / max(d, 0.001);
     vec4 b = uLB[i]; float inside = step(b.x, vP.x) * step(vP.x, b.z) * step(b.y, vP.z) * step(vP.z, b.w);
@@ -498,7 +498,9 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   if (!gl) { root.querySelector('.wk').insertAdjacentHTML('beforeend', `<div class="msg">${T.nogl}</div>`); return { setHass() {}, close }; }
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.warn('fps-walk', gl.getShaderInfoLog(s)); return s; };
   const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+  // as many lamps at once as the graphics chip allows (32, or 16 on very old ones): no lamps dropping out while you walk
+  const NL = (gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0) >= 180 ? 32 : MAX_LIGHTS;
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS(NL))); gl.linkProgram(prog); gl.useProgram(prog);
   const A = Object.fromEntries(['aP', 'aN', 'aC', 'aM'].map((n) => [n, gl.getAttribLocation(prog, n)]));
   const U = Object.fromEntries(['uVP', 'uEye', 'uSky', 'uAmb', 'uSun', 'uSunDir', 'uNL', 'uLP', 'uLC', 'uLB', 'uLD', 'uAlpha', 'uEmis', 'uTint'].map((n) => [n, gl.getUniformLocation(prog, n)]));
   const upload = (mesh) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.v), gl.STATIC_DRAW); return { b, n: mesh.v.length / 10 }; };
@@ -518,11 +520,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
   function itemRoom(it) {
     const here = roomAt(plan.rooms, safeNumber(it.x), safeNumber(it.y));
     const area = entityArea(hass, it.entity_id);
-    if (here && area && here.area_id !== area) {
-      // right on a wall (within 25 cm): it hangs on the side of the room it belongs to in Home Assistant
-      const r = plan.rooms.find((x) => x.area_id === area), x = safeNumber(it.x), y = safeNumber(it.y), lim = 0.25 * S;
-      if (r && r.rects.map(norm).some((q) => x >= q[0] - lim && x <= q[2] + lim && y >= q[1] - lim && y <= q[3] + lim)) return r;
-    }
+    // a device always stays in its own Home Assistant room (drawn just over the line or further: the nearest spot inside it)
+    if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
     if (here) return here;
     if (area) { const r = plan.rooms.find((x) => x.area_id === area); if (r) return r; }
     const x = safeNumber(it.x), y = safeNumber(it.y), half = 0.25 * S;
@@ -706,28 +705,41 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
           // a strip drawn on a wall line runs just in front of that wall, inside its own room
           // (per point the nearest room: a strip along the wall of two rooms stays whole)
           const pts = strip.map(([sx, sy]) => nearestInside(M(sx), M(sy), 0.13)), tw = 0.014;
+          // the strip in 3D: lying along the line at its height, standing upright at each point, or a frame all round
+          const dir = it.strip_dir, top = Math.max(h + 0.05, Math.min(H - 0.02, stripTop(it)));
+          const segs3 = dir === 'up' ? pts.map(([x, z]) => [[x, h, z], [x, top, z]])
+            : dir === 'frame' ? [[[pts[0][0], h, pts[0][1]], [pts[0][0], top, pts[0][1]]], ...pts.slice(1).map((q, k) => [[pts[k][0], top, pts[k][1]], [q[0], top, q[1]]]),
+              [[pts[pts.length - 1][0], top, pts[pts.length - 1][1]], [pts[pts.length - 1][0], h, pts[pts.length - 1][1]]], ...pts.slice(1).map((q, k) => [[q[0], h, q[1]], [pts[k][0], h, pts[k][1]]]).reverse()]
+            : pts.slice(1).map((q, k) => [[pts[k][0], h, pts[k][1]], [q[0], h, q[1]]]);
+          // one piece of glowing band from a to b (lying: a flat band; standing: a thin upright bar)
+          const band = (a, b) => {
+            if (Math.abs(a[1] - b[1]) < 1e-6) { const L = Math.hypot(b[0] - a[0], b[2] - a[2]) || 1, nx = (-(b[2] - a[2]) / L) * tw, nz = ((b[0] - a[0]) / L) * tw; markers.prism([[a[0] + nx, a[2] + nz], [b[0] + nx, b[2] + nz], [b[0] - nx, b[2] - nz], [a[0] - nx, a[2] - nz]], a[1] - 0.012, a[1] + 0.012, [1, 1, 1]); }
+            else markers.prism([[a[0] - tw, a[2] - tw], [a[0] + tw, a[2] - tw], [a[0] + tw, a[2] + tw], [a[0] - tw, a[2] + tw]], Math.min(a[1], b[1]), Math.max(a[1], b[1]), [1, 1, 1]);
+          };
+          const lens3 = segs3.map(([a, b]) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])), tot3 = lens3.reduce((a, b) => a + b, 0) || 1;
           if (isWled(it)) {
-            // a WLED strip: small pieces, each shows the colour of its own LEDs live
-            const lens = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1])), tot = lens.reduce((a, b) => a + b, 0) || 1, K = Math.max(2, Math.min(72, Math.round(tot / 0.04)));
-            const at = (dd) => { for (let i = 0; i < lens.length; i++) { if (dd <= lens[i] || i === lens.length - 1) { const f = lens[i] ? Math.min(1, dd / lens[i]) : 0; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; } dd -= lens[i]; } return pts[0]; };
-            for (let k = 0; k < K; k++) {
-              const [ax, az] = at((tot * k) / K), [bx, bz] = at((tot * (k + 1)) / K), L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw, p0 = markers.v.length / 10;
-              markers.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], h - 0.012, h + 0.012, [1, 1, 1]);
-              livePieces.push({ start: p0, count: markers.v.length / 10 - p0, f: (k + 0.5) / K });
-            }
-          } else for (let i = 1; i < pts.length; i++) {
-            const [ax, az] = pts[i - 1], [bx, bz] = pts[i], L = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / L) * tw, nz = ((bx - ax) / L) * tw;
-            markers.prism([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], h - 0.012, h + 0.012, [1, 1, 1]);
-          }
+            // a WLED strip: small pieces, each shows the colour of its own LEDs live (in the order of the strip)
+            const K = Math.max(2, Math.min(96, Math.round(tot3 / 0.04)));
+            let acc = 0;
+            segs3.forEach(([a, b], si) => {
+              const k = Math.max(1, Math.round((K * lens3[si]) / tot3));
+              for (let j2 = 0; j2 < k; j2++) {
+                const t0 = j2 / k, t1 = (j2 + 1) / k, A = a.map((v, c) => v + (b[c] - v) * t0), B = a.map((v, c) => v + (b[c] - v) * t1), p0 = markers.v.length / 10;
+                band(A, B);
+                livePieces.push({ start: p0, count: markers.v.length / 10 - p0, f: (acc + lens3[si] * ((j2 + 0.5) / k)) / tot3 });
+              }
+              acc += lens3[si];
+            });
+          } else segs3.forEach(([a, b]) => band(a, b));
           const total = pathLength(pts), n = Math.max(1, Math.min(4, Math.round(total / 1.2)));
           for (let k = 1; k < n; k++) {
             let left = (total * k) / n, q = pts[0];
             for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (d >= left) { q = [pts[i - 1][0] + ((pts[i][0] - pts[i - 1][0]) * left) / d, pts[i - 1][1] + ((pts[i][1] - pts[i - 1][1]) * left) / d]; break; } left -= d; }
-            lamps.push({ it, P: [q[0], h, q[1]], bb, start: 0, count: 0, share: 1 / Math.sqrt(n) });
+            lamps.push({ it, P: [q[0], dir ? (h + top) / 2 : h, q[1]], bb, start: 0, count: 0, share: 1 / Math.sqrt(n) });
           }
-          const mid = pathMid(pts);
-          lightY = h; P = [mid[0], h, mid[1]];
-          hit = { line: pts, y: h, r: 0.14 };
+          const mid = pathMid(pts), ym = dir ? (h + top) / 2 : h;
+          lightY = ym; P = [mid[0], dir ? top + 0.12 : h, mid[1]];
+          hit = { line: pts.length > 1 ? pts : [pts[0], pts[0]], y: ym, r: dir ? Math.max(0.14, (top - h) / 2 + 0.05) : 0.14 };
           px = mid[0]; pz = mid[1];
         } else if (lampType === 'spot') {
           // a spot: a small housing, its lens facing where it is aimed, and a beam of light that way
@@ -1586,7 +1598,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         const h0 = rec.h;   // what you see (your own height, or the usual one)
         html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button><button data-a="idel"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove_dev}</button></div>
           ${lampish && isSpot(it, hass.states[it.entity_id]) ? `<div class="row"><button data-a="aim" class="${aimFor === it ? 'pri' : ''}"><ha-icon icon="mdi:crosshairs-gps"></ha-icon>${T.aim}</button>${aimFor === it ? `<span>${T.aim_hint}</span>` : ''}</div>` : ''}
-          ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>` : ''}`;
+          ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>${stripPath(it) ? `<div class="row"><span>${T.strip_dir}</span>${[['', T.strip_flat], ['up', T.strip_up], ['frame', T.strip_frame]].map(([k, t2]) => `<button data-a="sd:${k}" class="${(it.strip_dir || '') === k ? 'pri' : ''}">${t2}</button>`).join('')}</div>${it.strip_dir ? `<div class="row"><span>${T.strip_to}</span><button data-a="st-">−</button><span>${fmtM(stripTop(it))}</span><button data-a="st+">+</button></div>` : ''}` : ''}` : ''}`;
       }
     } else if (sel?.type === 'opening') {
       const o = (plan.openings || []).find((x) => x.id === sel.id);
@@ -1598,6 +1610,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       if (f) html = `<b>${esc(FURN_NAME[lang][f.type] || f.type)}</b>
         <div class="row"><span>${T.width}</span><button data-a="fw-">−</button><span>${fmtM(safeNumber(f.w) / S)}</span><button data-a="fw+">+</button><span>${T.depth}</span><button data-a="fd-">−</button><span>${fmtM(safeNumber(f.h) / S)}</span><button data-a="fd+">+</button></div>
         <div class="row"><span>${T.height}</span><button data-a="fz-">−</button><span>${fmtM(tvOnWall(f) ? tvScreen(f, S)[0] : furnHeight(f))}</span><button data-a="fz+">+</button><select data-sel="ftype">${Object.keys(FURN_TYPES).map((k) => `<option value="${k}" ${k === f.type ? 'selected' : ''}>${esc(FURN_NAME[lang][k] || k)}</option>`).join('')}</select></div>
+        ${f.type === 'cabinet' ? `<div class="row"><span>${T.legs}</span><button data-a="fl-">−</button><span>${fmtM(safeNumber(f.legs, 0))}</span><button data-a="fl+">+</button></div>` : ''}
         ${f.type === 'sofa' ? `<div class="row"><span>${T.sofa_shape}</span>${['', 'left', 'right'].map((k) => `<button data-a="fs:${k}" class="${(f.shape || '') === k ? 'pri' : ''}">${T['sofa_' + (k || 'straight')]}</button>`).join('')}</div>` : ''}
         ${['table', 'round'].includes(f.type) ? `<div class="row"><span>${T.chairs}</span><button data-a="fc-">−</button><span>${f.type === 'round' ? roundChairs(f).length : tableChairs(f).length}</span><button data-a="fc+">+</button></div>` : ''}
         ${f.type === 'tv' ? `<div class="row"><button data-a="fwall" class="${tvOnWall(f) ? 'on' : ''}"><ha-icon icon="mdi:television-classic"></ha-icon>${tvOnWall(f) ? T.tv_wall : T.tv_stand}</button><small>${tvOnWall(f) ? T.tv_wall_h : ''}</small></div>` : ''}
@@ -1627,6 +1640,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const rec = items.find((I) => I.it === it);
       stripY = rec?.h ?? ownHeight(it) ?? 1; stripDraft = []; drawDraft();
     } else if (a === 'icon') { delete it.shape; dirtyEdit = true; buildItems(); }
+    else if (it && a.startsWith('sd:')) { const k = a.slice(3); if (k) { it.strip_dir = k; if (it.top == null) it.top = Math.round(Math.min(H - 0.05, (ownHeight(it) ?? 1) + 0.6) * 100) / 100; } else { delete it.strip_dir; delete it.top; } dirtyEdit = true; buildItems(); }
+    else if (it && (a === 'st-' || a === 'st+')) { it.top = Math.round(Math.max((ownHeight(it) ?? 0) + 0.05, Math.min(H - 0.02, stripTop(it) + (a === 'st+' ? 0.05 : -0.05))) * 100) / 100; dirtyEdit = true; buildItems(); }
     else if (a === 'aim') { aimFor = aimFor === it ? null : it; }
     else if (a === 'idel' && it) { plan.items = plan.items.filter((i) => i !== it); sel = null; dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); }
     else if (a.startsWith('menu:')) { menu = a.slice(5) || null; }
@@ -1641,6 +1656,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const f2 = { id: 'f' + Math.random().toString(36).slice(2, 9), type: k, x: Math.round(x * S), y: Math.round(z * S), w: Math.round((d0.w / 100) * S), h: Math.round((d0.h / 100) * S), rot: Math.round(((-cam.yaw * 180) / Math.PI + 360) % 360 / 15) * 15 % 360 };
       plan.furniture = [...(plan.furniture || []), f2];
       sel = { type: 'furn', id: f2.id }; menu = null; dirtyEdit = true; rebuildWorld(true); buildItems();
+    } else if (f && (a === 'fl-' || a === 'fl+')) {
+      const v = Math.round(Math.max(0, Math.min(1, safeNumber(f.legs, 0) + (a === 'fl+' ? 0.05 : -0.05))) * 100) / 100;
+      if (v > 0) f.legs = v; else delete f.legs;
+      dirtyEdit = true; rebuildWorld(true); buildItems();
     } else if (f && a.startsWith('fs:')) {
       const k = a.slice(3);
       if (k) { f.shape = k; if (safeNumber(f.h) < safeNumber(f.w) * 0.6) f.h = Math.round(safeNumber(f.w) * 0.7); } else delete f.shape;
@@ -1932,9 +1951,21 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);
     gl.uniform1f(U.uAmb, 0.24 + 0.36 * day); gl.uniform1f(U.uSun, 0.38 * day); gl.uniform3fv(U.uSunDir, nrm([0.45, 0.8, 0.35]));
     // the lamps that are on, nearest first
-    const lit = lamps.filter((l) => l.on).sort((a, b) => Math.hypot(a.P[0] - cam.x, a.P[2] - cam.z) - Math.hypot(b.P[0] - cam.x, b.P[2] - cam.z)).slice(0, MAX_LIGHTS);
-    const LP = new Float32Array(MAX_LIGHTS * 4), LC = new Float32Array(MAX_LIGHTS * 3), LB = new Float32Array(MAX_LIGHTS * 4), LD = new Float32Array(MAX_LIGHTS * 4);
-    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.k * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.col, i * 3); LB.set(l.bb, i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); });
+    // the lamps: on/off, brightness and colour glide (a quarter of a second) so changes from Home Assistant show smoothly;
+    // the ones that light what you see most are used, with a margin so the choice doesn't flip back and forth
+    const ease = Math.min(1, dt * 7);
+    for (const l of lamps) {
+      const tk = l.on ? l.k : 0;
+      l.kv = l.kv == null ? tk : l.kv + (tk - l.kv) * ease;
+      l.cv = l.cv ? l.cv.map((v, c) => v + (l.col[c] - v) * ease) : [...l.col];
+      const d2 = (l.P[0] - cam.x) ** 2 + (l.P[2] - cam.z) ** 2;
+      l.score = l.kv * (l.share ?? 1) * (l.dir ? 2.2 : 1) / (1 + 0.15 * d2) * (l.sel ? 1.3 : 1);
+    }
+    const chosen = lamps.filter((l) => l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
+    for (const l of lamps) { l.sel = chosen.includes(l); l.sw = (l.sw ?? (l.sel ? 1 : 0)) + ((l.sel ? 1 : 0) - (l.sw ?? 0)) * ease; }
+    const lit = lamps.filter((l) => l.sw > 0.01 && l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
+    const LP = new Float32Array(NL * 4), LC = new Float32Array(NL * 3), LB = new Float32Array(NL * 4), LD = new Float32Array(NL * 4);
+    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.kv * l.sw * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.cv, i * 3); LB.set(l.bb, i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); });
     gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB); gl.uniform4fv(U.uLD, LD);
     gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
     gl.disable(gl.BLEND); gl.depthMask(true);
@@ -1976,7 +2007,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
           }
           continue;
         }
-        gl.uniform3fv(U.uTint, l.on ? (l.tv ? l.col.map((v) => 0.2 + 0.6 * v) : l.col.map((v) => 0.55 + 0.45 * v)) : l.tv || l.media === 'hub' ? [0.03, 0.035, 0.045] : l.media ? [0.2, 0.2, 0.22] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
+        {
+          // the lamp itself glows in its colour; switching on or off fades (kv glides to its brightness)
+          const off = l.tv || l.media === 'hub' ? [0.03, 0.035, 0.045] : l.media ? [0.2, 0.2, 0.22] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7];
+          const onC = (l.tv ? (l.cv || l.col).map((v) => 0.2 + 0.6 * v) : (l.cv || l.col).map((v) => 0.55 + 0.45 * v)), f = Math.max(0, Math.min(1, (l.kv ?? (l.on ? 1 : 0)) / Math.max(0.15, l.k || 0.15)));
+          gl.uniform3fv(U.uTint, l.on || f > 0.02 ? onC.map((v, c) => off[c] + (v - off[c]) * f) : off); gl.drawArrays(gl.TRIANGLES, l.start, l.count);
+        } }
       gl.uniform1f(U.uEmis, 0);
     }
     if (draftBuf) { bind(draftBuf); gl.uniform1f(U.uEmis, 1); gl.uniform3fv(U.uTint, [1, 0.85, 0.45]); gl.drawArrays(gl.TRIANGLES, 0, draftBuf.n); gl.uniform1f(U.uEmis, 0); }
