@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b33';
+export const VERSION = '1.4.0b34';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1044,7 +1044,11 @@ export function radiatorLinks(plan, hass) {
         if (dd < bd) { bd = dd; id = it.entity_id; }
       }
     }
-    if (!id && room?.area_id) id = areaEntities(hass, room.area_id, ['climate']).find((x) => isRadiatorValve(hass, x)) || null;
+    if (!id && room?.area_id) {
+      const cl = areaEntities(hass, room.area_id, ['climate']);
+      // a radiator valve or heating zone of this room, else the room's own thermostat (it heats the radiators via the boiler)
+      id = cl.find((x) => isRadiatorValve(hass, x)) || cl.find((x) => !isAircon({ entity_id: x }, hass.states[x]) && (hass.states[x]?.attributes?.hvac_modes || []).includes('heat')) || null;
+    }
     if (!id) continue;
     byFurn.set(f.id, id);
     if (!byEntity.has(id)) byEntity.set(id, []);
