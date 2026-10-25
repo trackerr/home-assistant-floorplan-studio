@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b20';
+export const VERSION = '1.3.0b21';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -13,7 +13,7 @@ const STR = {
     clean_failed: 'The vacuum could not start: {e}', live_map: 'Live vacuum map',
     a_smoke: 'Smoke', a_gas: 'Gas', a_carbon_monoxide: 'Carbon monoxide', a_moisture: 'Water leak', a_heat: 'Heat', a_safety: 'Unsafe',
     e_solar: 'Solar', e_grid: 'Grid', e_price: 'Price',
-    rotate: 'Turn', panel_min: 'Make small', panel_open: 'Show the room panel', lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
+    zoom_hint: 'Ctrl + scroll wheel to zoom', zoom_hint_mac: '⌘ + scroll to zoom', rotate: 'Turn', panel_min: 'Make small', panel_open: 'Show the room panel', lbl_move: 'Move', lbl_bigger: 'Bigger', lbl_smaller: 'Smaller', lbl_auto: 'Automatic place and size', lbl_hide: 'Hide', lbl_show: 'Show',
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
@@ -25,7 +25,7 @@ const STR = {
     clean_failed: 'De stofzuiger kon niet starten: {e}', live_map: 'Live stofzuigerkaart',
     a_smoke: 'Rook', a_gas: 'Gas', a_carbon_monoxide: 'Koolmonoxide', a_moisture: 'Lekkage', a_heat: 'Hitte', a_safety: 'Onveilig',
     e_solar: 'Zon', e_grid: 'Net', e_price: 'Prijs',
-    rotate: 'Draaien', panel_min: 'Kleiner maken', panel_open: 'Paneel weer openen', lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
+    zoom_hint: 'Ctrl + scrollwiel om te zoomen', zoom_hint_mac: '⌘ + scrollen om te zoomen', rotate: 'Draaien', panel_min: 'Kleiner maken', panel_open: 'Paneel weer openen', lbl_move: 'Verplaatsen', lbl_bigger: 'Groter', lbl_smaller: 'Kleiner', lbl_auto: 'Automatische plek en grootte', lbl_hide: 'Verbergen', lbl_show: 'Tonen',
     a_door: 'Deur open', a_window: 'Raam open', a_garage_door: 'Garagedeur open', a_opening: 'Open',
   },
 };
@@ -728,7 +728,7 @@ export function raisedSVG(plan, walls, proj) {
     if (w.kind === 'outer') {
       const sgn = inner(mx + nx * 6, my + ny * 6) ? 1 : -1;            // normal pointing into the house
       const ry = proj.si * nx * sgn + proj.co * ny * sgn;              // ... after turning: >0 = towards the viewer
-      full = ry > -0.35;                                               // back and side walls stand, front walls are cut
+      full = ry > 0.15;                                                // only walls with the rooms clearly in front of them stand; the rest is cut
     }
     const h = full ? wallH : wallH * 0.25;
     // split the wall where doors, windows and passages are

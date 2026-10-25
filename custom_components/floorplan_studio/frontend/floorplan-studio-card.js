@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b20';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b20';
+} from './fps-core.js?v=1.3.0b21';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b21';
 
 
 const CSS = `
@@ -56,6 +56,8 @@ const CSS = `
   .item:hover { z-index: 999 !important; }
   .stage { isolation: isolate; }   /* icons stack among themselves; the quick window and menus always stay on top */
   .p25 .rinfo .rrows { display: none; }   /* 2.5D: only name and temperature, so it stays calm */
+  .zoomhint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; padding: 10px 16px; border-radius: 12px; background: rgba(0,0,0,.72); color: #fff; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+  .zoomhint.on { opacity: 1; }
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
   /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
   .item.motion.on .bub { background: rgba(var(--fps-accent-rgb), .2); color: var(--fps-accent); border-color: var(--fps-accent); box-shadow: 0 0 1cqw rgba(var(--fps-accent-rgb), .6); }
@@ -447,7 +449,7 @@ class FloorplanStudioCard extends HTMLElement {
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; moving icons happens in 2D (exact), the 2.5D view follows
     this._walls = null; this._view = null;
-    this._proj = this._view25 && !this._compact && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
+    this._proj = this._view25 && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80) }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -459,7 +461,7 @@ class FloorplanStudioCard extends HTMLElement {
         </div>
         ${this._config.show_theme_toggle ? `<label class="themesel"><ha-icon icon="mdi:palette"></ha-icon><select id="theme">${this._themeChoices.map(([k, v]) => `<option value="${k}" ${k === this._realTheme ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}
         <button class="btn icon ${this._tempOn ? 'active' : ''}" id="tempc" title="${t(h, 'temp_colors')}"><ha-icon icon="mdi:thermometer"></ha-icon></button>
-        ${this._compact ? '' : `<button class="btn icon view3 ${this._proj ? 'active' : ''}" id="view3" title="${this._proj ? '2D' : '2.5D'}">2.5D</button>`}
+        <button class="btn icon view3 ${this._proj ? 'active' : ''}" id="view3" title="${this._proj ? '2D' : '2.5D'}">2.5D</button>
         ${this._proj ? `<button class="btn icon" id="rot" title="${t(h, 'rotate')}"><ha-icon icon="mdi:rotate-right"></ha-icon></button>` : ''}
         ${this._compactButton ? `<button class="btn icon ${this._compact ? 'active' : ''}" id="cmp" title="${t(h, this._compact ? 'whole_plan' : 'by_room')}"><ha-icon icon="${this._compact ? 'mdi:floor-plan' : 'mdi:view-carousel-outline'}"></ha-icon></button>` : ''}
         <button class="btn icon" id="fs" title="Kiosk"><ha-icon icon="${isFull() ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}"></ha-icon></button>
@@ -1383,7 +1385,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (!vp || !this._stage) return;
     if (!room) { vp.style.height = ''; this._stage.style.transform = ''; this._stage.style.setProperty('--k', 1); return; }
     const W = this._plan.width, vw = vp.clientWidth || this.clientWidth, base = vw / W;
-    const [x0, y0, x1, y1] = roomBBox(room), pad = Math.max(12, (x1 - x0) * 0.05);
+    const [x0, y0, x1, y1] = this._screenBox(room), pad = Math.max(12, (x1 - x0) * 0.05);
     const bw = x1 - x0 + 2 * pad, bh = y1 - y0 + 2 * pad;
     const maxH = Math.min(vw * 1.25, (window.innerHeight || 800) * 0.6);
     const s = Math.min(8, W / bw, maxH / (bh * base));
@@ -1577,7 +1579,7 @@ class FloorplanStudioCard extends HTMLElement {
   /** Pinch with two fingers or Ctrl+scroll to zoom the whole plan, drag to move around; the button resets it. */
   _freeWire(root) {
     const vp = root.querySelector('.viewport');
-    if (!vp || this._compact || this._config.room) return;
+    if (!vp || this._config.room) return;
     this._free = this._free || { s: 1, x: 0, y: 0 };
     const btn = document.createElement('button');
     btn.className = 'freereset';
@@ -1591,7 +1593,7 @@ class FloorplanStudioCard extends HTMLElement {
     // 2.5D, mouse: right button (or Shift) + drag turns the house left/right and tilts it up/down
     vp.addEventListener('contextmenu', (ev) => { if (this._proj) ev.preventDefault(); });
     vp.addEventListener('pointerdown', (ev) => {
-      if (!allowed() || !this._proj || ev.pointerType !== 'mouse' || !(ev.button === 2 || (ev.button === 0 && ev.shiftKey))) return;
+      if (this._zoomRoom || this._moving || !this._proj || ev.pointerType !== 'mouse' || !(ev.button === 2 || (ev.button === 0 && ev.shiftKey))) return;
       const v = this._view || { rot: this._rot, tilt: this._tilt };
       turn = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, ...v };
       vp.setPointerCapture(ev.pointerId); ev.preventDefault(); ev.stopPropagation();
@@ -1605,14 +1607,15 @@ class FloorplanStudioCard extends HTMLElement {
     vp.addEventListener('pointerup', turnEnd, { capture: true });
     vp.addEventListener('pointercancel', turnEnd, { capture: true });
     vp.addEventListener('pointerdown', (ev) => {
-      if (turn || !allowed() || ev.target.closest?.('.freereset')) return;
+      // free zoom on the whole plan; turning 2.5D with two fingers also room by room (phones)
+      if (turn || !(allowed() || (this._proj && !this._zoomRoom && !this._moving)) || ev.target.closest?.('.freereset')) return;
       pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
         const v = this._view || { rot: this._rot, tilt: this._tilt };
         pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), ...this._free, cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), rot: v.rot, tilt: v.tilt };
         pan = null;
-      } else if (pts.size === 1 && this._free.s > 1) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
+      } else if (pts.size === 1 && this._free.s > 1 && !this._compact) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
     }, { capture: true });
     vp.addEventListener('pointermove', (ev) => {
       if (!pts.has(ev.pointerId)) return;
@@ -1622,7 +1625,7 @@ class FloorplanStudioCard extends HTMLElement {
         const [a, b] = [...pts.values()];
         const s = Math.max(1, Math.min(4, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d));
         const px = pinch.cx - r.left, py = pinch.cy - r.top;       // keep the point between the fingers in place
-        this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
+        if (!this._compact) this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
         // 2.5D, touch: twist two fingers to turn, move them up or down together to tilt
         if (this._proj) {
           let da = (Math.atan2(b[1] - a[1], b[0] - a[0]) - pinch.ang) * 180 / Math.PI;
@@ -1643,7 +1646,14 @@ class FloorplanStudioCard extends HTMLElement {
     vp.addEventListener('pointerup', up, { capture: true });
     vp.addEventListener('pointercancel', up, { capture: true });
     vp.addEventListener('wheel', (ev) => {
-      if (!allowed() || !(ev.ctrlKey || ev.metaKey)) return;              // plain scrolling keeps scrolling the page
+      if (allowed() && !(ev.ctrlKey || ev.metaKey) && Math.abs(ev.deltaY) > 0) {
+        // plain scrolling keeps scrolling the page; a short hint shows how to zoom (like on a map)
+        let hint = vp.querySelector('.zoomhint');
+        if (!hint) { hint = document.createElement('div'); hint.className = 'zoomhint'; vp.appendChild(hint); }
+        hint.textContent = t(this._hass, /Mac/i.test(navigator.platform) ? 'zoom_hint_mac' : 'zoom_hint');
+        hint.classList.add('on'); clearTimeout(this._hintT); this._hintT = setTimeout(() => hint.classList.remove('on'), 1400);
+      }
+      if (!allowed() || !(ev.ctrlKey || ev.metaKey)) return;
       ev.preventDefault();
       const r = vp.getBoundingClientRect(), f = this._free;
       const s = Math.max(1, Math.min(4, f.s * Math.exp(-ev.deltaY * 0.0011)));
