@@ -29,6 +29,26 @@ _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 
 
+async def _async_resource(hass: HomeAssistant, url: str) -> None:
+    """Add (or update) the card as a Lovelace resource, so Home Assistant Cast and kiosk browsers find it too."""
+    try:
+        lovelace = hass.data.get("lovelace")
+        resources = getattr(lovelace, "resources", None) or (lovelace.get("resources") if isinstance(lovelace, dict) else None)
+        if resources is None or not hasattr(resources, "async_create_item"):
+            return   # dashboards in YAML: the user manages resources
+        if not getattr(resources, "loaded", True):
+            await resources.async_load()
+            resources.loaded = True
+        base = url.split("?")[0]
+        mine = [r for r in resources.async_items() if str(r.get("url", "")).split("?")[0] == base]
+        if not mine:
+            await resources.async_create_item({"res_type": "module", "url": url})
+        elif mine[0].get("url") != url:
+            await resources.async_update_item(mine[0]["id"], {"res_type": "module", "url": url})
+    except Exception:  # noqa: BLE001 - never stop the integration for this
+        _LOGGER.debug("Floorplan Studio: could not add the card as a dashboard resource", exc_info=True)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Floorplan Studio from the UI."""
     plans = PlanStore(hass)
@@ -58,6 +78,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[f"{DOMAIN}_static"] = True
     # Load the card on every dashboard; no manual "resource" needed.
     frontend.add_extra_js_url(hass, f"{STATIC_URL}/{CARD_FILE}?v={VERSION}")
+    # Home Assistant Cast (a TV) and some kiosk browsers only load dashboard resources, not the line above:
+    # also keep the card as a resource (and its version up to date), when dashboards are kept in storage
+    hass.async_create_task(_async_resource(hass, f"{STATIC_URL}/{CARD_FILE}?v={VERSION}"))
 
     await panel_custom.async_register_panel(
         hass,
