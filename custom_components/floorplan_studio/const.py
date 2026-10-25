@@ -1,7 +1,8 @@
 """Constants for Floorplan Studio."""
 
 DOMAIN = "floorplan_studio"
-VERSION = "1.2.2"
+VERSION = "1.2.3"
+REPO_URL = "https://github.com/trackerr/home-assistant-floorplan-studio"
 
 STORAGE_KEY = "floorplan_studio.plans"
 STORAGE_KEY_USAGE = "floorplan_studio.usage"

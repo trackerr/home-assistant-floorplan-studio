@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.2.2';
+export const VERSION = '1.2.3';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {

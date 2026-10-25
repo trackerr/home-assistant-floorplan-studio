@@ -10,6 +10,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from . import websocket
 from .const import (
@@ -18,6 +19,7 @@ from .const import (
     PANEL_COMPONENT,
     PANEL_FILE,
     PANEL_URL_PATH,
+    REPO_URL,
     STATIC_URL,
     VERSION,
 )
@@ -34,6 +36,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await plans.async_load()
     await usage.async_load()
     hass.data[DOMAIN] = {"plans": plans, "usage": usage}
+
+    # A "service" entry on the integration page, with version and a link to the project on GitHub.
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, "studio")},
+        name="Floorplan Studio",
+        manufacturer="trackerr",
+        model="Floorplan editor and card",
+        sw_version=VERSION,
+        entry_type=dr.DeviceEntryType.SERVICE,
+        configuration_url=REPO_URL,
+    )
 
     if not hass.data.get(f"{DOMAIN}_static"):
         await hass.http.async_register_static_paths(

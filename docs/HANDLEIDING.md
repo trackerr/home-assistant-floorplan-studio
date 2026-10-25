@@ -33,6 +33,8 @@ Klik je knop 2 vóór het downloaden of vóór de herstart, dan zegt Home Assist
 
 De knoppen openen je eigen Home Assistant via my.home-assistant.io. De eerste keer vraagt die om het adres van je Home Assistant (bijv. `http://homeassistant.local:8123`).
 
+Daarna staat Floorplan Studio bij **Instellingen → Apparaten & diensten** met één dienst. Open die voor de versie en de knop **Bezoek**: die gaat naar deze pagina op GitHub. Het linkje *Aangepaste integratie* zet Home Assistant zelf bij elke integratie die niet standaard in Home Assistant zit; dat gaat altijd naar de uitleg op de site van Home Assistant.
+
 ### Via HACS (met de hand)
 1. Open **HACS** → menu **⋮** rechtsboven → **Aangepaste repositories**.
 2. Plak `https://github.com/trackerr/home-assistant-floorplan-studio` en kies type **Integratie**.

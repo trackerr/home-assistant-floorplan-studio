@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.3
+- Floorplan Studio staat nu als **dienst** op de integratiepagina, met de versie en een knop **Bezoek** naar de GitHub-pagina van het project.
+
 ## 1.2.2
 - Aanwezigheid: in plaats van een stipje staat er een zacht knipperend **bewegingsicoontje** achter de naam van een bezette ruimte, en ook op de kamertegel van de startpagina.
 
