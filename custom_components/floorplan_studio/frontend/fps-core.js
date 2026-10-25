@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b23';
+export const VERSION = '1.4.0b24';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -856,6 +856,28 @@ export function tvLinks(plan, hass) {
   for (const [fid, { it }] of best) out.set(it.entity_id, (plan.furniture || []).find((x) => x.id === fid));
   return out;
 }
+/**
+ * What kind of media player it is, from its device (manufacturer, model) and name: 'tv', 'mini' (Nest Mini,
+ * Echo Dot), 'speaker' (Nest Audio, Google Home, Sonos), 'hub' (Nest Hub, Echo Show), 'soundbar', 'player'
+ * (Chromecast, Shield, Kodi box), 'voice' (small voice satellite), 'group' (a speaker group, no device) or null.
+ */
+export function mediaKind(it, hass) {
+  if (it.entity_id.split('.')[0] !== 'media_player') return null;
+  if (it.media) return it.media;
+  const st = hass?.states[it.entity_id], ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null;
+  const t = `${dev?.manufacturer || ''} ${dev?.model || ''} ${dev?.name || ''} ${it.name || ''} ${st?.attributes?.friendly_name || ''} ${it.entity_id}`;
+  if (st?.attributes?.device_class === 'tv' || /bravia|\btv\b|televisie|television|oled|qled/i.test(t) && !/chromecast|cast group/i.test(t)) return 'tv';
+  if (/cast group|speaker group|groep|\bgroup\b/i.test(t)) return 'group';
+  if (/nest mini|home mini|echo dot|homepod mini|\bpuck\b/i.test(t)) return 'mini';
+  if (/nest hub|echo show|home hub|smart display|\bhub\b/i.test(t)) return 'hub';
+  if (/soundbar|sonos (beam|arc|ray)|playbar/i.test(t)) return 'soundbar';
+  if (/atom echo|satellite|m5stack|voice ?pe|respeaker/i.test(t)) return 'voice';
+  if (/nest audio|google home|homepod|\becho\b|sonos|speaker|luidspreker|audio/i.test(t)) return 'speaker';
+  if (/chromecast|shield|apple ?tv|fire ?tv|android ?tv|google ?tv|kodi|mediabox|tv ?box/i.test(t)) return 'player';
+  return null;
+}
+export const MEDIA_ICON = { mini: 'mdi:speaker', speaker: 'mdi:speaker', hub: 'mdi:tablet', soundbar: 'mdi:soundbar', player: 'mdi:cast', voice: 'mdi:microphone', group: 'mdi:speaker-multiple' };
+
 /** A WLED ring clock (a WLED light called klok/clock): drawn as its ring of LEDs showing the time. */
 export function ringClock(it, hass) {
   if (it.entity_id.split('.')[0] !== 'light' || it.ringclock === false) return 0;
@@ -944,13 +966,18 @@ export function lampStyle(plan, it, st) {
   if (TABLELAMP_RE.test(label) || (under && !own)) return 'table';
   return 'other';
 }
-export function deviceHeight(plan, it, st) {
+export function deviceHeight(plan, it, st, hass = null) {
   const own = ownHeight(it) != null;
   let h;
   if (own) h = ownHeight(it);
   else {
     const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y)), style = lampStyle(plan, it, st);
-    if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
+    const mk = hass ? mediaKind(it, hass) : null;
+    if (mk && mk !== 'tv' && mk !== 'group') {
+      // a speaker or player stands on the furniture under it (not floating above)
+      const top = { mini: 0.03, speaker: 0.1, hub: 0.09, soundbar: 0.05, player: 0.03, voice: 0.03 }[mk];
+      h = under ? furnHeight(under) + top : mk === 'soundbar' ? 0.55 : itemHeight(it, st);
+    } else if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
     else if (style === 'spot') h = WALL_H - 0.15;
     else if (style === 'ceiling') h = WALL_H - 0.12;
     else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;

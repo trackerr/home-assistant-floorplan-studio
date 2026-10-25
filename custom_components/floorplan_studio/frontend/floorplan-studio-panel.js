@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b23';
+import './floorplan-studio-card.js?v=1.4.0b24';
 import {
   VERSION, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight,
-} from './fps-core.js?v=1.4.0b23';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b23';
+} from './fps-core.js?v=1.4.0b24';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b24';
 
 const L = {
   en: {
@@ -703,7 +703,7 @@ class FloorplanStudioPanel extends HTMLElement {
           const st = h.states[it.entity_id], mount = ceilingMount(it, st), auto = mount === 'hanging' ? l.hang_auto : mount ? l.yes : l.no;
           return `<div class="field" style="margin-top:8px"><span>${l.ceil_q}</span><select id="iceil">
           <option value="" ${it.ceiling == null ? 'selected' : ''}>${l.ceil_auto}${it.ceiling == null ? ` — ${auto}` : ''}</option><option value="1" ${it.ceiling === true ? 'selected' : ''}>${l.ceil_yes}</option><option value="hang" ${it.ceiling === 'hanging' ? 'selected' : ''}>${l.ceil_hang}</option><option value="0" ${it.ceiling === false ? 'selected' : ''}>${l.ceil_no}</option></select></div>
-          ${mount === 'hanging' ? `<div class="field"><span>${l.hang_h}</span><input type="number" id="ihang" min="0.3" max="6" step="0.05" placeholder="${String(Math.round(deviceHeight(p, { ...it, height: undefined }, st) * 100) / 100).replace('.', ',')}" value="${ownHeight(it) ?? ''}"></div>` : ''}`;
+          ${mount === 'hanging' ? `<div class="field"><span>${l.hang_h}</span><input type="number" id="ihang" min="0.3" max="6" step="0.05" placeholder="${String(Math.round(deviceHeight(p, { ...it, height: undefined }, st, h) * 100) / 100).replace('.', ',')}" value="${ownHeight(it) ?? ''}"></div>` : ''}`;
         })() : ''}
         ${lampish(it) ? (() => {
           const sp = stripPath(it), sc = planScale(p), len = sp ? pathLength(sp) : 0, drawing = this.stripDraw === it.entity_id;
@@ -730,7 +730,7 @@ class FloorplanStudioPanel extends HTMLElement {
         <details class="sec sub" data-sec="itemmore" ${this._secOpen?.itemmore ? 'open' : ''}><summary>${l.more_options}</summary><div class="secb">
         <div class="field"><span>${l.icon}</span><input id="iicon" placeholder="mdi:lamp" value="${esc(it.icon || '')}"></div>
         ${it.entity_id.startsWith('light.') || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(it.entity_id.split('.')[0]) && it.kind !== 'device' ? `<div class="field"><span>${l.color}</span><div class="row"><input type="color" id="icolor" value="${/^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#f2a541'}" style="flex:none;width:52px;padding:2px"><button id="icolorclr" style="flex:none">${l.no_color}</button></div></div>` : ''}
-        <div class="field"><span>${l.i_height}</span><input type="number" id="iheight" min="0" max="6" step="0.05" placeholder="${String(Math.round(deviceHeight(p, { ...it, height: undefined }, h.states[it.entity_id]) * 100) / 100).replace('.', ',')}" value="${ownHeight(it) ?? ''}"></div>
+        <div class="field"><span>${l.i_height}</span><input type="number" id="iheight" min="0" max="6" step="0.05" placeholder="${String(Math.round(deviceHeight(p, { ...it, height: undefined }, h.states[it.entity_id], h) * 100) / 100).replace('.', ',')}" value="${ownHeight(it) ?? ''}"></div>
         ${it.entity_id.startsWith('light.') ? (() => {
           const area = entityArea(h, it.entity_id);
           const sw = Object.keys(h.states).filter((id) => id.startsWith('switch.')).sort((a, b) => ((entityArea(h, b) === area) - (entityArea(h, a) === area)) || friendly(h, a).localeCompare(friendly(h, b)));

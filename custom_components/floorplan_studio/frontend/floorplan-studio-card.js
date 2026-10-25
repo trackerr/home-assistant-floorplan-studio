@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b23';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b23';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b24';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b24';
 
 
 const CSS = `
@@ -584,7 +584,7 @@ class FloorplanStudioCard extends HTMLElement {
     const kind = it.kind === 'lamp' ? 'lamp' : it.kind === 'device' ? 'device' : LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
     const el = document.createElement('div');
     el.className = `item ${kind}`;
-    if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
+    if (domain === 'media_player') { const mk0 = mediaKind(it, this._hass); el.classList.add(mk0 === 'tv' || (!mk0 && isTv(st, it)) ? 'tv' : 'speaker'); if (mk0) el.classList.add(`media-${mk0}`); }
     if (isMotion(st)) el.classList.add('motion');
     const ceil = kind === 'lamp' && isCeilingLamp(it, st) && !isSpot(it, st);   // a spot has its own beam
     if (ceil) el.classList.add('ceil');
@@ -601,7 +601,8 @@ class FloorplanStudioCard extends HTMLElement {
       if (!this._clockTimer) this._clockTimer = setInterval(() => this._ringClocks(), 1000);
     } else if (kind !== 'sensor') {
       // a ceiling lamp gets the ceiling-lamp icon, unless you or Home Assistant chose another one
-      const ic = it.icon || (ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : kind === 'lamp' && isSpot(it, st) && !st?.attributes?.icon ? 'mdi:spotlight-beam' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      const mk = mediaKind(it, this._hass);
+      const ic = it.icon || (mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : kind === 'lamp' && isSpot(it, st) && !st?.attributes?.icon ? 'mdi:spotlight-beam' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
       const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
       if (ic) icon.icon = ic;
       bub.appendChild(icon);
@@ -623,7 +624,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (tvf) it = { ...it, x: safeNumber(tvf.x), y: safeNumber(tvf.y), height: it.height ?? furnHeight(tvf) * 0.75 };   // on the TV furniture
     const p = this._proj, under = p ? furnAt(this._plan, it.x, it.y) : null, own = ownHeight(it) != null;
     // the same height as in the walk-through: your own, or what fits the kind of lamp or device
-    const hm = !p ? 0 : deviceHeight(this._plan, it, st);
+    const hm = !p ? 0 : deviceHeight(this._plan, it, st, this._hass);
     [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
     el._hm = hm;
     if (!p) return;
@@ -657,7 +658,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b23');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b24');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -780,7 +781,7 @@ class FloorplanStudioCard extends HTMLElement {
     for (const [id, rec] of this._items) {
       const it = rec.it, st = h.states[id];
       if (!it.aim || rec.kind !== 'lamp' || !isOn(st) || !isSpot(it, st)) continue;
-      const hm = deviceHeight(plan, it, st), S = planScale(plan) || 70, ax = safeNumber(it.aim.x), ay = safeNumber(it.aim.y), az = Number.isFinite(+it.aim.z) ? +it.aim.z : 0;
+      const hm = deviceHeight(plan, it, st, h), S = planScale(plan) || 70, ax = safeNumber(it.aim.x), ay = safeNumber(it.aim.y), az = Number.isFinite(+it.aim.z) ? +it.aim.z : 0;
       const x0 = safeNumber(it.x), y0 = safeNumber(it.y), d3 = Math.hypot((ax - x0) / S, (ay - y0) / S, hm - az), r = Math.max(0.12, d3 * Math.tan(0.24)) * S;
       const dx = ax - x0, dy = ay - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
       const k = p ? p.sc * p.lift : 0, Q = (x, y, z) => (p ? p.P(x, y, z * k) : [x, y]);

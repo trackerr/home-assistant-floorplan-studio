@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir,
-} from './fps-core.js?v=1.4.0b23';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON,
+} from './fps-core.js?v=1.4.0b24';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -566,7 +566,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const strip = lampKind ? stripPath(it) : null;
       // kind of lamp and height: the same rule as the 2.5D view, so both always agree
       const lampType = lampKind ? lampStyle(plan, it, st) || 'other' : null;
-      const h = Math.min(Math.max(deviceHeight(plan, it, st), 0.05), H - 0.08);
+      const h = Math.min(Math.max(deviceHeight(plan, it, st, hass), 0.05), H - 0.08);
       let P = [px, h, pz];
       if (lampKind) {
         let bb = [-1e9, -1e9, 1e9, 1e9];
@@ -638,6 +638,24 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         lamps.push({ it, ac: true, P: [cx + fr.nx * 0.3, h - 0.2, cz + fr.nz * 0.3], bb: lampBox(room), start, count: markers.v.length / 10 - start, share: 0.5 });
         P = [cx, h + 0.3, cz];
       }
+      const mk = !tvf ? mediaKind(it, hass) : null;
+      if (mk && !['tv', 'group'].includes(mk)) {
+        // a speaker, smart display or player as the thing it is, standing where it stands; its light shows when it plays
+        const top = { mini: 0.03, speaker: 0.1, hub: 0.09, soundbar: 0.05, player: 0.03, voice: 0.03 }[mk], base = Math.max(0, h - top);
+        const fabric = [0.55, 0.56, 0.58], dark = [0.12, 0.12, 0.13], start0 = markers.v.length / 10;
+        let topY = base + 0.05;
+        if (mk === 'mini') { fixtures.prism(circle(px, pz, 0.05, 16), base, base + 0.04, fabric); markers.prism(circle(px, pz, 0.022, 10), base + 0.04, base + 0.042, [1, 1, 1]); topY = base + 0.04; }
+        else if (mk === 'speaker') { fixtures.prism(circle(px, pz, 0.06, 16), base, base + 0.17, fabric); markers.prism(circle(px, pz, 0.03, 10), base + 0.17, base + 0.172, [1, 1, 1]); topY = base + 0.17; }
+        else if (mk === 'voice') { fixtures.box(px - 0.012, pz - 0.012, px + 0.012, pz + 0.012, base, base + 0.025, dark); markers.prism(circle(px, pz, 0.008, 8), base + 0.025, base + 0.027, [1, 1, 1]); topY = base + 0.03; }
+        else if (mk === 'player') { fixtures.prism(circle(px, pz, 0.04, 14), base, base + 0.015, dark); markers.prism(circle(px, pz, 0.006, 8), base + 0.015, base + 0.017, [1, 1, 1]); topY = base + 0.02; }
+        else {
+          const fr = wallFrame(room, px, pz), box = (a, b, d0, d1) => [[px + fr.ux * a + fr.nx * d0, pz + fr.uz * a + fr.nz * d0], [px + fr.ux * b + fr.nx * d0, pz + fr.uz * b + fr.nz * d0], [px + fr.ux * b + fr.nx * d1, pz + fr.uz * b + fr.nz * d1], [px + fr.ux * a + fr.nx * d1, pz + fr.uz * a + fr.nz * d1]];
+          if (mk === 'soundbar') { fixtures.prism(box(-0.45, 0.45, -0.045, 0.045), base, base + 0.08, dark); markers.prism(box(-0.05, 0.05, 0.044, 0.047), base + 0.03, base + 0.05, [1, 1, 1]); topY = base + 0.08; }
+          else { fixtures.prism(box(-0.09, 0.09, -0.04, 0.04), base, base + 0.03, [0.85, 0.85, 0.84]); markers.prism(box(-0.085, 0.085, 0.0, 0.012), base + 0.03, base + 0.14, [1, 1, 1]); topY = base + 0.14; }
+        }
+        lamps.push({ it, media: mk, P: [px, topY + 0.05, pz], bb: lampBox(room), start: start0, count: markers.v.length / 10 - start0, share: 0.25 });
+        P = [px, topY + 0.12, pz];
+      }
       const ringN = ringClock(it, hass);
       if (ringN) { const fr = wallFrame(room, px, pz); clocks.push({ it, n: ringN, h, fr: { ...fr, cx: fr.cx + fr.nx * 0.14, cz: fr.cz + fr.nz * 0.14 } }); P = [fr.cx + fr.nx * 0.14, h - 0.28, fr.cz + fr.nz * 0.14]; }
       // the icon you can tap
@@ -647,7 +665,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       el.innerHTML = `<div class="b${isSensor ? ' txt' : ''}"></div><div class="n">${esc(it.name || friendly(hass, it.entity_id))}</div>`;
       const b = el.querySelector('.b');
       if (!isSensor) {
-        const ic = it.icon || (ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && d !== 'light' ? 'mdi:lightbulb' : '');
+        const ic = it.icon || (mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && d !== 'light' ? 'mdi:lightbulb' : '');
         const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
         if (ic) icon.icon = ic; else { icon.hass = hass; icon.stateObj = st; }
         b.appendChild(icon);
@@ -729,6 +747,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const c = fixed || lightColor(st) || '255,196,128', br = st?.attributes?.brightness;
       L.on = on; L.col = rgb(c); L.k = on ? (br != null ? Math.max(0.15, br / 255) : 1) : 0;
       if (L.tv) { L.on = !!st && ['on', 'playing', 'paused', 'idle', 'buffering'].includes(st.state); L.col = [0.35, 0.55, 1]; L.k = L.on ? 0.7 : 0; }
+      if (L.media) { L.on = !!st && ['playing', 'on', 'buffering'].includes(st.state) && (L.media !== 'hub' || st.state !== 'off'); L.col = L.media === 'hub' ? [0.55, 0.7, 1] : [0.9, 0.95, 1]; L.k = L.on ? (L.media === 'hub' ? 0.25 : 0.12) : 0; }
       if (L.ac) { const m = airconMode(st); L.on = !!m; L.col = m === 'cool' ? [0.4, 0.7, 1] : m === 'heat' ? [1, 0.55, 0.25] : [0.85, 0.9, 0.95]; L.k = L.on ? 0.35 : 0; }
     }
     if (infoIt) showInfo(infoIt, true);
@@ -1405,7 +1424,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     }
     if (buf.markers) {
       bind(buf.markers); gl.uniform1f(U.uEmis, 1);
-      for (const l of lamps) { if (!l.count) continue; gl.uniform3fv(U.uTint, l.on ? (l.tv ? l.col.map((v) => 0.2 + 0.6 * v) : l.col.map((v) => 0.55 + 0.45 * v)) : l.tv ? [0.03, 0.035, 0.045] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
+      for (const l of lamps) { if (!l.count) continue; gl.uniform3fv(U.uTint, l.on ? (l.tv ? l.col.map((v) => 0.2 + 0.6 * v) : l.col.map((v) => 0.55 + 0.45 * v)) : l.tv || l.media === 'hub' ? [0.03, 0.035, 0.045] : l.media ? [0.2, 0.2, 0.22] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7]); gl.drawArrays(gl.TRIANGLES, l.start, l.count); }
       gl.uniform1f(U.uEmis, 0);
     }
     if (draftBuf) { bind(draftBuf); gl.uniform1f(U.uEmis, 1); gl.uniform3fv(U.uTint, [1, 0.85, 0.45]); gl.drawArrays(gl.TRIANGLES, 0, draftBuf.n); gl.uniform1f(U.uEmis, 0); }
