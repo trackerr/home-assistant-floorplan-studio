@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b21';
+export const VERSION = '1.4.0b22';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -911,11 +911,26 @@ export function itemHeight(it, st) {
  * or cupboard sits just above it.
  */
 export const WALL_H = 2.6;
+/** A spotlight (called spot, or set as one): it shines in a direction you can aim (step 4, or in the walk). */
+const SPOT_RE = /\bspot|spotje|spotlight|richtspot/i;
+export function isSpot(it, st) {
+  if (it.spot === false) return false;
+  return it.spot === true || !!it.aim || SPOT_RE.test(`${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`);
+}
+/** Where a spot shines: a unit vector in metres (x right, y up, z down the plan); straight down when not aimed. */
+export function spotDir(plan, it, h) {
+  const a = it.aim;
+  if (!a || !Number.isFinite(+a.x) || !Number.isFinite(+a.y)) return [0, -1, 0];
+  const S = planScale(plan) || 70, dx = (+a.x - safeNumber(it.x)) / S, dz = (+a.y - safeNumber(it.y)) / S, dy = (Number.isFinite(+a.z) ? +a.z : 0) - h;
+  const L = Math.hypot(dx, dy, dz) || 1;
+  return [dx / L, dy / L, dz / L];
+}
 const FLOORLAMP_RE = /vloer|staand|floor|standing|stalamp/i, TABLELAMP_RE = /bureau|tafellamp|nacht|desk|bedside|leeslamp|reading/i;
 export function lampStyle(plan, it, st) {
   const d = it.entity_id.split('.')[0];
   if (it.kind === 'device' || !(d === 'light' || it.kind === 'lamp')) return null;
   if (stripPath(it)) return 'strip';
+  if (isSpot(it, st)) return 'spot';
   const own = ownHeight(it) != null;
   const mount = ceilingMount(it, st);
   if (mount === 'hanging') return 'pendant';
@@ -935,6 +950,7 @@ export function deviceHeight(plan, it, st) {
   else {
     const under = furnAt(plan, safeNumber(it.x), safeNumber(it.y)), style = lampStyle(plan, it, st);
     if (isAircon(it, st)) h = 2.2;   // an air conditioner hangs high on the wall
+    else if (style === 'spot') h = WALL_H - 0.15;
     else if (style === 'ceiling') h = WALL_H - 0.12;
     else if (style === 'pendant') h = under ? furnHeight(under) + 0.85 : 2.0;
     else if (style === 'floor') h = 1.5;
@@ -1305,6 +1321,8 @@ export const PLAN_CSS = `
   .stalks .cord { stroke: var(--fps-fg); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: none; }
   .stalks .rose { fill: var(--fps-wall); fill-opacity: 1; stroke: var(--fps-fg); stroke-opacity: .6; stroke-width: 1.2; }
   .stalks .on .rose { stroke: var(--fps-accent); stroke-opacity: .9; }
+  .beams polygon { fill: rgb(var(--c, 255, 200, 120)); opacity: .28; filter: url(#fps-stripblur); pointer-events: none; }
+  .beams ellipse { fill: rgb(var(--c, 255, 200, 120)); opacity: .35; filter: url(#fps-stripblur); pointer-events: none; }
   .curtains polygon { fill: var(--fps-curtain, rgba(214, 196, 168, .92)); stroke: rgba(0, 0, 0, .35); stroke-width: .8; pointer-events: none; }
   .curtains line { stroke: rgba(0, 0, 0, .22); stroke-width: .8; pointer-events: none; }
   .curtains .roller { fill: var(--fps-curtain, rgba(214, 196, 168, .92)); }

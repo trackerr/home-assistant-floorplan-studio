@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b21';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b21';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b22';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b22';
 
 
 const CSS = `
@@ -586,7 +586,7 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
-    const ceil = kind === 'lamp' && isCeilingLamp(it, st);
+    const ceil = kind === 'lamp' && isCeilingLamp(it, st) && !isSpot(it, st);   // a spot has its own beam
     if (ceil) el.classList.add('ceil');
     this._place(el, it, st);
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
@@ -601,7 +601,7 @@ class FloorplanStudioCard extends HTMLElement {
       if (!this._clockTimer) this._clockTimer = setInterval(() => this._ringClocks(), 1000);
     } else if (kind !== 'sensor') {
       // a ceiling lamp gets the ceiling-lamp icon, unless you or Home Assistant chose another one
-      const ic = it.icon || (ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      const ic = it.icon || (ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : kind === 'lamp' && isSpot(it, st) && !st?.attributes?.icon ? 'mdi:spotlight-beam' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
       const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
       if (ic) icon.icon = ic;
       bub.appendChild(icon);
@@ -657,7 +657,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b21');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b22');
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
@@ -771,6 +771,27 @@ class FloorplanStudioCard extends HTMLElement {
     }
     g.innerHTML = out.join('');
   }
+  /** Spots that are aimed somewhere: a beam of light to where they shine (in the lamp's colour, when on). */
+  _beams() {
+    const svg = this.shadowRoot.querySelector('svg.plan'), plan = this._plan, h = this._hass;
+    if (!svg) return;
+    let g = svg.querySelector('g.beams');
+    const out = [], p = this._proj;
+    for (const [id, rec] of this._items) {
+      const it = rec.it, st = h.states[id];
+      if (!it.aim || rec.kind !== 'lamp' || !isOn(st) || !isSpot(it, st)) continue;
+      const hm = deviceHeight(plan, it, st), S = planScale(plan) || 70, ax = safeNumber(it.aim.x), ay = safeNumber(it.aim.y), az = Number.isFinite(+it.aim.z) ? +it.aim.z : 0;
+      const x0 = safeNumber(it.x), y0 = safeNumber(it.y), d3 = Math.hypot((ax - x0) / S, (ay - y0) / S, hm - az), r = Math.max(0.12, d3 * Math.tan(0.24)) * S;
+      const dx = ax - x0, dy = ay - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const k = p ? p.sc * p.lift : 0, Q = (x, y, z) => (p ? p.P(x, y, z * k) : [x, y]);
+      const tip = Q(x0, y0, hm), b1 = Q(ax + nx * r, ay + ny * r, az), b2 = Q(ax - nx * r, ay - ny * r, az);
+      const c = rec.el.style.getPropertyValue('--c') || '';
+      out.push(`<g style="${c ? `--c:${c}` : ''}"><polygon points="${[tip, b1, b2].map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>${p ? `<polygon points="${Array.from({ length: 14 }, (_, i) => { const a = (i / 14) * 2 * Math.PI; return Q(ax + Math.cos(a) * r, ay + Math.sin(a) * r, az).map((v) => v.toFixed(1)).join(','); }).join(' ')}" style="opacity:.4"/>` : `<ellipse cx="${ax}" cy="${ay}" rx="${r.toFixed(1)}" ry="${r.toFixed(1)}"/>`}</g>`);
+    }
+    if (!out.length) { g?.remove(); return; }
+    if (!g) { g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', 'beams'); svg.insertBefore(g, svg.querySelector('.stalks') || svg.querySelector('.d-scan')); }
+    g.innerHTML = out.join('');
+  }
   /** WLED ring clocks: light up the LEDs for the hour, minute and second (in the lamp's colour when it is on). */
   _ringClocks() {
     const now = new Date();
@@ -817,6 +838,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._curtainsUpdate();
     this._tvGlow();
     this._ringClocks();
+    this._beams();
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       const vis = this._visible(id, rec.it);
