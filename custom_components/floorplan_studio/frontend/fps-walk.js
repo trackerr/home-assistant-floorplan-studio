@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase,
-} from './fps-core.js?v=1.4.0b28';
+} from './fps-core.js?v=1.4.0b29';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -1184,7 +1184,21 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     const sx0 = ev.clientX, sy0 = ev.clientY, e0 = [cam.x, eyeY(), cam.z];
     // metres per screen pixel at the device's distance
     const dist = Math.max(0.3, Math.hypot(P0[0] - e0[0], P0[1] - e0[1], P0[2] - e0[2])), mpp = (dist * 2 * Math.tan(fov / 2)) / Math.max(1, canvas.clientHeight);
-    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), rl = Math.hypot(right[0], right[2]) || 1, rx = right[0] / rl, rz = right[2] / rl;
+    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), rl = Math.hypot(right[0], right[2]) || 1;
+    let rx = right[0] / rl, rz = right[2] / rl, gain = 1;
+    // a device on a wall slides along that wall (also when you look at the wall at an angle), never into it
+    const room0 = itemRoom(it), mx0 = M(ox), mz0 = M(oy), fr = room0 ? wallFrame(room0, mx0, mz0) : null;
+    const onWall = fr && !fr.free && fr.d < 0.4 && !path0;
+    if (onWall) {
+      const dot = fr.ux * rx + fr.uz * rz, sg = dot < 0 ? -1 : 1;
+      rx = fr.ux * sg; rz = fr.uz * sg;
+      gain = 1 / Math.max(0.35, Math.abs(dot));   // so it keeps up with the mouse
+    }
+    // the point that must stay in the device's own room (a bit into the room for a device on its wall)
+    const inn = onWall ? [fr.nx * 0.12, fr.nz * 0.12] : [0, 0];
+    const roomG = roomOf(mx0 + inn[0], mz0 + inn[1]);   // the room it really stands in (if it is in one at all)
+    const stays = (dx, dz) => !roomG || roomOf(mx0 + dx + inn[0], mz0 + dz + inn[1]) === roomG;
+    let last = [0, 0];
     const b = rec.el.querySelector('.b');
     b.setPointerCapture(ev.pointerId);
     let axis = null, dh = 0;
@@ -1192,7 +1206,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       const dxp = e.clientX - sx0, dyp = e.clientY - sy0;
       if (!axis) { if (Math.hypot(dxp, dyp) < 7) return; axis = Math.abs(dxp) >= Math.abs(dyp) ? 'h' : 'v'; rec.el.dataset.axis = axis; }
       if (axis === 'h') {
-        const m = dxp * mpp, dx = rx * m, dz = rz * m;
+        const m = dxp * mpp * gain;
+        let dx = rx * m, dz = rz * m;
+        if (!stays(dx, dz)) { if (!stays(last[0], last[1])) return; [dx, dz] = last; }   // not through the wall into the next room or outside
+        last = [dx, dz];
         it.x = Math.round(ox + dx * S); it.y = Math.round(oy + dz * S);
         if (path0) it.path = path0.map(([x, y]) => [Math.round(x + dx * S), Math.round(y + dz * S)]);
         rec.P[0] = P0[0] + dx; rec.P[2] = P0[2] + dz;

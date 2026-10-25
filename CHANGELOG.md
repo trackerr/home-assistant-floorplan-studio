@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling, bewerken: een apparaat aan de muur schuift bij opzij slepen langs die muur, ook als je schuin naar de muur kijkt; het verdwijnt niet meer achter de muur. Slepen blijft binnen de eigen ruimte.
 - **Weergave "Geen"** naast Eenvoudig en Alles: geen iconen, een rustige kaart. Ruimtes en meubels blijven aantikbaar, en wat als zichzelf getekend is laat zien wat het doet (ledstrips, gordijnen, tv-gloed, spotbundels, WLED-klok). Ook als standaard te kiezen.
 - **Salontafel** als meubel (laag, met plank), ook voor de AI: "zet de lamp op de salontafel".
 - **Tv aan de muur:** bij een tv-meubel *Bevestiging: aan de muur* met de hoogte van de onderkant van het scherm (editor en wandeling). Een tv op voet op een kast staat nu óp die kast. Een hoogte die je aan een gekoppelde tv geeft, gaat naar die tv.
