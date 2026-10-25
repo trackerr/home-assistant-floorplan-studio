@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b28';
+export const VERSION = '1.3.0b29';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -426,7 +426,8 @@ export const FURN_TYPES = {
   round: { icon: 'mdi:table-furniture', w: 110, h: 110 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
-  sink: { icon: 'mdi:faucet', w: 80, h: 60 },
+  sink: { icon: 'mdi:faucet', w: 80, h: 50 },
+  hob: { icon: 'mdi:grid', w: 60, h: 52 },
   stove: { icon: 'mdi:stove', w: 60, h: 60 },
   fridge: { icon: 'mdi:fridge-outline', w: 60, h: 65 },
   island: { icon: 'mdi:countertop', w: 180, h: 90 },
@@ -472,11 +473,13 @@ export function furnSVG(f, extra = '') {
     case 'desk':
       body = R(x, y, w, h, 4) + `<circle class="soft" cx="0" cy="${y + h + 18}" r="15"/>`;
       break;
-    case 'counter': {
-      const sw = Math.min(60, w / 4);
-      body = R(x, y, w, h, 3) + R(x + w * 0.2, y + h * 0.2, sw, h * 0.6, 6) + [0, 1].map((i) => [0, 1].map((j) => `<circle cx="${x + w * 0.62 + i * 26}" cy="${y + h * 0.3 + j * (h * 0.4)}" r="8"/>`).join('')).join('');
+    case 'counter':
+      // a plain worktop; put a hob or a sink on it
+      body = R(x, y, w, h, 3) + L(x, y + h - 4, x + w, y + h - 4);
       break;
-    }
+    case 'hob':
+      body = R(x, y, w, h, 4) + [0, 1].map((i) => [0, 1].map((j) => `<circle cx="${x + w * (0.28 + i * 0.44)}" cy="${y + h * (0.28 + j * 0.44)}" r="${Math.min(w, h) * 0.15}"/>`).join('')).join('');
+      break;
     case 'cabinet':
       body = R(x, y, w, h, 2) + L(x, y, x + w, y + h) + L(x + w, y, x, y + h);
       break;
@@ -718,7 +721,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -788,7 +791,7 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true 
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
 /** Furniture as a few solid pieces for 2.5D (local units around its centre; z in metres). */
-function furnModel(f, spin = 0) {
+function furnModel(f, spin = 0, onTop = false) {
   const w = Math.max(10, safeNumber(f.w, 100)), h = Math.max(6, safeNumber(f.h, 60)), x0 = -w / 2, y0 = -h / 2;
   const R = (a, b, c, d, z0, z1, cls) => ({ poly: [[x0 + a, y0 + b], [x0 + c, y0 + b], [x0 + c, y0 + d], [x0 + a, y0 + d]], z0, z1, cls });
   // round shapes: smooth, with their corners kept still towards the viewer (spin), so turning the house doesn't make them twirl
@@ -817,9 +820,11 @@ function furnModel(f, spin = 0) {
       return out;
     }
     case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft')];
-    case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.2, h * 0.2, w * 0.2 + Math.min(60, w / 4), h * 0.8, 0.9, 0.9, 'dark')];
+    case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)];
     case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
-    case 'sink': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.15, h * 0.25, w * 0.85, h * 0.85, 0.9, 0.9, 'dark'), C(0, y0 + h * 0.13, 3, 3, 0.9, 1.15, 'dark')];
+    case 'sink': return [...(onTop ? [] : [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)]), R(w * 0.12, h * 0.25, w * 0.88, h * 0.88, 0.9, 0.902, 'dark'), C(0, y0 + h * 0.13, 3, 3, 0.9, 1.15, 'dark')];
+    case 'hob': return [...(onTop ? [] : [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9)]), R(0, 0, w, h, 0.9, 0.912, 'dark'),
+      ...[0, 1].flatMap((i) => [0, 1].map((j) => C(x0 + w * (0.28 + i * 0.44), y0 + h * (0.28 + j * 0.44), Math.min(w, h) * 0.15, Math.min(w, h) * 0.15, 0.912, 0.914, 'soft')))];
     case 'stove': return [R(0, 0, w, h, 0, 0.88), R(0, 0, w, h, 0.88, 0.9, 'dark'), ...[0, 1].flatMap((i) => [0, 1].map((j) => C(x0 + w * (0.3 + i * 0.4), y0 + h * (0.3 + j * 0.4), Math.min(w, h) * 0.12, Math.min(w, h) * 0.12, 0.9, 0.9, 'soft')))];
     case 'fridge': return [R(0, 0, w, h, 0, 1.85), R(0, h - 0.6, w, h, 1.2, 1.22, 'dark'), R(w * 0.85, h - 0.8, w * 0.88, h, 0.5, 1.1, 'dark')];
     case 'island': return [R(5, 5, w - 5, h - 5, 0, 0.88), R(0, 0, w, h, 0.88, 0.92)];
@@ -892,7 +897,11 @@ export function raisedSVG(plan, walls, proj) {
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
     const zs = fh / (FURN_HEIGHT[f.type] || fh);   // an own height stretches the whole piece
     const toP = ([x, y], z) => P(fx + x * cr - y * sr, fy + x * sr + y * cr, z * zs * sc * proj.lift);
-    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180))) {
+    // a hob or sink on a worktop: just the top part, drawn right after the worktop under it
+    const support = ['hob', 'sink'].includes(f.type) ? (plan.furniture || []).find((g) => g !== f && ['counter', 'island', 'sink', 'stove'].includes(g.type) && furnAt({ furniture: [g] }, fx, fy)) : null;
+    const footKey = (g) => { const gr = (safeNumber(g.rot) * Math.PI) / 180, gw = safeNumber(g.w, 100) / 2, gh = safeNumber(g.h, 60) / 2; return Math.max(...[[-gw, -gh], [gw, -gh], [gw, gh], [-gw, gh]].map(([x, y]) => P(safeNumber(g.x) + x * Math.cos(gr) - y * Math.sin(gr), safeNumber(g.y) + x * Math.sin(gr) + y * Math.cos(gr))[1])); };
+    const onKey = support ? footKey(support) + 0.05 : null;
+    for (const pr of furnModel(f, -(r + (proj.rot * Math.PI) / 180), !!support)) {
       const base = pr.poly.map((q) => toP(q, pr.z0)), top = pr.poly.map((q) => toP(q, pr.z1));
       const n = base.length, ccx = base.reduce((acc, p) => acc + p[0], 0) / n, ccy = base.reduce((acc, p) => acc + p[1], 0) / n;
       const sides = [];
@@ -906,7 +915,7 @@ export function raisedSVG(plan, walls, proj) {
       }
       const allp = [...base, ...top];
       parts.push({
-        key: Math.max(...base.map((p) => p[1])) + pr.z0 * 0.001, box: [fx, fy],
+        key: onKey ?? Math.max(...base.map((p) => p[1])) + pr.z0 * 0.001, box: [fx, fy], ontop: !!support,
         sb: [Math.min(...allp.map((p) => p[0])), Math.min(...allp.map((p) => p[1])), Math.max(...allp.map((p) => p[0])), Math.max(...allp.map((p) => p[1]))],
         svg: `<g class="f3 ${pr.cls || ''}">${sides.join('')}<polygon class="f3top" points="${pts(top)}"/></g>`,
       });
@@ -916,7 +925,7 @@ export function raisedSVG(plan, walls, proj) {
   // (comparing only how far forward things are goes wrong for a desk right behind a low wall)
   const vx = proj.si, vy = proj.co;   // the direction towards the viewer, on the floor
   const walls3 = parts.filter((p) => p.wall);
-  for (const b of parts.filter((p) => p.box)) {
+  for (const b of parts.filter((p) => p.box && !p.ontop)) {
     let behind = -Infinity, front = Infinity;
     for (const w of walls3) {
       if (w.sb[0] > b.sb[2] || w.sb[2] < b.sb[0] || w.sb[1] > b.sb[3] || w.sb[3] < b.sb[1]) continue;   // not overlapping on screen
@@ -997,7 +1006,8 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
   if (!editor) out.push('<polyline class="vactrail" points=""/>');
   // furniture and stairs: light outlines, under the walls (in 2.5D only the flat ones; the rest become blocks)
   const flatFurn = (plan.furniture || []).filter((f) => !proj || !(furnHeight(f) > 0));
-  if (flatFurn.length) out.push(`<g class="furniture">${flatFurn.map((f) => furnSVG(f)).join('')}</g>`);
+  const onTopLast = (a, b) => (['hob', 'sink'].includes(a.type) ? 1 : 0) - (['hob', 'sink'].includes(b.type) ? 1 : 0);
+  if (flatFurn.length) out.push(`<g class="furniture">${[...flatFurn].sort(onTopLast).map((f) => furnSVG(f)).join('')}</g>`);
   // mmWave radars: range circle, distance ring or dots per person (filled in by the card)
   if (!editor) out.push('<g class="radars"></g>');
   out.push('<g class="walls">');

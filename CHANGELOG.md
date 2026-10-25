@@ -3,7 +3,7 @@
 ## 1.3.0
 **2.5D en echte maten**
 - **2.5D-weergave** met echt perspectief: één knop kantelt de plattegrond. Muren komen omhoog, ramen worden glas, meubels worden blokken en iconen hangen op hun hoogte. Draaien per 45° of vrij (rechtermuisknop/Shift + slepen, of twee vingers draaien), kantelen en zoomen. Elk scherm onthoudt zijn eigen weergave; werkt ook ruimte per ruimte op de telefoon. Hoogte instelbaar (echte maat of eigen percentage).
-- **Meubels en trap** tekenen bij stap 3 (bank, bed, tafel, bureau, aanrecht, gootsteen, fornuis, koelkast, kookeiland, bovenkast, kast, bad, douche, wc, trap, tv, plant), met breedte, diepte en hoogte; in 2.5D opgebouwd uit losse delen.
+- **Meubels en trap** tekenen bij stap 3 (bank, bed, tafel, bureau, aanrecht, gootsteen, kookplaat, fornuis, koelkast, kookeiland, bovenkast, kast, bad, douche, wc, trap, tv, plant), met breedte, diepte en hoogte; in 2.5D opgebouwd uit losse delen. Een kookplaat of gootsteen op een aanrecht wordt in het blad getekend, zodat ook een L-keuken klopt.
 - **Grootte van lampen en apparaten** apart in te stellen.
 - **Echte maten**: vul bij één ruimte de echte breedte of lengte in; daarna maten in meters en m² op de tekening, meubels in cm.
 - **Hoogte per apparaat** voor 2.5D; boven een tafel of kast hangt een apparaat vanzelf net daarboven. Optionele hulplijntjes naar de vloer.
