@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b17';
+export const VERSION = '1.3.0b18';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -740,7 +740,14 @@ function raisedSVG(plan, walls, proj) {
       at = Math.max(at, c.hi);
     }
     if (at < a1) pieces.push({ lo: at, hi: a1 });
+    // short stretches, so each bit of wall is drawn at its own depth (a long wall running away from you
+    // would otherwise be drawn over a cupboard standing in front of it)
+    const bits = [];
     for (const pc of pieces) {
+      const n = Math.max(1, Math.ceil((pc.hi - pc.lo) / 14));
+      for (let i = 0; i < n; i++) bits.push({ ...pc, lo: pc.lo + ((pc.hi - pc.lo) * i) / n, hi: pc.lo + ((pc.hi - pc.lo) * (i + 1)) / n });
+    }
+    for (const pc of bits) {
       const A = hor ? P(pc.lo, w.y1) : P(w.x1, pc.lo), B = hor ? P(pc.hi, w.y1) : P(w.x1, pc.hi);
       const ph = pc.door ? wallH * 0.06 : h, key = Math.max(A[1], B[1]);
       const cls = pc.win ? 'w3 win3' : pc.door ? 'w3 door3' : `w3 ${w.kind}`;
@@ -890,7 +897,7 @@ export const PLAN_CSS = `
   .gridline { stroke: var(--fps-accent); stroke-opacity: .07; stroke-width: 1; }
   .dot { fill: #fff; fill-opacity: .05; }
   .floor { fill: var(--fps-floor); }
-  .w3face { fill: color-mix(in srgb, var(--fps-wall) 38%, var(--fps-bg)); stroke: var(--fps-wall); stroke-width: .6; stroke-opacity: .5; }
+  .w3face { fill: color-mix(in srgb, var(--fps-wall) 38%, var(--fps-bg)); stroke: color-mix(in srgb, var(--fps-wall) 38%, var(--fps-bg)); stroke-width: .5; }
   .w3.inner .w3face { fill: color-mix(in srgb, var(--fps-wall-inner) 30%, var(--fps-bg)); }
   .w3cap { stroke: var(--fps-wall); stroke-linecap: square; }
   .w3.inner .w3cap { stroke: var(--fps-wall-inner); }
