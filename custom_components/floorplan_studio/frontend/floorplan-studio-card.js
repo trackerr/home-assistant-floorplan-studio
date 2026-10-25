@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
-} from './fps-core.js?v=1.3.0b11';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b11';
+} from './fps-core.js?v=1.3.0b12';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b12';
 
 
 const CSS = `
@@ -384,8 +384,13 @@ class FloorplanStudioCard extends HTMLElement {
 
   async _load(force = false) {
     if (!this._hass) return;
+    if (this.planOverride) { this._plan = this.planOverride; this._build(); this._loadUsage(); return; }
+    // show the plan this screen had last time right away; the fresh one from Home Assistant follows
+    if (!this._plan && !this._floorIds.length) {
+      try { const c = JSON.parse(localStorage.getItem(this._cacheKey) || 'null'); if (c?.rooms) { this._plan = c; this._build(); } } catch (e) { /* no cache */ }
+    }
     if (!this._plan) this._message(t(this._hass, 'loading'));
-    if (this.planOverride) { this._plan = this.planOverride; await this._loadUsage(); this._build(); return; }
+    const shown = this._plan;
     try {
       const plans = await loadPlans(this._hass, force);
       this._plans = plans;
@@ -402,9 +407,17 @@ class FloorplanStudioCard extends HTMLElement {
       return;
     }
     if (!this._plan) { this._message(t(this._hass, 'no_plan')); return; }
-    await this._loadUsage();
-    this._build();
+    // the usage history (for Simple) comes in afterwards, it doesn't hold up the plan
+    if (!shown || shown.updated !== this._plan.updated || shown.id !== this._plan.id || force || !this._built) this._build();
+    else { shown.background = this._plan.background; this._plan = shown; }   // unchanged: keep the plan already on screen (with its picture back)
+    this._loadUsage();
+    try {
+      const b = this._plan.background;
+      localStorage.setItem(this._cacheKey, JSON.stringify({ ...this._plan, background: b ? { ...b, url: undefined } : null }));
+    } catch (e) { /* storage full or blocked: no cache, no problem */ }
   }
+
+  get _cacheKey() { return `fps-plan-cache-${this._config.plan || 'first'}`; }
 
   async _loadUsage() {
     if (!this._hass || !this._plan) return;

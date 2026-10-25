@@ -51,7 +51,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if not hass.data.get(f"{DOMAIN}_static"):
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), False)]
+            # every file is loaded with ?v=<version>, so browsers may keep it: no check on every reload
+            [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), True)]
         )
         websocket.async_register(hass)
         hass.data[f"{DOMAIN}_static"] = True
