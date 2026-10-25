@@ -570,7 +570,8 @@ class FloorplanStudioCard extends HTMLElement {
         // pointing at a device shows its name and what it is doing ("Televisie · Speelt")
         const now = shortState(h, st);
         rec.el.querySelector('.name').textContent = now && now !== rec.label ? `${rec.label} · ${now}` : rec.label;
-        rec.el.classList.toggle('playing', dom === 'media_player' && st.state === 'playing');
+        // a TV glows while it is on or playing, a speaker only sends out waves while it plays
+        rec.el.classList.toggle('playing', dom === 'media_player' && (st.state === 'playing' || (st.state === 'on' && rec.el.classList.contains('tv'))));
       }
     }
     for (const room of this._plan.rooms) this._updateRoom(room);
