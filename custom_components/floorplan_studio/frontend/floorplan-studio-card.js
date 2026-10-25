@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.3.0b26';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b26';
+} from './fps-core.js?v=1.3.0b27';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b27';
 
 
 const CSS = `
@@ -37,9 +37,10 @@ const CSS = `
   .floor:hover { fill: color-mix(in srgb, var(--fps-floor) 88%, var(--fps-accent)); }
   .item { position: absolute; transform: translate(-50%, -50%) scale(var(--k, 1)); pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; touch-action: none; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .3s; -webkit-tap-highlight-color: transparent; }
   .item.hidden { opacity: 0; pointer-events: none; }
-  .bub { width: calc(2.9cqw * var(--fps-icon-scale, 1)); height: calc(2.9cqw * var(--fps-icon-scale, 1)); min-width: calc(24px * var(--fps-icon-scale, 1)); min-height: calc(24px * var(--fps-icon-scale, 1)); border-radius: 50%; display: grid; place-items: center;
+  .item { --fps-k: var(--fps-dev-scale, 1); } .item.lamp { --fps-k: var(--fps-lamp-scale, 1); }   /* lamps and devices each their own size */
+  .bub { width: calc(2.9cqw * var(--fps-icon-scale, 1) * var(--fps-k, 1)); height: calc(2.9cqw * var(--fps-icon-scale, 1) * var(--fps-k, 1)); min-width: calc(24px * var(--fps-icon-scale, 1) * var(--fps-k, 1)); min-height: calc(24px * var(--fps-icon-scale, 1) * var(--fps-k, 1)); border-radius: 50%; display: grid; place-items: center;
          background: var(--fps-off); border: 1.5px solid var(--fps-lamp-border, var(--fps-line)); color: var(--fps-muted); transition: background .3s, box-shadow .3s, color .3s; }
-  .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: max(14px, 1.6cqw); }
+  .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: calc(max(14px, 1.6cqw) * var(--fps-icon-scale, 1) * var(--fps-k, 1)); }
   .item.on .bub { background: rgb(var(--c, var(--fps-accent-rgb))); color: #10161d; border: 2px solid var(--fps-ring, transparent);
                   box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), .9), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), .45); }
   .item.lamp.on .bub { background: color-mix(in srgb, rgb(var(--c, var(--fps-accent-rgb))) calc(45% + 55% * var(--b, 1)), var(--fps-off));

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b26';
+export const VERSION = '1.3.0b27';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -135,7 +135,7 @@ export function themeStyle(name, hass, s = DEFAULT_SETTINGS) {
     document.head.appendChild(l);
   }
   const vars = { ...(th.daylight ? daylightVars(hass, s).vars : th.vars),
-    '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100 };
+    '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-lamp-scale': (s.lamp_size || 100) / 100, '--fps-dev-scale': (s.device_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100 };
   return Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
@@ -426,6 +426,11 @@ export const FURN_TYPES = {
   round: { icon: 'mdi:table-furniture', w: 110, h: 110 },
   desk: { icon: 'mdi:desk', w: 140, h: 70 },
   counter: { icon: 'mdi:countertop-outline', w: 240, h: 60 },
+  sink: { icon: 'mdi:faucet', w: 80, h: 60 },
+  stove: { icon: 'mdi:stove', w: 60, h: 60 },
+  fridge: { icon: 'mdi:fridge-outline', w: 60, h: 65 },
+  island: { icon: 'mdi:countertop', w: 180, h: 90 },
+  wallcab: { icon: 'mdi:wardrobe', w: 120, h: 35 },
   cabinet: { icon: 'mdi:wardrobe-outline', w: 120, h: 55 },
   bath: { icon: 'mdi:bathtub-outline', w: 170, h: 75 },
   shower: { icon: 'mdi:shower', w: 90, h: 90 },
@@ -474,6 +479,21 @@ export function furnSVG(f, extra = '') {
     }
     case 'cabinet':
       body = R(x, y, w, h, 2) + L(x, y, x + w, y + h) + L(x + w, y, x, y + h);
+      break;
+    case 'sink':
+      body = R(x, y, w, h, 3) + R(x + w * 0.15, y + h * 0.25, w * 0.7, h * 0.6, 8) + `<circle cx="0" cy="${y + h * 0.13}" r="3"/>`;
+      break;
+    case 'stove':
+      body = R(x, y, w, h, 3) + [0, 1].map((i) => [0, 1].map((j) => `<circle cx="${x + w * (0.3 + i * 0.4)}" cy="${y + h * (0.3 + j * 0.4)}" r="${Math.min(w, h) * 0.12}"/>`).join('')).join('');
+      break;
+    case 'fridge':
+      body = R(x, y, w, h, 3) + L(x, y + h * 0.3, x + w, y + h * 0.3) + L(x + w * 0.85, y + h * 0.4, x + w * 0.85, y + h * 0.75);
+      break;
+    case 'island':
+      body = R(x, y, w, h, 4) + R(x + 6, y + 6, w - 12, h - 12, 3, 'soft');
+      break;
+    case 'wallcab':
+      body = `<rect class="hang" x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>` + L(x + w / 2, y, x + w / 2, y + h);
       break;
     case 'bath':
       body = R(x, y, w, h, 8) + R(x + 8, y + 8, w - 16, h - 16, Math.min(h, w) / 3) + `<circle cx="${x + w - 22}" cy="0" r="4"/>`;
@@ -575,6 +595,7 @@ export const DEFAULT_SETTINGS = {
   compact_width: 560,       // px; narrower than this shows the plan room by room
   plan_size: 100,           // % of the available width the plan uses (smaller = a more compact page)
   icon_size: 100,           // % of the normal icon size
+  lamp_size: 100, device_size: 100,   // % extra for lamps and for other devices
   label_size: 100,          // % of the normal room-text size
   glow: 100,                // % strength of the room glow when lights are on
   show_temp: true, show_hum: true, show_lights: true,   // room text lines
@@ -657,7 +678,7 @@ export function labelSpot(plan, room, fs, rows = 2) {
  */
 /* ------------------------------------------------------------------ 2.5D */
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -746,6 +767,11 @@ function furnModel(f, spin = 0) {
     case 'desk': return [...legs(0.72), R(0, 0, w, h, 0.72, 0.76), C(0, h / 2 + 18, 15, 15, 0, 0.48, 'soft')];
     case 'counter': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.2, h * 0.2, w * 0.2 + Math.min(60, w / 4), h * 0.8, 0.9, 0.9, 'dark')];
     case 'cabinet': return [R(0, 0, w, h, 0, 2), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 0.05, 1.95, 'dark')];
+    case 'sink': return [R(0, 0, w, h, 0, 0.86), R(-2, -2, w + 2, h + 2, 0.86, 0.9), R(w * 0.15, h * 0.25, w * 0.85, h * 0.85, 0.9, 0.9, 'dark'), C(0, y0 + h * 0.13, 3, 3, 0.9, 1.15, 'dark')];
+    case 'stove': return [R(0, 0, w, h, 0, 0.88), R(0, 0, w, h, 0.88, 0.9, 'dark'), ...[0, 1].flatMap((i) => [0, 1].map((j) => C(x0 + w * (0.3 + i * 0.4), y0 + h * (0.3 + j * 0.4), Math.min(w, h) * 0.12, Math.min(w, h) * 0.12, 0.9, 0.9, 'soft')))];
+    case 'fridge': return [R(0, 0, w, h, 0, 1.85), R(0, h - 0.6, w, h, 1.2, 1.22, 'dark'), R(w * 0.85, h - 0.8, w * 0.88, h, 0.5, 1.1, 'dark')];
+    case 'island': return [R(5, 5, w - 5, h - 5, 0, 0.88), R(0, 0, w, h, 0.88, 0.92)];
+    case 'wallcab': return [R(0, 0, w, h, 1.4, 2.1), R(w / 2 - 0.5, h - 0.5, w / 2 + 0.5, h, 1.42, 2.08, 'dark')];
     case 'bath': return [R(0, 0, w, h, 0, 0.58), R(8, 8, w - 8, h - 8, 0.58, 0.58, 'dark')];
     case 'shower': return [R(0, 0, w, h, 0, 0.05), R(0, 0, w, 1.5, 0.05, 2, 'glass'), R(0, 0, 1.5, h, 0.05, 2, 'glass')];
     case 'toilet': return [R(0, 0, w, h * 0.3, 0, 0.8), C(0, y0 + h * 0.3 + (h * 0.7) / 2, w / 2 - 2, (h * 0.7) / 2, 0, 0.42, '')];
@@ -998,7 +1024,7 @@ export const PLAN_CSS = `
   .stalks line { stroke: var(--fps-fg); stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
   .stalks ellipse { fill: var(--fps-fg); fill-opacity: .3; pointer-events: none; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
-  .furn .soft { stroke-opacity: .35; } .furn .arrow { fill: none; stroke-linecap: round; }
+  .furn .soft { stroke-opacity: .35; } .furn .hang { stroke-dasharray: 4 3; } .furn .arrow { fill: none; stroke-linecap: round; }
   .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }
   .radar-ring { fill: none; stroke: rgb(var(--fps-accent-rgb)); stroke-width: 3.5; stroke-opacity: .7; pointer-events: none; transition: r .8s ease; animation: fpsRing 2.2s ease-in-out infinite; }
   .radar-dot { fill: rgb(var(--fps-accent-rgb)); stroke: var(--fps-bg); stroke-width: 3; pointer-events: none; transition: cx .6s ease, cy .6s ease; filter: drop-shadow(0 0 6px rgba(var(--fps-accent-rgb), .9)); }
