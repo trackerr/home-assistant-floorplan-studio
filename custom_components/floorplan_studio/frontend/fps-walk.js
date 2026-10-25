@@ -3,7 +3,7 @@
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan,
-} from './fps-core.js?v=1.4.0b9';
+} from './fps-core.js?v=1.4.0b10';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -11,8 +11,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag devices and furniture to move them · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep apparaten en meubels om ze te verplaatsen · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · tap the floor to walk there · arrow keys or WASD to walk', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -433,6 +433,8 @@ button ha-icon { --mdc-icon-size: 22px; }
 .editing canvas.gl { cursor: default; }
 .editing .wi .b { cursor: grab; outline: 2px dashed rgba(255,190,110,.8); outline-offset: 3px; }
 .wi.sel .b { outline: 3px solid #ffbe6e; outline-offset: 3px; }
+.wi[data-axis] .b::after { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); font-size: 20px; font-weight: 700; color: #ffbe6e; text-shadow: 0 1px 4px #000; }
+.wi[data-axis="h"] .b::after { content: '⟷'; } .wi[data-axis="v"] .b::after { content: '↕'; top: -34px; }
 .badge { padding: 6px 12px; border-radius: 12px; background: rgba(255,180,90,.95); color: #1a1208; font-weight: 700; display: none; }
 .editing .badge { display: inline-block; }
 .msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; }
@@ -834,10 +836,13 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     if (withNav) { nav = buildNav(plan, world, S, obstacles); graph = buildGraph(plan, S); }
     worldDirty = false;
   }
-  /** Drag a device (its icon) over the level it hangs at. */
+  /**
+   * Drag a device: the first movement decides the direction and keeps it - sideways = along the floor
+   * (left/right as you look), up/down = its height. One direction per drag, so nothing shifts by accident.
+   */
   function startItemDrag(ev, rec) {
     ev.preventDefault();
-    const it = rec.it, start = planeHit(ev.clientX, ev.clientY, rec.P[1]);
+    const it = rec.it;
     if (sel?.type !== 'item' || sel.id !== it.entity_id) {
       const wasFurn = sel?.type === 'furn';
       sel = { type: 'item', id: it.entity_id };
@@ -845,25 +850,36 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       if (wasFurn) rebuildWorld();
       showSheet();
     }
-    if (!start) return;
-    const ox = safeNumber(it.x), oy = safeNumber(it.y), path0 = it.path ? it.path.map((q) => [...q]) : null, P0 = [...rec.P], L0 = lamps.filter((l) => l.it === it).map((l) => [l, [...l.P]]);
+    const ox = safeNumber(it.x), oy = safeNumber(it.y), path0 = it.path ? it.path.map((q) => [...q]) : null, P0 = [...rec.P], h0 = rec.h;
+    const L0 = lamps.filter((l) => l.it === it).map((l) => [l, [...l.P]]);
+    const sx0 = ev.clientX, sy0 = ev.clientY, e0 = [cam.x, eyeY(), cam.z];
+    // metres per screen pixel at the device's distance
+    const dist = Math.max(0.3, Math.hypot(P0[0] - e0[0], P0[1] - e0[1], P0[2] - e0[2])), mpp = (dist * 2 * Math.tan(FOV / 2)) / Math.max(1, canvas.clientHeight);
+    const f = fwd(), right = nrm(cross(f, [0, 1, 0])), rl = Math.hypot(right[0], right[2]) || 1, rx = right[0] / rl, rz = right[2] / rl;
     const b = rec.el.querySelector('.b');
     b.setPointerCapture(ev.pointerId);
-    let moved = false;
+    let axis = null, dh = 0;
     const move = (e) => {
-      const q = planeHit(e.clientX, e.clientY, P0[1]);
-      if (!q) return;
-      const dx = q[0] - start[0], dz = q[1] - start[1];
-      if (!moved && Math.hypot(dx, dz) < 0.03) return;
-      moved = true;
-      it.x = Math.round(ox + dx * S); it.y = Math.round(oy + dz * S);
-      if (path0) it.path = path0.map(([x, y]) => [Math.round(x + dx * S), Math.round(y + dz * S)]);
-      rec.P[0] = P0[0] + dx; rec.P[2] = P0[2] + dz;
-      for (const [l, lp] of L0) { l.P[0] = lp[0] + dx; l.P[2] = lp[2] + dz; }
+      const dxp = e.clientX - sx0, dyp = e.clientY - sy0;
+      if (!axis) { if (Math.hypot(dxp, dyp) < 7) return; axis = Math.abs(dxp) >= Math.abs(dyp) ? 'h' : 'v'; rec.el.dataset.axis = axis; }
+      if (axis === 'h') {
+        const m = dxp * mpp, dx = rx * m, dz = rz * m;
+        it.x = Math.round(ox + dx * S); it.y = Math.round(oy + dz * S);
+        if (path0) it.path = path0.map(([x, y]) => [Math.round(x + dx * S), Math.round(y + dz * S)]);
+        rec.P[0] = P0[0] + dx; rec.P[2] = P0[2] + dz;
+        for (const [l, lp] of L0) { l.P[0] = lp[0] + dx; l.P[2] = lp[2] + dz; }
+      } else {
+        dh = Math.max(-h0, Math.min(H - 0.05 - h0, -dyp * mpp));
+        rec.P[1] = P0[1] + dh;
+        for (const [l, lp] of L0) l.P[1] = lp[1] + dh;
+      }
     };
     const up = () => {
       b.removeEventListener('pointermove', move); b.removeEventListener('pointerup', up); b.removeEventListener('pointercancel', up);
-      if (moved) { dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); showSheet(); }
+      delete rec.el.dataset.axis;
+      if (!axis) return;
+      if (axis === 'v') it.height = Math.round((h0 + dh) * 100) / 100;
+      dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); showSheet();
     };
     b.addEventListener('pointermove', move); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
   }

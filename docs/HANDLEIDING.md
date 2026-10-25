@@ -312,7 +312,7 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
 - Een deur met een sensor staat open of dicht zoals hij echt is. Ramen zijn glas met een kozijn; je kijkt naar buiten.
 - **Ledstrips** gloeien als een band langs de lijn die je tekende, op hun eigen hoogte.
 - **Bewerken** (alleen voor beheerders): tik op **Bewerken** onderin. Daarna:
-  - **Apparaten verplaatsen:** sleep het icoontje; het blijft op zijn hoogte. Tik erop om het te kiezen, dan kun je de **hoogte** met − en + per 10 cm aanpassen.
+  - **Apparaten verplaatsen:** sleep het icoontje. De eerste beweging bepaalt de richting en die blijft vast: **opzij** schuift het over de vloer (links/rechts zoals je kijkt), **omhoog/omlaag** verandert alleen de hoogte. Zo verschuift er nooit per ongeluk iets in de andere richting. Tik erop om het te kiezen; de **hoogte** kan ook met − en + per 10 cm.
   - **Ledstrip tekenen:** kies een lamp en tik **Ledstrip tekenen**. Zet de hoogte goed en tik punt voor punt op de muur of het meubel waar de strip loopt, dan **Klaar**.
   - **Meubels:** sleep een meubel over de vloer, of tik erop en draai het (15° of 90°) of haal het weg (ook met Delete).
   - **Opslaan** bewaart alles in je plattegrond (2D, 2.5D en de wandeling kloppen meteen); **Annuleren** gooit de wijzigingen weg.
