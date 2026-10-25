@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState,
-} from './fps-core.js?v=1.3.0b2';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b2';
+} from './fps-core.js?v=1.3.0b3';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b3';
 
 
 const CSS = `
@@ -510,7 +510,8 @@ class FloorplanStudioCard extends HTMLElement {
   _addItem(it) {
     const st = this._hass.states[it.entity_id];
     const domain = it.entity_id.split('.')[0];
-    const kind = LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
+    // a plug or switch can say what hangs on it: a lamp (lamp icon + glow) or a device (no light)
+    const kind = it.kind === 'lamp' ? 'lamp' : it.kind === 'device' ? 'device' : LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
     const el = document.createElement('div');
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
@@ -520,8 +521,9 @@ class FloorplanStudioCard extends HTMLElement {
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
     if (kind !== 'sensor') {
-      const icon = document.createElement(it.icon ? 'ha-icon' : 'ha-state-icon');
-      if (it.icon) icon.icon = it.icon;
+      const ic = it.icon || (it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
+      if (ic) icon.icon = ic;
       bub.appendChild(icon);
     }
     const label = it.name || friendly(this._hass, it.entity_id);
@@ -849,7 +851,7 @@ class FloorplanStudioCard extends HTMLElement {
     const on = this._s.glow_style === 'lamp';
     for (const [id, rec] of this._items) {
       const d = id.split('.')[0];
-      if (d !== 'light' && !rec.it.color) continue;
+      if (d !== 'light' && !rec.it.color && rec.it.kind !== 'lamp') continue;
       let c = this._glows.get(id);
       if (!c) {
         c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -857,7 +859,7 @@ class FloorplanStudioCard extends HTMLElement {
         g.appendChild(c); this._glows.set(id, c);
       }
       c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y);   // follows the lamp when it is moved
-      const st = this._hass.states[id], lit = on && !!st && isOn(st) && !rec.el.classList.contains('hidden');
+      const lit = on && rec.el.classList.contains('on') && !rec.el.classList.contains('hidden');
       const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
       const b = levelMode(this._s) !== 'off' ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
       c.setAttribute('fill', `rgb(${col})`);
