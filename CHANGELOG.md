@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Plaatsen (AI of actie): alleen een nieuwe hoogte laat het apparaat staan waar het staat; een ledstrip verschuift als geheel (lijn en icoon samen) en de AI verplaatst strips alleen als je daar echt om vraagt.
 - Wandeling: tijdens het lopen stopt een klik je meteen; stilstaand loop je met een klik op de vloer daarheen.
 - AI-hulp: veel kleinere berichten (korte plattegrond-tekst, compact antwoord, max 20 verplaatsingen per keer, plattegrond alleen opnieuw als hij veranderd is), zodat het binnen de limieten van elke assistent past.
 - AI-hulp werkt met elke AI-assistent, zonder tools of functies in te stellen: de assistent krijgt de plattegrond en antwoordt met een lijstje verplaatsingen dat de integratie uitvoert.

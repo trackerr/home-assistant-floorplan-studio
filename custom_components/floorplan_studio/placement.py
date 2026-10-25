@@ -243,6 +243,16 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
     if item is None:
         item = {"entity_id": entity_id}
         plan.setdefault("items", []).append(item)
+    path = item.get("path") if item.get("shape") == "strip" and isinstance(item.get("path"), list) and len(item["path"]) >= 2 else None
+    keep = "x" in item and not (spot or room_text)
+    if keep:
+        # only a new height or mounting: the device (or strip) stays exactly where it is
+        x, y = float(item.get("x", 0)), float(item.get("y", 0))
+        where = ""
+    elif path:
+        # an LED strip moves as a whole: the drawn line shifts along with its icon
+        dx, dy = x - float(item.get("x", 0)), y - float(item.get("y", 0))
+        item["path"] = [[round(float(p[0]) + dx), round(float(p[1]) + dy)] for p in path]
     item["x"], item["y"] = round(x), round(y)
     if height is not None:
         item["height"] = round(float(height), 2)
@@ -254,7 +264,7 @@ def place(hass: HomeAssistant, plans: list[dict[str, Any]], device: str, room_te
         item["ceiling"] = False
     name = item.get("name") or _friendly(hass, entity_id)
     hs = f", {item['height']:.2f} m".replace(".", "," if nl else ".") if height is not None else ""
-    msg = f"{name} staat nu in {room.get('name', '')} {where}{hs}." if nl else f"{name} is now in {room.get('name', '')} {where}{hs}."
+    msg = f"{name} staat nu in {room.get('name', '')}{' ' + where if where else ''}{hs}." if nl else f"{name} is now in {room.get('name', '')}{' ' + where if where else ''}{hs}."
     return plan, msg
 
 
@@ -319,7 +329,8 @@ def describe(hass: HomeAssistant, plans: list[dict[str, Any]]) -> dict[str, Any]
                 "furniture": [{"type": f.get("type"), "x_m": m(f.get("x", 0)), "y_m": m(f.get("y", 0)), "w_m": m(f.get("w", 100)), "d_m": m(f.get("h", 60))}
                               for f in plan.get("furniture", []) if _in_room(room, float(f.get("x", 0)), float(f.get("y", 0)))],
                 "devices": [{"entity_id": i["entity_id"], "name": i.get("name") or _friendly(hass, i["entity_id"]), "x_m": m(i.get("x", 0)), "y_m": m(i.get("y", 0)),
-                             **({"height_m": i["height"]} if i.get("height") is not None else {})}
+                             **({"height_m": i["height"]} if i.get("height") is not None else {}),
+                             **({"strip": True} if i.get("shape") == "strip" and i.get("path") else {})}
                             for i in plan.get("items", []) if _in_room(room, float(i.get("x", 0)), float(i.get("y", 0)))],
             })
         out.append({"plan": plan.get("name"), "id": plan.get("id"), "note": "x to the right, y downwards (top of the plan = 0)", "rooms": rooms})
