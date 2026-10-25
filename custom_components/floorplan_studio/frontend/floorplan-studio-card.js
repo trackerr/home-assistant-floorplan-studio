@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj,
-} from './fps-core.js?v=1.3.0b6';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b6';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight,
+} from './fps-core.js?v=1.3.0b7';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b7';
 
 
 const CSS = `
@@ -53,7 +53,8 @@ const CSS = `
   .name { position: absolute; top: 100%; margin-top: .3cqw; white-space: nowrap; font-size: max(10px, .9cqw); padding: .2cqw .6cqw; border-radius: 6px;
           background: rgba(0,0,0,.75); color: #fff; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 3; }
   .item:hover .name { opacity: 1; }
-  .item:hover { z-index: 9; }
+  .item:hover { z-index: 999 !important; }
+  .p25 .rinfo .rrows { display: none; }   /* 2.5D: only name and temperature, so it stays calm */
   .btn.view3 { font-size: 12px; font-weight: 700; letter-spacing: .02em; width: auto; padding: 0 9px; }
   /* motion: on = accent colour; just quiet = the colour slowly fades back to grey (--pf 1 → 0) */
   .item.motion.on .bub { background: rgba(var(--fps-accent-rgb), .2); color: var(--fps-accent); border-color: var(--fps-accent); box-shadow: 0 0 1cqw rgba(var(--fps-accent-rgb), .6); }
@@ -350,7 +351,7 @@ class FloorplanStudioCard extends HTMLElement {
   get _view25() { return this._pref('view', this._config.view || '2d') === '2.5d'; }
   get _rot() { return safeNumber(this._pref('rot', this._config.rotation || 0), 0) % 360; }
   /** Where a floor point of the plan ends up on screen (2.5D turns and tilts it), as % of the plan box. */
-  _at(x, y) { const [a, b] = this._proj ? this._proj.P(x, y) : [x, y]; return [`${(a / this._plan.width) * 100}%`, `${(b / this._plan.height) * 100}%`]; }
+  _at(x, y, m = 0) { const p = this._proj, [a, b] = p ? p.P(x, y, m * p.sc * p.lift) : [x, y]; return [`${(a / this._plan.width) * 100}%`, `${(b / this._plan.height) * 100}%`]; }
   get _tempOn() { return this._pref('temp', this._s.temp_color ? 'on' : 'off') === 'on'; }
   get _showNav() { return Array.isArray(this._config.nav) && this._config.nav.length > 0 && (this._config.kiosk || isKiosk()); }
   get _greet() { return this._config.greeting ?? (this._s.greeting && !!this._config.side); }
@@ -484,6 +485,7 @@ class FloorplanStudioCard extends HTMLElement {
     });
     root.addEventListener('pointerdown', (ev) => { if (!ev.composedPath().some((n) => n.classList?.contains('lmenu'))) this._closeLabelMenu(); });
     this._card.classList.toggle('moving', this._moving);
+    this._card.classList.toggle('p25', !!this._proj);
     this._card.classList.toggle('can-edit', this._isAdmin && !this.planOverride);
     this._card.classList.toggle('notags', !this._s.show_tags);
     this._card.classList.toggle('nolevel', levelMode(this._s) === 'off');
@@ -527,7 +529,16 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
-    [el.style.left, el.style.top] = this._at(it.x, it.y);
+    [el.style.left, el.style.top] = this._at(it.x, it.y, this._proj ? itemHeight(it, st) : 0);
+    if (this._proj) {
+      // 2.5D: icons further back go behind the ones in front, and a thin line shows where it stands
+      const p = this._proj, z = itemHeight(it, st) * p.sc * p.lift, [fx, fy] = p.P(it.x, it.y), [, ty] = p.P(it.x, it.y, z);
+      el.style.zIndex = String(10 + Math.round((fy / this._plan.height) * 100));
+      const g = this.shadowRoot.querySelector('svg.plan .stalks');
+      if (g && z > 0) {
+        g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}"><ellipse cx="${fx.toFixed(1)}" cy="${fy.toFixed(1)}" rx="${(3.2 * p.s).toFixed(1)}" ry="${(3.2 * p.s * Math.cos((p.tilt * Math.PI) / 180)).toFixed(1)}"/><line x1="${fx.toFixed(1)}" y1="${fy.toFixed(1)}" x2="${fx.toFixed(1)}" y2="${ty.toFixed(1)}"/></g>`);
+      }
+    }
     el.innerHTML = `<div class="bub"></div><div class="tag"></div><div class="name"></div>`;
     const bub = el.querySelector('.bub');
     if (kind !== 'sensor') {
@@ -561,7 +572,9 @@ class FloorplanStudioCard extends HTMLElement {
     this._fading = false;
     for (const [id, rec] of this._items) {
       const st = h.states[id];
-      rec.el.classList.toggle('hidden', !this._visible(id, rec.it));
+      const vis = this._visible(id, rec.it);
+      rec.el.classList.toggle('hidden', !vis);
+      if (this._proj) { const sk = rec.stalk || (rec.stalk = [...this.shadowRoot.querySelectorAll('[data-stalk]')].find((n) => n.dataset.stalk === id) || null); if (sk) sk.style.display = vis ? '' : 'none'; }
       if (isMotion(st)) {
         // fades from the accent colour back to grey over a few minutes after the last movement
         const f = motionFade(st, this._s);

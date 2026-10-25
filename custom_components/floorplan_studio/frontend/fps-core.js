@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b6';
+export const VERSION = '1.3.0b7';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -656,7 +656,20 @@ export function labelSpot(plan, room, fs, rows = 2) {
 /* ------------------------------------------------------------------ 2.5D */
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
 export const FURN_HEIGHT = { sofa: 0.8, bed: 0.55, table: 0.75, round: 0.75, desk: 0.75, counter: 0.9, cabinet: 2, bath: 0.6, shower: 2, toilet: 0.45, stairs: 0, tv: 0.7, plant: 0.9 };
-const LIFT = 0.42;   // heights are drawn at 42% so the walls don't hide the rooms
+const LIFT = 0.42;
+/** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
+export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+/**
+ * How high a device sits, in metres, for the 2.5D view: its own height (step 4) or a sensible one
+ * for its kind (ceiling lamp high, thermostat at chest height, vacuum on the floor).
+ */
+export function itemHeight(it, st) {
+  if (it.height != null && it.height !== '' && Number.isFinite(+it.height)) return Math.max(0, +it.height);
+  if (it.radar?.height) return +it.radar.height;
+  const d = it.entity_id.split('.')[0], dc = st?.attributes?.device_class;
+  if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(dc)) return 2.3;
+  return { light: 2.2, fan: 2.3, cover: 2.0, camera: 2.3, climate: 1.5, sensor: 1.5, binary_sensor: 1.4, lock: 1.1, switch: 1.0, input_boolean: 1.0, media_player: 1.0, vacuum: 0, lawn_mower: 0 }[d] ?? 1.0;
+}   // heights are drawn at 42% so the walls don't hide the rooms
 
 /**
  * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted
@@ -678,7 +691,7 @@ export function makeProj(plan, { rot = 0, tilt = 50 } = {}) {
   const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
   const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
   const [e, f] = P(0, 0), [a1, b1] = P(1, 0), [c1, d1] = P(0, 1);
-  return { P, m: [a1 - e, b1 - f, c1 - e, d1 - f, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co };
+  return { P, m: [a1 - e, b1 - f, c1 - e, d1 - f, e, f], dz: (h) => -s * st * h, s, sc, wallH, rot, tilt, si, co, lift: LIFT };
 }
 
 /** Walls (cut low where they would block the view into a room) and furniture blocks, back to front. */
@@ -722,7 +735,7 @@ function raisedSVG(plan, walls, proj) {
     }
   }
   for (const f of plan.furniture || []) {
-    const fh = FURN_HEIGHT[f.type];
+    const fh = furnHeight(f);
     if (!(fh > 0)) continue;
     const w2 = Math.max(10, safeNumber(f.w, 100)) / 2, h2 = Math.max(6, safeNumber(f.h, 60)) / 2, r = (safeNumber(f.rot) * Math.PI) / 180;
     const base = [[-w2, -h2], [w2, -h2], [w2, h2], [-w2, h2]].map(([x, y]) => P(safeNumber(f.x) + x * Math.cos(r) - y * Math.sin(r), safeNumber(f.y) + x * Math.sin(r) + y * Math.cos(r)));
@@ -798,13 +811,14 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
   }
   if (!editor) out.push('<polyline class="vactrail" points=""/>');
   // furniture and stairs: light outlines, under the walls (in 2.5D only the flat ones; the rest become blocks)
-  const flatFurn = (plan.furniture || []).filter((f) => !proj || !(FURN_HEIGHT[f.type] > 0));
+  const flatFurn = (plan.furniture || []).filter((f) => !proj || !(furnHeight(f) > 0));
   if (flatFurn.length) out.push(`<g class="furniture">${flatFurn.map((f) => furnSVG(f)).join('')}</g>`);
   // mmWave radars: range circle, distance ring or dots per person (filled in by the card)
   if (!editor) out.push('<g class="radars"></g>');
   if (proj) {
     out.push('</g>');
     out.push(raisedSVG(plan, walls, proj));
+    if (!editor) out.push('<g class="stalks"></g>');   // thin lines from the floor up to raised icons (card fills it)
     out.push(`<rect class="deco d-scan" width="${W}" height="${H}" fill="url(#fps-scan)" style="pointer-events:none"/></svg>`);
     return out.join('');
   }
@@ -875,6 +889,8 @@ export const PLAN_CSS = `
   .f3side { fill: color-mix(in srgb, var(--fps-muted) 30%, var(--fps-bg)); stroke: var(--fps-muted); stroke-opacity: .5; stroke-width: .8; }
   .f3top { fill: color-mix(in srgb, var(--fps-muted) 18%, var(--fps-floor)); stroke: var(--fps-muted); stroke-opacity: .6; stroke-width: .8; }
   .f3 .furn { fill: none; stroke-opacity: .5; }
+  .stalks line { stroke: var(--fps-fg); stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
+  .stalks ellipse { fill: var(--fps-fg); fill-opacity: .3; pointer-events: none; }
   .furn { fill: var(--fps-fg); fill-opacity: .035; stroke: var(--fps-muted); stroke-opacity: .55; stroke-width: 1.4; stroke-linejoin: round; pointer-events: none; }
   .furn .soft { stroke-opacity: .35; } .furn .arrow { fill: none; stroke-linecap: round; }
   .radar-range { fill: rgba(var(--fps-accent-rgb), .045); stroke: rgba(var(--fps-accent-rgb), .4); stroke-width: 1.3; stroke-dasharray: 5 6; pointer-events: none; }
