@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b22';
+export const VERSION = '1.4.0b23';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -616,6 +616,7 @@ export const DEFAULT_SETTINGS = {
   show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
   perspective: true,        // 2.5D: real perspective (nearer = a little bigger)
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons
+  walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
   turn_ghost_pct: 10,       // ... to this % visible
   people: {},               // person.x -> sensor whose state is the room/area the person is in (Bermuda, ESPresense, …)

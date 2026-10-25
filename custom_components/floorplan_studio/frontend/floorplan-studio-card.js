@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b22';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b22';
+} from './fps-core.js?v=1.4.0b23';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b23';
 
 
 const CSS = `
@@ -657,8 +657,8 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b22');
-      this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove, onClose: () => { this._walk = null; } });
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b23');
+      this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: this._canMove && this._s.walk_edit !== false, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
   }
 

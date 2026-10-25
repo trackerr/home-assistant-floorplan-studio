@@ -326,6 +326,11 @@ Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je e
   - **Apparaten verplaatsen:** sleep het icoontje. De eerste beweging bepaalt de richting en die blijft vast: **opzij** schuift het over de vloer (links/rechts zoals je kijkt), **omhoog/omlaag** verandert alleen de hoogte. Zo verschuift er nooit per ongeluk iets in de andere richting. Tik erop om het te kiezen; de **hoogte** kan ook met − en + per 10 cm.
   - **Ledstrip tekenen:** kies een lamp en tik **Ledstrip tekenen**. Zet de hoogte goed en tik punt voor punt op de muur of het meubel waar de strip loopt, dan **Klaar**.
   - **Meubels:** sleep een meubel over de vloer, of tik erop en draai het (15° of 90°) of haal het weg (ook met Delete).
+  - **Toevoegen:** met niets gekozen staan onderin knoppen voor **Apparaat toevoegen** (de apparaten van de ruimte waar je bent die nog niet op de kaart staan; ze komen vóór je), **Meubel toevoegen** (op de vloer vóór je, in de richting waarin je kijkt), en **Raam** / **Deur** (klik daarna op de muur).
+  - **Meubel kiezen:** breedte, diepte en hoogte met − en + (5 cm), de soort wijzigen, draaien of weghalen.
+  - **Raam of deur aantikken:** soort (raam, deur, doorgang), breedte (10 cm per tik) of weghalen.
+  - **Apparaat van de kaart halen:** kies het en tik **Van de kaart halen**.
+  - Ruimtes en muren teken je in de editor (2D); dat blijft daar het prettigst. Bewerken in de wandeling kun je bij stap 5 uitzetten.
   - **Opslaan** bewaart alles in je plattegrond (2D, 2.5D en de wandeling kloppen meteen); **Annuleren** gooit de wijzigingen weg.
 - Je loopt nooit door een muur: de rondleiding gaat alleen door deuren en doorgangen, en een ruimte zonder deur slaat hij over. Ook zelf lopen stopt bij de muur.
 - Sluiten met het kruisje of Esc. Heb je nog niet opgeslagen, dan waarschuwt hij eerst.

@@ -2,8 +2,8 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
-  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir,
-} from './fps-core.js?v=1.4.0b22';
+  lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir,
+} from './fps-core.js?v=1.4.0b23';
 
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
@@ -11,8 +11,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' } },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' } },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' } },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · Ctrl + scrollwiel = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' } },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -490,7 +490,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
     [['aP', 3, 0], ['aN', 3, 12], ['aC', 3, 24], ['aM', 1, 36]].forEach(([n, k, off]) => { gl.enableVertexAttribArray(A[n]); gl.vertexAttribPointer(A[n], k, gl.FLOAT, false, 40, off); });
   };
 
-  let editing = false, sel = null, stripDraft = null, stripY = 1, aimFor = null;
+  let editing = false, sel = null, stripDraft = null, stripY = 1, aimFor = null, menu = null, openMode = null;
   let obstacles = [], clocks = [], tvFurn = new Map(), clockBuf = null, clockSec = -1;
   let world, graph, nav, buf = {}, lamps = [], items = [], doorSig = '';
   const S = planScale(plan) || 70, M = (v) => v / S;
@@ -872,8 +872,34 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
         if (q) { aimFor.aim = { x: Math.round(q[0] * S), y: Math.round(q[1] * S), z: Math.round(q[2] * 100) / 100 }; aimFor.spot = aimFor.spot ?? true; dirtyEdit = true; buildItems(); }
         aimFor = null; showSheet(); return;
       }
+      if (openMode) {
+        // a window or door on the wall you clicked
+        const q = aimHit(ev.clientX, ev.clientY);
+        if (q) {
+          const P = [q[0] * S, q[1] * S];
+          let best = null, bd = 0.35 * S;
+          for (const w of computeWalls(plan.rooms)) {
+            const hor = w.y1 === w.y2, a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2), along = hor ? P[0] : P[1], dd = Math.abs(hor ? P[1] - w.y1 : P[0] - w.x1);
+            if (along >= a0 && along <= a1 && dd < bd) { bd = dd; best = { w, hor, a0, a1, along }; }
+          }
+          if (best) {
+            const len = Math.min((openMode === 'window' ? 1.2 : 0.85) * S, best.a1 - best.a0), c = Math.max(best.a0 + len / 2, Math.min(best.a1 - len / 2, best.along));
+            const o = { id: 'o' + Math.random().toString(36).slice(2, 9), type: openMode, ...(best.hor ? { x1: Math.round(c - len / 2), y1: best.w.y1, x2: Math.round(c + len / 2), y2: best.w.y1 } : { x1: best.w.x1, y1: Math.round(c - len / 2), x2: best.w.x1, y2: Math.round(c + len / 2) }) };
+            plan.openings = [...(plan.openings || []), o];
+            sel = { type: 'opening', id: o.id }; dirtyEdit = true; rebuildWorld(true); buildItems();
+          }
+        }
+        openMode = null; showSheet(); return;
+      }
       if (stripDraft) { const q = surfaceHit(ev.clientX, ev.clientY) || planeHit(ev.clientX, ev.clientY, stripY); if (q) { stripDraft.push([Math.round(q[0] * 20) / 20, Math.round(q[1] * 20) / 20]); drawDraft(); showSheet(); } return; }
-      if (sel) { sel = null; rebuildWorld(); buildItems(); showSheet(); }
+      // a window or door you clicked: pick it
+      const q = aimHit(ev.clientX, ev.clientY);
+      if (q) {
+        const P = [q[0] * S, q[1] * S];
+        const o = (plan.openings || []).find((x) => { const ax = safeNumber(x.x1), ay = safeNumber(x.y1), bx = safeNumber(x.x2), by = safeNumber(x.y2), L2 = (bx - ax) ** 2 + (by - ay) ** 2 || 1, t = Math.max(0, Math.min(1, ((P[0] - ax) * (bx - ax) + (P[1] - ay) * (by - ay)) / L2)); return Math.hypot(P[0] - (ax + (bx - ax) * t), P[1] - (ay + (by - ay) * t)) < 0.22 * S; });
+        if (o) { sel = { type: 'opening', id: o.id }; menu = null; rebuildWorld(); buildItems(); showSheet(); return; }
+      }
+      if (sel || menu) { sel = null; menu = null; rebuildWorld(); buildItems(); showSheet(); }
       return;
     }
     if (!tap) return;
@@ -1042,17 +1068,35 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       if (rec) {
         const it = rec.it, lampish = it.kind !== 'device' && (rec.d === 'light' || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(rec.d));
         const h0 = rec.h;   // what you see (your own height, or the usual one)
-        html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button></div>
+        html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button><button data-a="idel"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove_dev}</button></div>
           ${lampish && isSpot(it, hass.states[it.entity_id]) ? `<div class="row"><button data-a="aim" class="${aimFor === it ? 'pri' : ''}"><ha-icon icon="mdi:crosshairs-gps"></ha-icon>${T.aim}</button>${aimFor === it ? `<span>${T.aim_hint}</span>` : ''}</div>` : ''}
           ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>` : ''}`;
       }
+    } else if (sel?.type === 'opening') {
+      const o = (plan.openings || []).find((x) => x.id === sel.id);
+      if (o) html = `<b>${o.type === 'window' ? T.window : o.type === 'door' ? T.door : T.passage}</b>
+        <div class="row"><span>${T.kind}</span>${['window', 'door', 'open'].map((k) => `<button data-a="ot:${k}" class="${o.type === k ? 'pri' : ''}">${k === 'window' ? T.window : k === 'door' ? T.door : T.passage}</button>`).join('')}</div>
+        <div class="row"><span>${T.width}</span><button data-a="ow-">−</button><span>${fmtM(Math.hypot(o.x2 - o.x1, o.y2 - o.y1) / S)}</span><button data-a="ow+">+</button><button data-a="odel"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove}</button></div>`;
     } else if (sel?.type === 'furn') {
       const f = (plan.furniture || []).find((x) => x.id === sel.id);
-      if (f) html = `<b>${esc(FURN_NAME[lang][f.type] || f.type)}</b><div class="row"><span>${T.rotate}</span><button data-a="r-">⟲ 15°</button><button data-a="r+">⟳ 15°</button><button data-a="r90">90°</button></div><div class="row"><button data-a="del"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove}</button></div>`;
-    } else html = `<small>${T.edit_hint}</small>`;
+      if (f) html = `<b>${esc(FURN_NAME[lang][f.type] || f.type)}</b>
+        <div class="row"><span>${T.width}</span><button data-a="fw-">−</button><span>${fmtM(safeNumber(f.w) / S)}</span><button data-a="fw+">+</button><span>${T.depth}</span><button data-a="fd-">−</button><span>${fmtM(safeNumber(f.h) / S)}</span><button data-a="fd+">+</button></div>
+        <div class="row"><span>${T.height}</span><button data-a="fz-">−</button><span>${fmtM(furnHeight(f))}</span><button data-a="fz+">+</button><select data-sel="ftype">${Object.keys(FURN_TYPES).map((k) => `<option value="${k}" ${k === f.type ? 'selected' : ''}>${esc(FURN_NAME[lang][k] || k)}</option>`).join('')}</select></div>
+        <div class="row"><span>${T.rotate}</span><button data-a="r-">⟲ 15°</button><button data-a="r+">⟳ 15°</button><button data-a="r90">90°</button></div><div class="row"><button data-a="del"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove}</button></div>`;
+    } else if (openMode) {
+      html = `<b>${openMode === 'window' ? T.window : T.door}</b><small>${T.open_hint}</small><div class="row"><button data-a="ocancel">${T.cancel}</button></div>`;
+    } else if (menu === 'dev') {
+      // devices of the room you are in that are not on the plan yet
+      const r = roomOf(cam.x, cam.z), placed = new Set(plan.items.map((i) => i.entity_id));
+      const ids = r?.area_id ? placeCandidates(hass, r.area_id).filter((id) => !placed.has(id)) : [];
+      html = `<b>${T.add_dev}${r ? ` – ${esc(r.name)}` : ''}</b>${ids.length ? `<div class="row">${ids.slice(0, 18).map((id) => `<button data-a="add:${esc(id)}">${esc(friendly(hass, id))}</button>`).join('')}</div>` : `<small>${T.none_left}</small>`}<div class="row"><button data-a="menu:">${T.back2}</button></div>`;
+    } else if (menu === 'furn') {
+      html = `<b>${T.add_furn}</b><div class="row">${Object.keys(FURN_TYPES).map((k) => `<button data-a="addf:${k}"><ha-icon icon="${FURN_TYPES[k].icon}"></ha-icon>${esc(FURN_NAME[lang][k] || k)}</button>`).join('')}</div><div class="row"><button data-a="menu:">${T.back2}</button></div>`;
+    } else html = `<small>${T.edit_hint}</small><div class="row"><button data-a="menu:dev"><ha-icon icon="mdi:plus-circle-outline"></ha-icon>${T.add_dev}</button><button data-a="menu:furn"><ha-icon icon="mdi:sofa-outline"></ha-icon>${T.add_furn}</button><button data-a="om:window"><ha-icon icon="mdi:window-closed-variant"></ha-icon>${T.window}</button><button data-a="om:door"><ha-icon icon="mdi:door"></ha-icon>${T.door}</button></div>`;
     sh.innerHTML = html;
     sh.classList.add('show');
     sh.querySelectorAll('[data-a]').forEach((bt) => bt.addEventListener('click', (ev) => { ev.stopPropagation(); sheetAction(bt.dataset.a); }));
+    sh.querySelector('[data-sel="ftype"]')?.addEventListener('change', (ev) => { const f = (plan.furniture || []).find((x) => x.id === sel?.id); if (f) { f.type = ev.target.value; dirtyEdit = true; rebuildWorld(true); buildItems(); showSheet(); } });
   }
   function sheetAction(a) {
     const it = sel?.type === 'item' ? plan.items.find((i) => i.entity_id === sel.id) : null, f = sel?.type === 'furn' ? (plan.furniture || []).find((x) => x.id === sel.id) : null;
@@ -1065,6 +1109,38 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       stripY = rec?.h ?? ownHeight(it) ?? 1; stripDraft = []; drawDraft();
     } else if (a === 'icon') { delete it.shape; dirtyEdit = true; buildItems(); }
     else if (a === 'aim') { aimFor = aimFor === it ? null : it; }
+    else if (a === 'idel' && it) { plan.items = plan.items.filter((i) => i !== it); sel = null; dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); }
+    else if (a.startsWith('menu:')) { menu = a.slice(5) || null; }
+    else if (a.startsWith('add:')) {
+      // a device of this room: in front of you, at about 1.2 m
+      const id = a.slice(4), x = cam.x + Math.sin(cam.yaw) * 1.2, z = cam.z + Math.cos(cam.yaw) * 1.2;
+      plan.items.push({ entity_id: id, x: Math.round(x * S), y: Math.round(z * S) });
+      sel = { type: 'item', id }; menu = null; dirtyEdit = true; buildItems();
+    } else if (a.startsWith('addf:')) {
+      // a piece of furniture: on the floor in front of you, turned the way you look
+      const k = a.slice(5), d0 = FURN_TYPES[k], x = cam.x + Math.sin(cam.yaw) * 1.6, z = cam.z + Math.cos(cam.yaw) * 1.6;
+      const f2 = { id: 'f' + Math.random().toString(36).slice(2, 9), type: k, x: Math.round(x * S), y: Math.round(z * S), w: Math.round((d0.w / 100) * S), h: Math.round((d0.h / 100) * S), rot: Math.round(((-cam.yaw * 180) / Math.PI + 360) % 360 / 15) * 15 % 360 };
+      plan.furniture = [...(plan.furniture || []), f2];
+      sel = { type: 'furn', id: f2.id }; menu = null; dirtyEdit = true; rebuildWorld(true); buildItems();
+    } else if (f && /^f[wdz][-+]$/.test(a)) {
+      const up = a.endsWith('+');
+      if (a[1] === 'w') f.w = Math.max(0.1 * S, safeNumber(f.w) + (up ? 0.05 : -0.05) * S);
+      if (a[1] === 'd') f.h = Math.max(0.06 * S, safeNumber(f.h) + (up ? 0.05 : -0.05) * S);
+      if (a[1] === 'z') f.z = Math.round(Math.max(0.05, Math.min(H, furnHeight(f) + (up ? 0.05 : -0.05))) * 100) / 100;
+      f.w = Math.round(f.w); f.h = Math.round(f.h);
+      dirtyEdit = true; rebuildWorld(true); buildItems();
+    } else if (a.startsWith('om:')) { openMode = a.slice(3); sel = null; }
+    else if (a === 'ocancel') openMode = null;
+    else if (sel?.type === 'opening' && (a.startsWith('ot:') || a === 'ow-' || a === 'ow+' || a === 'odel')) {
+      const o = plan.openings.find((x) => x.id === sel.id);
+      if (o && a.startsWith('ot:')) o.type = a.slice(3);
+      if (o && (a === 'ow-' || a === 'ow+')) {
+        const hor = o.y1 === o.y2, c = hor ? (o.x1 + o.x2) / 2 : (o.y1 + o.y2) / 2, len = Math.max(0.3 * S, Math.hypot(o.x2 - o.x1, o.y2 - o.y1) + (a === 'ow+' ? 0.1 : -0.1) * S);
+        if (hor) { o.x1 = Math.round(c - len / 2); o.x2 = Math.round(c + len / 2); } else { o.y1 = Math.round(c - len / 2); o.y2 = Math.round(c + len / 2); }
+      }
+      if (o && a === 'odel') { plan.openings = plan.openings.filter((x) => x !== o); sel = null; }
+      dirtyEdit = true; rebuildWorld(true); buildItems();
+    }
     else if (a === 'sy-' || a === 'sy+') { stripY = Math.round(Math.max(0.05, Math.min(H - 0.02, stripY + (a === 'sy+' ? 0.1 : -0.1))) * 100) / 100; drawDraft(); }
     else if (a === 'sundo') { stripDraft.pop(); drawDraft(); }
     else if (a === 'scancel') { stripDraft = null; drawDraft(); }
@@ -1126,7 +1202,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false 
       backup = JSON.stringify(plan); infoIt = null;
       if (touring) { pausedTour = route; setTouring(false); }
       route = [];
-    } else { sel = null; stripDraft = null; drawDraft(); }
+    } else { sel = null; stripDraft = null; menu = null; openMode = null; aimFor = null; drawDraft(); }
     for (const [id, show] of [['#edit', !on], ['#ecancel', on], ['#esave', on], ['#tour', !on]]) { const el = $(id); if (el) el.style.display = show ? '' : 'none'; }
     rebuildWorld(); buildItems(); showSheet();
   }
