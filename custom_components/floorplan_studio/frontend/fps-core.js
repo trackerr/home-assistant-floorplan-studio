@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.3.0b7';
+export const VERSION = '1.3.0b8';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -659,6 +659,15 @@ export const FURN_HEIGHT = { sofa: 0.8, bed: 0.55, table: 0.75, round: 0.75, des
 const LIFT = 0.42;
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+/** The piece of furniture under a point (its turned rectangle), or null. */
+export function furnAt(plan, x, y) {
+  for (const f of plan.furniture || []) {
+    const r = (-safeNumber(f.rot) * Math.PI) / 180, dx = x - safeNumber(f.x), dy = y - safeNumber(f.y);
+    const lx = dx * Math.cos(r) - dy * Math.sin(r), ly = dx * Math.sin(r) + dy * Math.cos(r);
+    if (Math.abs(lx) <= safeNumber(f.w, 100) / 2 && Math.abs(ly) <= safeNumber(f.h, 60) / 2) return f;
+  }
+  return null;
+}
 /**
  * How high a device sits, in metres, for the 2.5D view: its own height (step 4) or a sensible one
  * for its kind (ceiling lamp high, thermostat at chest height, vacuum on the floor).

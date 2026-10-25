@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight,
-} from './fps-core.js?v=1.3.0b7';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b7';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, furnAt, furnHeight,
+} from './fps-core.js?v=1.3.0b8';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.3.0b8';
 
 
 const CSS = `
@@ -529,13 +529,18 @@ class FloorplanStudioCard extends HTMLElement {
     el.className = `item ${kind}`;
     if (domain === 'media_player') el.classList.add(isTv(st, it) ? 'tv' : 'speaker');
     if (isMotion(st)) el.classList.add('motion');
-    [el.style.left, el.style.top] = this._at(it.x, it.y, this._proj ? itemHeight(it, st) : 0);
+    // 2.5D: a device over a table, desk or cupboard sits just above it (lamps over the dining table),
+    // otherwise at its own or its usual height
+    const under = this._proj ? furnAt(this._plan, it.x, it.y) : null, own = it.height != null && it.height !== '';
+    const hm = !this._proj ? 0 : under && !own ? furnHeight(under) + 0.35 : itemHeight(it, st);
+    [el.style.left, el.style.top] = this._at(it.x, it.y, hm);
     if (this._proj) {
-      // 2.5D: icons further back go behind the ones in front, and a thin line shows where it stands
-      const p = this._proj, z = itemHeight(it, st) * p.sc * p.lift, [fx, fy] = p.P(it.x, it.y), [, ty] = p.P(it.x, it.y, z);
+      // icons further back go behind the ones in front, and a thin line shows where it stands
+      const p = this._proj, base = under ? Math.min(hm, furnHeight(under)) * p.sc * p.lift : 0, z = hm * p.sc * p.lift;
+      const [fx, fy] = p.P(it.x, it.y, base), [, ty] = p.P(it.x, it.y, z);
       el.style.zIndex = String(10 + Math.round((fy / this._plan.height) * 100));
       const g = this.shadowRoot.querySelector('svg.plan .stalks');
-      if (g && z > 0) {
+      if (g && z - base > 1) {
         g.insertAdjacentHTML('beforeend', `<g data-stalk="${esc(it.entity_id)}"><ellipse cx="${fx.toFixed(1)}" cy="${fy.toFixed(1)}" rx="${(3.2 * p.s).toFixed(1)}" ry="${(3.2 * p.s * Math.cos((p.tilt * Math.PI) / 180)).toFixed(1)}"/><line x1="${fx.toFixed(1)}" y1="${fy.toFixed(1)}" x2="${fx.toFixed(1)}" y2="${ty.toFixed(1)}"/></g>`);
       }
     }
