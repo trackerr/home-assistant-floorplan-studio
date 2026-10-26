@@ -4,14 +4,14 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b60';
+} from './fps-core.js?v=1.4.0b61';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
-  en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', coffee: 'Coffee table', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camera wall', dishwasher: 'Dishwasher', washer: 'Washing machine', dryer: 'Dryer', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', model: '3D model', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
-  nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camerawand', dishwasher: 'Vaatwasser', washer: 'Wasmachine', dryer: 'Droger', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', model: '3D-model', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
+  en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', coffee: 'Coffee table', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camera wall', dishwasher: 'Dishwasher', washer: 'Washing machine', dryer: 'Dryer', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', mirror: 'Mirror', model: '3D model', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
+  nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camerawand', dishwasher: 'Vaatwasser', washer: 'Wasmachine', dryer: 'Droger', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', mirror: 'Spiegel', model: '3D-model', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
   en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · Ctrl + scroll wheel to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
@@ -57,7 +57,7 @@ function segHitsBox(ax, az, bx, bz, q) {
 const COL = {
   wall: [0.93, 0.91, 0.87], ceil: [0.97, 0.97, 0.96], frame: [0.97, 0.97, 0.97], glass: [0.72, 0.86, 1.0], door: [0.88, 0.86, 0.82],
   floor: [0.66, 0.62, 0.56], wood: [0.62, 0.46, 0.32], tiles: [0.78, 0.78, 0.76], grass: [0.27, 0.38, 0.22],
-  soft: [0.46, 0.52, 0.6], dark: [0.16, 0.16, 0.18], pot: [0.62, 0.36, 0.26], plant: [0.26, 0.5, 0.27], woodF: [0.55, 0.4, 0.28], white: [0.94, 0.94, 0.93], metal: [0.84, 0.85, 0.87],
+  soft: [0.46, 0.52, 0.6], dark: [0.16, 0.16, 0.18], pot: [0.62, 0.36, 0.26], plant: [0.26, 0.5, 0.27], woodF: [0.55, 0.4, 0.28], white: [0.94, 0.94, 0.93], metal: [0.84, 0.85, 0.87], mirror: [0.8, 0.87, 0.92],
 };
 const FURN_COL = { dishwasher: 'white', washer: 'white', dryer: 'white', radiator: 'white', speakerbox: 'dark', coffee: 'woodF', table: 'woodF', round: 'woodF', desk: 'woodF', bed: 'woodF', cabinet: 'woodF', wallcab: 'white', counter: 'white', island: 'white', sink: 'white', hob: 'white', stove: 'metal', fridge: 'metal', bath: 'white', shower: 'white', toilet: 'white', stairs: 'woodF', tv: 'dark', sofa: 'soft', plant: 'plant' };
 
@@ -182,7 +182,7 @@ function buildWorld(plan, hass, selFurn = null) {
       const poly = pr.poly.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
       const y0 = pr.z0 * zs + zb, y1 = Math.max(pr.z1 * zs + zb, y0 + 0.004);
       if (pr.cls === 'glass') { glass.prism(poly, y0, y1, COL.glass); continue; }
-      let col = COL[pr.cls === 'soft' ? 'soft' : pr.cls === 'dark' ? 'dark' : pr.cls === 'pot' ? 'pot' : pr.cls === 'plant' ? 'plant' : FURN_COL[f.type] || 'woodF'];
+      let col = COL[pr.cls === 'soft' ? 'soft' : pr.cls === 'dark' ? 'dark' : pr.cls === 'pot' ? 'pot' : pr.cls === 'plant' ? 'plant' : pr.cls === 'mirror' ? 'mirror' : FURN_COL[f.type] || 'woodF'];
       if (f.id === selFurn) col = col.map((v, i) => v * 0.45 + [1, 0.72, 0.35][i] * 0.55);   // picked while editing
       solid.prism(poly, y0, y1, col);
     }
@@ -694,6 +694,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       const pf = P2(0, fd + 6);
       lamps.push({ it: { entity_id: id }, app: f, P: [pf[0], 0.6, pf[1]], bb: lampBox(roomOf(M(safeNumber(f.x)), M(safeNumber(f.y)))), start, count: markers.v.length / 10 - start, share: 0.12 });
       tvFurn.set(f.id, { entity_id: id, app: f });
+    }
+    // speaker boxes linked to a player (f.media): tap = the player's buttons, a soft glow while it plays
+    const boxMedia = new Set();
+    for (const f of plan.furniture || []) {
+      if (f.type !== 'speakerbox' || !f.media || !hass.states[f.media]) continue;
+      boxMedia.add(f.media);
+      if (!tvFurn.has(f.id)) tvFurn.set(f.id, { entity_id: f.media });
+      lamps.push({ it: { entity_id: f.media }, boxplay: true, P: [M(safeNumber(f.x)), 0.8, M(safeNumber(f.y))], bb: lampBox(roomOf(M(safeNumber(f.x)), M(safeNumber(f.y)))), start: 0, count: 0, share: 0.15 });
     }
     // radiators linked to their thermostat: a warm glow along the top while heating, tap = temperature and buttons
     for (const f of plan.furniture || []) {
@@ -1248,6 +1256,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (tvf) rec.hidden = true;   // the TV furniture itself is the TV
       if (rads.byEntity.has(it.entity_id)) rec.hidden = true;   // the radiator you drew is this thermostat
       if (appEnt.has(it.entity_id)) rec.hidden = true;   // the appliance you drew is this (plug, sensor...)
+      if (boxMedia.has(it.entity_id)) rec.hidden = true;   // the speaker box you drew is this player
       if (ringN) rec.hideWalk = true;   // the clock on the wall is the clock (its icon only shows while editing)
       items.push(rec);
     }
@@ -1370,6 +1379,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (L.tv) { L.on = !!st && ['on', 'playing', 'paused', 'idle', 'buffering'].includes(st.state); L.col = [0.35, 0.55, 1]; L.k = L.on ? 0.7 : 0; }
       if (L.media) { L.on = !!st && ['playing', 'on', 'buffering'].includes(st.state) && (L.media !== 'hub' || st.state !== 'off'); L.col = L.media === 'hub' ? [0.55, 0.7, 1] : [0.9, 0.95, 1]; L.k = L.on ? (L.media === 'hub' ? 0.25 : 0.12) : 0; }
       if (L.pieces && L.liveCol && Date.now() - (L.liveT || 0) < 5000) L.col = L.liveCol;   // a WLED showing live colours: its light is those colours
+      if (L.boxplay) { L.on = st?.state === 'playing'; L.col = [0.55, 0.65, 1]; L.k = L.on ? 0.25 : 0; }
       if (L.app) { L.on = applianceRunning(hass, L.app, L.it.entity_id); L.col = [0.3, 1, 0.5]; L.k = L.on ? 0.2 : 0; }
       if (L.screen) { L.on = true; L.col = [0.55, 0.7, 1]; L.k = 0.35; }
       if (L.rad) { L.on = isHeating(st); L.col = [1, 0.5, 0.2]; L.k = L.on ? 0.25 : 0; }

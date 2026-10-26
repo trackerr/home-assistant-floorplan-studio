@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b60';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b60';
+} from './fps-core.js?v=1.4.0b61';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b61';
 
 
 const CSS = `
@@ -653,7 +653,7 @@ class FloorplanStudioCard extends HTMLElement {
     const bub = el.querySelector('.bub');
     const ring = ringClock(it, this._hass), ac = isAircon(it, st);
     if (ac) el.classList.add('aircon');
-    if (this._tvl?.has(it.entity_id) || ambilightTv(this._plan, it, st) || speakerBoxes(this._plan, it, st).length || radiatorLinks(this._plan, this._hass).byEntity.has(it.entity_id) || applianceAbsorbs(this._plan, this._hass).has(it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV (and its ambilight): no separate icon
+    if (this._tvl?.has(it.entity_id) || ambilightTv(this._plan, it, st) || speakerBoxes(this._plan, it, st).length || radiatorLinks(this._plan, this._hass).byEntity.has(it.entity_id) || applianceAbsorbs(this._plan, this._hass).has(it.entity_id) || (this._plan.furniture || []).some((f) => f.type === 'speakerbox' && f.media === it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV (and its ambilight): no separate icon
     if (ring) {
       // a WLED ring clock: its ring of LEDs, showing the time
       el.classList.add('ringclock');
@@ -718,7 +718,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b60');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b61');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -851,6 +851,13 @@ class FloorplanStudioCard extends HTMLElement {
       const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 80) / 2 + 8, d = Math.max(safeNumber(f.h, 10), 8) / 2 + 10, fx = safeNumber(f.x), fy = safeNumber(f.y), z = p ? 0.4 * p.sc * p.lift : 0;
       const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
       out.unshift(`<polygon class="ambi" style="fill:rgb(255,120,50);stroke:rgb(255,120,50)" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
+    }
+    // a speaker box whose player is playing: a soft blue glow
+    for (const f of plan.furniture || []) {
+      if (f.type !== 'speakerbox' || !f.media || h.states[f.media]?.state !== 'playing') continue;
+      const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 30) / 2 + 8, d = safeNumber(f.h, 30) / 2 + 8, fx = safeNumber(f.x), fy = safeNumber(f.y), z = p ? 0.5 * p.sc * p.lift : 0;
+      const pts = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, y]) => { const X = fx + x * Math.cos(r) - y * Math.sin(r), Y = fy + x * Math.sin(r) + y * Math.cos(r); return p ? p.P(X, Y, z) : [X, Y]; });
+      out.unshift(`<polygon class="ambi" style="fill:rgb(130,160,255);stroke:rgb(130,160,255)" points="${pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}"/>`);
     }
     // a dishwasher / washer / dryer that is running: a green glow
     for (const f of plan.furniture || []) {

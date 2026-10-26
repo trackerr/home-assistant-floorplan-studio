@@ -15,6 +15,7 @@ FURN_WORDS: dict[str, list[str]] = {
     "coffee": ["salontafel", "koffietafel", "bijzettafel", "coffee table", "side table"],
     "radiator": ["radiator", "verwarming", "heater"],
     "speakerbox": ["speakerbox", "luidsprekerbox", "speaker box", "boxen"],
+    "mirror": ["spiegel", "mirror"],
     "dishwasher": ["vaatwasser", "afwasmachine", "dishwasher"],
     "washer": ["wasmachine", "washing machine", "washer"],
     "dryer": ["droger", "wasdroger", "dryer"],
@@ -39,10 +40,10 @@ FURN_WORDS: dict[str, list[str]] = {
     "stairs": ["trap", "stairs", "staircase"],
 }
 FURN_SAY = {
-    "nl": {"dishwasher": "de vaatwasser", "washer": "de wasmachine", "dryer": "de droger", "radiator": "de radiator", "speakerbox": "de box", "coffee": "de salontafel", "round": "de ronde tafel", "island": "het kookeiland", "wallcab": "de bovenkast", "table": "de tafel", "sofa": "de bank", "bed": "het bed", "desk": "het bureau", "cabinet": "de kast", "counter": "het aanrecht", "tv": "de tv", "bath": "het bad", "shower": "de douche", "toilet": "de wc", "fridge": "de koelkast", "stove": "het fornuis", "hob": "de kookplaat", "sink": "de gootsteen", "plant": "de plant", "stairs": "de trap"},
-    "en": {"dishwasher": "the dishwasher", "washer": "the washing machine", "dryer": "the dryer", "radiator": "the radiator", "speakerbox": "the speaker", "coffee": "the coffee table", "round": "the round table", "island": "the kitchen island", "wallcab": "the wall cupboard", "table": "the table", "sofa": "the sofa", "bed": "the bed", "desk": "the desk", "cabinet": "the cupboard", "counter": "the counter", "tv": "the TV", "bath": "the bath", "shower": "the shower", "toilet": "the toilet", "fridge": "the fridge", "stove": "the cooker", "hob": "the hob", "sink": "the sink", "plant": "the plant", "stairs": "the stairs"},
+    "nl": {"mirror": "de spiegel", "dishwasher": "de vaatwasser", "washer": "de wasmachine", "dryer": "de droger", "radiator": "de radiator", "speakerbox": "de box", "coffee": "de salontafel", "round": "de ronde tafel", "island": "het kookeiland", "wallcab": "de bovenkast", "table": "de tafel", "sofa": "de bank", "bed": "het bed", "desk": "het bureau", "cabinet": "de kast", "counter": "het aanrecht", "tv": "de tv", "bath": "het bad", "shower": "de douche", "toilet": "de wc", "fridge": "de koelkast", "stove": "het fornuis", "hob": "de kookplaat", "sink": "de gootsteen", "plant": "de plant", "stairs": "de trap"},
+    "en": {"mirror": "the mirror", "dishwasher": "the dishwasher", "washer": "the washing machine", "dryer": "the dryer", "radiator": "the radiator", "speakerbox": "the speaker", "coffee": "the coffee table", "round": "the round table", "island": "the kitchen island", "wallcab": "the wall cupboard", "table": "the table", "sofa": "the sofa", "bed": "the bed", "desk": "the desk", "cabinet": "the cupboard", "counter": "the counter", "tv": "the TV", "bath": "the bath", "shower": "the shower", "toilet": "the toilet", "fridge": "the fridge", "stove": "the cooker", "hob": "the hob", "sink": "the sink", "plant": "the plant", "stairs": "the stairs"},
 }
-FURN_HEIGHT = {"dishwasher": 0.85, "washer": 0.85, "dryer": 0.85, "radiator": 0.65, "speakerbox": 1.0, "coffee": 0.42, "hob": 0.9, "sink": 0.9, "stove": 0.9, "fridge": 1.85, "island": 0.92, "wallcab": 2.1, "sofa": 0.85, "bed": 0.95, "table": 0.9, "round": 0.76, "desk": 0.76, "counter": 0.9, "cabinet": 2, "bath": 0.58, "shower": 2, "toilet": 0.8, "stairs": 2.4, "tv": 1.15, "plant": 0.9}
+FURN_HEIGHT = {"mirror": 1.9, "dishwasher": 0.85, "washer": 0.85, "dryer": 0.85, "radiator": 0.65, "speakerbox": 1.0, "coffee": 0.42, "hob": 0.9, "sink": 0.9, "stove": 0.9, "fridge": 1.85, "island": 0.92, "wallcab": 2.1, "sofa": 0.85, "bed": 0.95, "table": 0.9, "round": 0.76, "desk": 0.76, "counter": 0.9, "cabinet": 2, "bath": 0.58, "shower": 2, "toilet": 0.8, "stairs": 2.4, "tv": 1.15, "plant": 0.9}
 
 
 def _norm(text: str) -> str:

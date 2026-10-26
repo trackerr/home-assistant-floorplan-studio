@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b60';
+export const VERSION = '1.4.0b61';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -446,6 +446,7 @@ export const FURN_TYPES = {
   stairs: { icon: 'mdi:stairs', w: 90, h: 260 },
   tv: { icon: 'mdi:television', w: 140, h: 12 },
   plant: { icon: 'mdi:flower-outline', w: 45, h: 45 },
+  mirror: { icon: 'mdi:mirror', w: 60, h: 4 },
   model: { icon: 'mdi:cube-outline', w: 70, h: 70 },   // your own 3D model (.glb / .obj, uploaded in the editor)
 };
 /**
@@ -577,6 +578,9 @@ export function furnSVG(f, extra = '') {
     }
     case 'tv':
       body = R(x, y, w, h, 2) + R(x + w * 0.3, y + h, w * 0.4, 4, 1, 'soft');
+      break;
+    case 'mirror':
+      body = R(x, y, w, h, 1) + L(x + w * 0.2, y + h, x + w * 0.35, y);
       break;
     case 'model':
       // your own 3D model: a dashed box with a cube in it (the model itself shows in the walk)
@@ -791,10 +795,10 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { model: 1, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { mirror: 1.9, model: 1, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
-export const furnHeight = (f) => (f?.type === 'videowall' ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
+export const furnHeight = (f) => (['videowall', 'mirror'].includes(f?.type) ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
 /** A TV hung on the wall (instead of on its stand or a cabinet). */
 export const tvOnWall = (f) => f?.type === 'tv' && f.mount === 'wall';
 /**
@@ -828,10 +832,13 @@ export function setLinkedTvHeight(plan, hass, it, h) {
 }
 /** A camera wall: from its bottom (f.elev, default 0.8 m) to its top (f.top, default 2.3 m). */
 export function videoWallSpan(f) {
-  const b = Number.isFinite(+f.elev) && f.elev !== '' && f.elev != null ? Math.max(0, +f.elev) : 0.8;
-  const t = Number.isFinite(+f.top) && f.top !== '' && f.top != null ? +f.top : 2.3;
-  return [b, Math.max(b + 0.3, Math.min(3.2, t))];
+  // a camera wall or a mirror on the wall: bottom and top (f.elev / f.top) in metres
+  const mir = f?.type === 'mirror';
+  const b = Number.isFinite(+f.elev) && f.elev !== '' && f.elev != null ? Math.max(0, +f.elev) : mir ? 0.9 : 0.8;
+  const t = Number.isFinite(+f.top) && f.top !== '' && f.top != null ? +f.top : mir ? 1.9 : 2.3;
+  return [b, Math.max(b + (mir ? 0.15 : 0.3), Math.min(3.2, t))];
 }
+const ON_WALL_SPAN = ['videowall', 'mirror'];
 /**
  * The cameras on a camera wall: f.cams = list of camera entities, or (empty) every camera that shows a picture
  * (no weather radar or vacuum maps), sorted by area and name.
@@ -879,7 +886,7 @@ export function videoWallCams(f, hass) {
   return one.sort((a, b) => area(a).localeCompare(area(b)) || friendly(hass, a).localeCompare(friendly(hass, b)));
 }
 /** How much a piece of furniture is stretched upwards by its own height (a TV on the wall: not at all). */
-export const furnStretch = (f) => (tvOnWall(f) || f?.type === 'videowall' ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
+export const furnStretch = (f) => (tvOnWall(f) || ['videowall', 'mirror'].includes(f?.type) ? 1 : furnHeight(f) / (FURN_HEIGHT[f.type] || furnHeight(f) || 1));
 /** The piece of furniture under a point (its turned rectangle), or null. */
 export function furnAt(plan, x, y) {
   for (const f of plan.furniture || []) {
@@ -1641,6 +1648,11 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       return out;
     }
     case 'videowall': { const [b0, b1] = videoWallSpan(f); return [R(0, 0, w, h, b0 - 0.04, b1 + 0.04, 'dark')]; }
+    case 'mirror': {
+      // a mirror on the wall: a thin frame with the glass in front of it
+      const [b0, b1] = videoWallSpan(f), fr = Math.min(2.5, w * 0.06);
+      return [R(0, 0, w, h * 0.5, b0, b1, 'dark'), R(fr, h * 0.5, w - fr, h, b0 + 0.03, b1 - 0.03, 'mirror')];
+    }
     case 'speakerbox': return [R(0, 0, w, h, 0, 1, 'dark'), R(1.5, h - 1, w - 1.5, h, 0.08, 0.95, 'soft')];
     case 'radiator': {
       // panel radiator: fins from 15 cm up, little feet

@@ -1,7 +1,9 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
-- **Eén lamp in meerdere boxen**: kies bij de lamp onder *Hoort bij* een speakerbox, dan kun je eronder *Ook deze boxen* aanvinken (bijv. links én rechts); ze gloeien allemaal met die lamp. Boxen in dezelfde ruimte heten nu *links* / *rechts* (of 1, 2, 3).
+- **Koppelen vanuit het meubel én vanuit de lamp**: bij een speakerbox of tv kies je *Lamp erin* (gloed / ambilight); bij de lamp kies je onder *Hoort bij* → *Zelf kiezen* en vink je de tv of boxen aan. Eén lamp kan zo in meerdere boxen zitten (bijv. links én rechts). Boxen in dezelfde ruimte heten *links* / *rechts* (of 1, 2, 3).
+- **Speakerbox aan een speler**: kies bij een box een *Speler* (mediaspeler). Tik op de box = de bediening van die speler; hij gloeit zacht blauw zolang hij speelt, en de speler heeft geen los icoon meer.
+- **Spiegel** als meubel: aan de muur, met onder- en bovenkant instelbaar.
 - Editor: stap 5 (Instellingen) opende niet meer (sinds de keuze *De rondleiding begint in*); werkt weer.
 - Stap 3 (deuren & meubels): er staat niet meer standaard *Deur* aan. Een klik op een muur plaatst pas iets als je deur, raam of doorgang kiest; nog eens op die knop zet het weer uit.
 - Wandeling: **beeldhoek instelbaar** bij stap 5 (*Wandeling: beeldhoek*, 60–120°, standaard 100°). Ctrl + scrollwiel (of knijpen) past hem even aan; die keuze onthoudt de browser tot je de instelling wijzigt.
