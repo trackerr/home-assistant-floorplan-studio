@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b58';
+import './floorplan-studio-card.js?v=1.4.0b59';
 import {
   VERSION, isScreenLabel, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b58';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b58';
+} from './fps-core.js?v=1.4.0b59';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b59';
 
 const L = {
   en: {
@@ -1537,7 +1537,7 @@ class FloorplanStudioPanel extends HTMLElement {
         ${sel('compact', ['auto', 'on', 'off'].map((k) => [k, l['cmp_' + k]]), s.compact || 'auto')}
         ${(s.compact || 'auto') === 'auto' ? num('compact_width', 320, 1200, 20) : ''}
         <div class="field"><span>${l.height_25d}</span><select id="h25mode"><option value="real" ${s.height_25d === 'real' ? 'selected' : ''}>${l.h25_real}</option><option value="custom" ${s.height_25d !== 'real' ? 'selected' : ''}>${l.h25_custom}</option></select></div>
-        ${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}${chk('perspective')}${chk('show_stalks')}${chk('turn_ghost')}${chk('walk_edit')}${num('walk_fov', 60, 120, 5)}${sel('walk_start', [['', l.walk_start_auto], ...p.rooms.map((r) => [r.id, esc(r.name || r.id)])], s.walk_start || '')}${s.turn_ghost ? num('turn_ghost_pct', 0, 100, 5) : ''}<p class="hint">${l.turn_hint}</p>`)}
+        ${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}${chk('perspective')}${chk('show_stalks')}${chk('turn_ghost')}${chk('walk_edit')}${num('walk_fov', 60, 120, 5)}${sel('walk_start', [['', l.walk_start_auto], ...this.plan.rooms.map((r) => [r.id, esc(r.name || r.id)])], s.walk_start || '')}${s.turn_ghost ? num('turn_ghost_pct', 0, 100, 5) : ''}<p class="hint">${l.turn_hint}</p>`)}
       ${sec('tap', l.set_behaviour, `${chk('tap_zoom')}
         ${s.tap_zoom ? sel('room_tap', [['zoom', l.tap_zoom_opt], ['page', l.tap_page_opt]], s.room_tap === 'page' ? 'page' : 'zoom') : ''}
         ${sel('hold_action', [['quick', l.hold_quick], ['more-info', l.hold_more]], s.hold_action === 'more-info' ? 'more-info' : 'quick')}

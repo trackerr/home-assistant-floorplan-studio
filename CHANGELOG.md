@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Editor: stap 5 (Instellingen) opende niet meer (sinds de keuze *De rondleiding begint in*); werkt weer.
 - Stap 3 (deuren & meubels): er staat niet meer standaard *Deur* aan. Een klik op een muur plaatst pas iets als je deur, raam of doorgang kiest; nog eens op die knop zet het weer uit.
 - Wandeling: **beeldhoek instelbaar** bij stap 5 (*Wandeling: beeldhoek*, 60–120°, standaard 100°). Ctrl + scrollwiel (of knijpen) past hem even aan; die keuze onthoudt de browser tot je de instelling wijzigt.
 - 2.5D: een verplaatst tekstblok van een ruimte komt na het slepen precies waar je het neerzet (eerder schoof het in 2.5D weg, soms buiten de plattegrond). Een tekstblok dat buiten zijn ruimte terecht was gekomen, staat weer vanzelf in zijn ruimte.
