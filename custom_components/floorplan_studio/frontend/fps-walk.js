@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b63';
+} from './fps-core.js?v=1.4.0b64';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -752,14 +752,17 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         // how tall such a thing usually is, and where it is: hanging from the ceiling, on the wall, or standing (on furniture or the floor)
         const DEF_H = { 'lamp:floor': 1.6, 'lamp:table': 0.5, 'lamp:pendant': 0.45, 'lamp:ceiling': 0.25, 'lamp:wall': 0.35, 'lamp:spot': 0.15, 'lamp:other': 0.45, '3dprinter': 0.5, printer: 0.4, router: 0.2, nas: 0.25, tv: 0.8, speaker: 0.3, mini: 0.12, player: 0.1, voice: 0.12, camera: 0.15, vacuum: 0.1, fan: 1.0, purifier: 0.6, thermostat: 0.12, thermo: 0.1, doorbell: 0.15, kettle: 0.25, coffee: 0.35, holofan: 0.6, tree: 1.8, plug: 0.1 };
         const mh = +it.model_h > 0 ? +it.model_h : DEF_H[kind] || 0.4;
-        const hangs = ['lamp:ceiling', 'lamp:pendant'].includes(kind), onWall = ['lamp:wall', 'camera', 'thermostat', 'thermo', 'doorbell', 'screen', 'pixeldisplay'].includes(kind) || isClock;
+        // standing: floor and table lamps, and devices that are usually low; anything else up high (a spot, a lamp or device
+        // given a height) hangs at its height, like the built-in one
+        const standing = ['lamp:floor', 'lamp:table'].includes(kind) || (!lampKind && h < 1.0 && !['camera', 'thermostat', 'thermo', 'doorbell', 'screen', 'pixeldisplay'].includes(kind));
+        const hangs = ['lamp:ceiling', 'lamp:pendant'].includes(kind), onWall = !standing && !hangs;
         const base = hangs ? (kind === 'lamp:ceiling' ? H - mh : Math.max(0, Math.min(H - mh, h - mh * 0.5))) : onWall ? Math.max(0, h - mh / 2) : under ? furnHeight(under) : 0;   // standing: on the furniture under it, else the floor
         const sz = modelSizeFn(mm.model, it.up), k = mh / (sz.h || 1);
         const ff = { x: px * S, y: pz * S, rot: +it.rot || 0, w: Math.max(0.02, sz.w * k) * S, h: Math.max(0.02, sz.d * k) * S, z: mh, elev: base, up: it.up };
         placeModelFn(mm.model, ff, S, (vx, vy, vz, nx, ny, nz, r, g, b2) => fixtures.v.push(vx, vy, vz, nx, ny, nz, r, g, b2, 0));
         hit = { c: [px, base + mh / 2, pz], r: Math.max(0.15, Math.min(0.8, Math.max(mh, sz.w * k, sz.d * k) / 2)) };
         P = [px, base + mh + 0.15, pz];
-        if (lampKind) lamps.push({ it, P: [px, hangs ? base + 0.05 : base + mh * 0.8, pz], bb: lampBox(room), start: 0, count: 0, share: 1, down: hangs && lampType === 'pendant' });
+        if (lampKind) lamps.push({ it, P: [px, hangs ? base + 0.05 : onWall ? base + mh / 2 : base + mh * 0.8, pz], bb: lampBox(room), start: 0, count: 0, share: 1, down: hangs && lampType === 'pendant', dir: lampType === 'spot' ? spotDir(plan, it, h) : undefined });
         if (!['lamp:floor', 'lamp:table'].includes(kind) && !hangs && !onWall && !under) obstacles.push([px, pz, Math.max(sz.w, sz.d) * k * 0.5 + 0.1]);
       }
       /**

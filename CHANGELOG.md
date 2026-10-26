@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Eigen 3D-model bij een apparaat: alleen staande lampen, tafellampen en lage apparaten staan op de vloer of het meubel; een spot en alles wat hoger hangt (eigen hoogte) komt op zijn hoogte, en een spot schijnt nog steeds waar je hem op richtte.
 - Wandeling: **iconen blijven in hun ruimte**: je ziet de iconen van de ruimte waar je bent, en van een ruimte waar je door een open doorgang in kijkt — niet meer door muren of deuren heen (ook niet om een hoek).
 - **Eigen 3D-model voor apparaten**: bij stap 4 → *Meer opties* → *Eigen 3D-model* kies of upload je een .glb/.obj voor dat apparaat. Het krijgt vanzelf een maat en plek die passen bij wat het is (plafondlamp aan het plafond, wandlamp of camera aan de muur, staande lamp op de vloer, de rest op het meubel eronder); *Hoogte model* en *Rechtop* zijn instelbaar. Een lamp blijft licht geven en schakelt met een tik.
 - Een box of tv die je zelf aan een lamp koppelt, wordt niet meer óók automatisch door een andere lamp (met "boxen" of "TV" in de naam) opgeëist: de koppeling met de hand wint.
