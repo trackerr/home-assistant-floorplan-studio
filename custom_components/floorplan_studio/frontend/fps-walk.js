@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b56';
+} from './fps-core.js?v=1.4.0b57';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -2161,13 +2161,19 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
 
   // how wide you see: a fixed width (like in games), so a narrow screen or a small card still feels roomy;
   // the height follows the screen shape. Ctrl + scroll wheel / pinching zooms (narrower = closer).
-  let hfov = (100 * Math.PI) / 180, fov = (70 * Math.PI) / 180;
+  // how wide you see: what you last zoomed to in this browser, else the setting (step 5), else 100°
+  let hfov0 = +plan.settings?.walk_fov || 100;
+  try { const sv = JSON.parse(localStorage.getItem('fps_walk_fov') || 'null'); if (sv && sv.s === hfov0 && sv.v >= 30 && sv.v <= 120) hfov0 = sv.v; } catch (e) { /* no storage: the setting */ }   // (a new setting wins)
+  let hfov = (Math.max(30, Math.min(120, hfov0)) * Math.PI) / 180, fov = (70 * Math.PI) / 180, fovSave = 0;
   const fitFov = () => {
     const r = canvas.getBoundingClientRect(), asp = r.width && r.height ? r.width / r.height : 1.6;
-    fov = Math.max((38 * Math.PI) / 180, Math.min((100 * Math.PI) / 180, 2 * Math.atan(Math.tan(hfov / 2) / asp)));
+    fov = Math.max((20 * Math.PI) / 180, Math.min((105 * Math.PI) / 180, 2 * Math.atan(Math.tan(hfov / 2) / asp)));
   };
   // Ctrl + scroll wheel (or pinching a touchpad / two fingers) zooms the room itself, not the page or the icons
-  const setZoom = (k) => { hfov = Math.max((30 * Math.PI) / 180, Math.min((120 * Math.PI) / 180, hfov * k)); fitFov(); };
+  const setZoom = (k) => {
+    hfov = Math.max((30 * Math.PI) / 180, Math.min((120 * Math.PI) / 180, hfov * k)); fitFov();
+    clearTimeout(fovSave); fovSave = setTimeout(() => { try { localStorage.setItem('fps_walk_fov', JSON.stringify({ v: Math.round((hfov * 180) / Math.PI), s: +plan.settings?.walk_fov || 100 })); } catch (e) { /* fine */ } }, 600);
+  };
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (ev.ctrlKey || ev.metaKey) { setZoom(Math.exp(ev.deltaY * 0.0012)); return; }

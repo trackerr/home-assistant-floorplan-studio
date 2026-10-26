@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: **beeldhoek instelbaar** bij stap 5 (*Wandeling: beeldhoek*, 60–120°, standaard 100°). Ctrl + scrollwiel (of knijpen) past hem even aan; die keuze onthoudt de browser tot je de instelling wijzigt.
 - 2.5D: een verplaatst tekstblok van een ruimte komt na het slepen precies waar je het neerzet (eerder schoof het in 2.5D weg, soms buiten de plattegrond). Een tekstblok dat buiten zijn ruimte terecht was gekomen, staat weer vanzelf in zijn ruimte.
 - Herkende apparaten (3D-printer, router, hub, printer…) kun je **draaien**: in de wandeling bij Bewerken (↺ 15°, ↻ 15°, ↻ 90°) of bij stap 4 (*Gedraaid*, in graden).
 - Apparaten die **uit** staan zijn op de kaart en in de wandeling half doorzichtig (50 %), zodat wat aan staat eruit springt. Sensoren en onbereikbare apparaten blijven zoals ze waren.

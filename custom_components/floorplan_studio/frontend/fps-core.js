@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b56';
+export const VERSION = '1.4.0b57';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -681,6 +681,7 @@ export const DEFAULT_SETTINGS = {
   show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
   perspective: true,        // 2.5D: real perspective (nearer = a little bigger)
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons
+  walk_fov: 100,            // walk: how wide you see, in degrees across (Ctrl + scroll wheel changes it for the moment)
   walk_start: '',           // room the tour starts in (at its door); '' = at the front door
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
