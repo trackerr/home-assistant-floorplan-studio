@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b57';
+import './floorplan-studio-card.js?v=1.4.0b58';
 import {
   VERSION, isScreenLabel, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b57';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b57';
+} from './fps-core.js?v=1.4.0b58';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b58';
 
 const L = {
   en: {
@@ -21,7 +21,7 @@ const L = {
     rooms_tip: 'Drag a rectangle for each room. L-shaped room? Pick it and tap “Add a piece to the room”. The walls draw themselves.',
     from_areas: 'Take the rooms from Home Assistant', room: 'Room', area: 'Home Assistant area', none: '— none —', temp_sensor: 'Temperature sensor', hum_sensor: 'Humidity sensor', auto: 'automatic',
     delete_room: 'Delete room', delete_part: 'Delete this piece', rooms_list: 'Rooms', no_rooms: 'No rooms yet.',
-    doors_title: 'Doors, windows and openings', door: 'Door', window: 'Window', opening: 'Open passage', doors_tip: 'Choose door, window or opening and tap a wall. An opening removes the wall, e.g. for an open kitchen. Link a door or window to its sensor and it turns orange on the plan while it is open.', o_sensor: 'Sensor (open / closed)', o_none: '— none —',
+    doors_title: 'Doors, windows and openings', door: 'Door', window: 'Window', opening: 'Open passage', doors_tip: 'Choose door, window or opening and tap a wall (tap the button again to stop). An opening removes the wall, e.g. for an open kitchen. Link a door or window to its sensor and it turns orange on the plan while it is open.', o_sensor: 'Sensor (open / closed)', o_none: '— none —',
     length: 'Width', whole: 'Whole wall', delete: 'Delete', no_walls: 'Draw your rooms first; the walls come by themselves.',
     items_title: 'Devices on the map', auto_place: 'Place everything for me', wled_auto: 'Set up WLED automatically', wled_hint: 'Reads every WLED: number of LEDs, segments and matrix. Segments of a strip you drew get their own part of it, strips without a line get one along the nearest wall (assuming 60 LEDs per metre; redraw it for the exact spot), and WLED lights are never treated as ceiling lamps.', wled_none: 'No WLED found (or not reachable).', wled_done: 'WLED set up', wled_split: '{n}: split into {k} segments', wled_line: '{n}: line of {m} m added ({l} LEDs)', wled_matrix: '{n}: LED matrix {w}×{h}', wled_off: '{n}: not reachable', auto_hint: 'Puts lights, switches, heating, curtains and TVs in the room they belong to in Home Assistant.',
     unplaced: 'Not on the map yet', add: 'Add', search: 'Search anything in Home Assistant…', item: 'Device', show_always: 'Always show (also in Simple mode)', color: 'Light colour (for a plug with a coloured lamp)', no_color: 'automatic', icon: 'Icon (optional)', label: 'Name (optional)',
@@ -79,7 +79,7 @@ const L = {
     rooms_tip: 'Sleep een rechthoek voor elke ruimte. Is een ruimte L-vormig? Kies hem en tik op “Stuk aan ruimte toevoegen”. De muren tekenen zichzelf.',
     from_areas: 'Ruimtes overnemen uit Home Assistant', room: 'Ruimte', area: 'Ruimte in Home Assistant', none: '— geen —', temp_sensor: 'Temperatuursensor', hum_sensor: 'Vochtsensor', auto: 'automatisch',
     delete_room: 'Ruimte verwijderen', delete_part: 'Dit stuk verwijderen', rooms_list: 'Ruimtes', no_rooms: 'Nog geen ruimtes.',
-    doors_title: 'Deuren, ramen en doorgangen', door: 'Deur', window: 'Raam', opening: 'Open doorgang', doors_tip: 'Kies deur, raam of doorgang en tik op een muur. Een doorgang haalt de muur weg, bijvoorbeeld bij een open keuken. Koppel een deur of raam aan zijn sensor: staat hij open, dan wordt hij oranje op de kaart.', o_sensor: 'Sensor (open / dicht)', o_none: '— geen —',
+    doors_title: 'Deuren, ramen en doorgangen', door: 'Deur', window: 'Raam', opening: 'Open doorgang', doors_tip: 'Kies deur, raam of doorgang en tik op een muur (nog eens op de knop = stoppen). Een doorgang haalt de muur weg, bijvoorbeeld bij een open keuken. Koppel een deur of raam aan zijn sensor: staat hij open, dan wordt hij oranje op de kaart.', o_sensor: 'Sensor (open / dicht)', o_none: '— geen —',
     length: 'Breedte', whole: 'Hele muur', delete: 'Verwijderen', no_walls: 'Teken eerst je ruimtes, dan komen de muren vanzelf.',
     items_title: 'Apparaten op de kaart', wled_auto: 'WLED automatisch instellen', wled_hint: 'Leest elke WLED uit: aantal leds, segmenten en matrix. Segmenten van een strip die je tekende krijgen hun eigen stuk ervan, strips zonder lijn krijgen er een langs de dichtstbijzijnde muur (uitgaande van 60 leds per meter; teken hem na voor de precieze plek), en WLED-lampen worden nooit als plafondlamp gezien.', wled_none: 'Geen WLED gevonden (of niet bereikbaar).', wled_done: 'WLED ingesteld', wled_split: '{n}: verdeeld over {k} segmenten', wled_line: '{n}: lijn van {m} m toegevoegd ({l} leds)', wled_matrix: '{n}: ledmatrix {w}×{h}', wled_off: '{n}: niet bereikbaar', auto_place: 'Alles vanzelf neerzetten', auto_hint: 'Zet lampen, schakelaars, verwarming, gordijnen en tv’s neer in de ruimte waar ze in Home Assistant bij horen.',
     unplaced: 'Nog niet op de kaart', add: 'Toevoegen', search: 'Zoek iets uit Home Assistant…', item: 'Apparaat', show_always: 'Altijd laten zien (ook bij Eenvoudig)', color: 'Kleur van het licht (voor een stekker met een gekleurde lamp)', no_color: 'automatisch', icon: 'Ander icoon (mag leeg)', label: 'Andere naam (mag leeg)',
@@ -197,8 +197,8 @@ const CSS = `
   .rlabel { fill: #fff; font-size: 13px; font-weight: 600; pointer-events: none; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3px; }
   .wall { stroke: #c9d3df; stroke-linecap: square; pointer-events: none; }
   .wall.outer { stroke-width: 7; } .wall.inner { stroke-width: 3.5; stroke-opacity: .8; }
-  .doors-mode .wall { pointer-events: stroke; cursor: crosshair; stroke-opacity: 1; }
-  .doors-mode .wall:hover { stroke: var(--primary-color); }
+  .doors-mode.placing .wall { pointer-events: stroke; cursor: crosshair; stroke-opacity: 1; }
+  .doors-mode.placing .wall:hover { stroke: var(--primary-color); }
   .op { stroke-width: 9; cursor: pointer; }
   .op.door { stroke: #ff6fd8; } .op.open { stroke: #36d399; stroke-dasharray: 8 5; } .op.window { stroke: #6fc3ff; stroke-dasharray: 3 3; }
   .op.sel { stroke: #fff; }
@@ -257,7 +257,7 @@ class FloorplanStudioPanel extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.step = 0;
     this.tool = 'draw';
-    this.doorType = 'door';
+    this.doorType = null;   // step 3: nothing is placed on a wall until you pick door, window or opening
     this.sel = null;
     this.history = [];
     this.dirty = false;
@@ -499,7 +499,7 @@ class FloorplanStudioPanel extends HTMLElement {
     const out = [];
     const [vx, vy, vw, vh] = this.viewBox();
     const ratio = vw / vh;
-    out.push(`<div class="canvas ${this.step === 2 ? 'doors-mode' : ''} ${this.stripDraw && this.step === 3 ? 'drawing-strip' : ''} ${this.aimFor && this.step === 3 ? 'aiming drawing-strip' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${vw} / ${vh};">`);
+    out.push(`<div class="canvas ${this.step === 2 ? `doors-mode ${this.doorType ? 'placing' : ''}` : ''} ${this.stripDraw && this.step === 3 ? 'drawing-strip' : ''} ${this.aimFor && this.step === 3 ? 'aiming drawing-strip' : ''}" id="canvas" style="width: min(100%, calc((100vh - 150px) * ${ratio})); aspect-ratio: ${vw} / ${vh};">`);
     out.push(`<svg viewBox="${vx} ${vy} ${vw} ${vh}" id="svg">`);
     out.push(`<defs><pattern id="gm" width="${g}" height="${g}" patternUnits="userSpaceOnUse"><path class="gridline" d="M${g} 0H0V${g}" fill="none"/></pattern><pattern id="gM" width="${g * 5}" height="${g * 5}" patternUnits="userSpaceOnUse"><path class="gridline major" d="M${g * 5} 0H0V${g * 5}" fill="none"/></pattern></defs>`);
     out.push(`<rect width="${W}" height="${H}" fill="#0d1116" data-bg="1"/>`);
@@ -1242,7 +1242,7 @@ class FloorplanStudioPanel extends HTMLElement {
   }
 
   wireDoors($, $$) {
-    $$('[data-door]').forEach((b) => b.addEventListener('click', () => { this.doorType = b.dataset.door; this.render(); }));
+    $$('[data-door]').forEach((b) => b.addEventListener('click', () => { this.doorType = this.doorType === b.dataset.door ? null : b.dataset.door; this.render(); }));   // tap again = off
     $$('[data-addfurn]').forEach((b) => b.addEventListener('click', () => this.mut((pl) => {
       const type = b.dataset.addfurn, d = FURN_TYPES[type], sc = planScale(pl) || 70;   // without a measured room: about 70 units per metre
       // Zoomed in on a room: the new piece lands in that room (middle of its biggest part), not in the middle of the whole plan.
@@ -1918,7 +1918,7 @@ class FloorplanStudioPanel extends HTMLElement {
       svg.addEventListener('pointermove', move); svg.addEventListener('pointerup', up);
       return;
     }
-    const w = nearestWall(computeWalls(p.rooms), x, y, 20);
+    const w = this.doorType ? nearestWall(computeWalls(p.rooms), x, y, 20) : null;   // nothing picked: a click only deselects
     if (!w) { this.sel = null; this.render(); return; }
     const hor = w.dir === 'h', len = this.doorType === 'door' ? 80 : 160;
     const lo = hor ? w.x1 : w.y1, hi = hor ? w.x2 : w.y2;
