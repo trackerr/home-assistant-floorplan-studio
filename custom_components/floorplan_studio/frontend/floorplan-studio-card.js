@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b77';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b77';
+} from './fps-core.js?v=1.4.0b78';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b78';
 
 
 const CSS = `
@@ -657,7 +657,7 @@ class FloorplanStudioCard extends HTMLElement {
     const st = this._hass.states[it.entity_id];
     const domain = it.entity_id.split('.')[0];
     // a plug or switch can say what hangs on it: a lamp (lamp icon + glow) or a device (no light)
-    const kind = it.kind === 'lamp' ? 'lamp' : it.kind === 'device' ? 'device' : LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only ? 'sensor' : 'device';
+    const kind = it.kind === 'lamp' ? 'lamp' : it.kind === 'device' ? 'device' : LAMP_DOMAINS.includes(domain) ? 'lamp' : domain === 'camera' ? 'device camera' : (domain === 'sensor' || domain === 'binary_sensor') && !it.icon_only && !isMotion(st) ? 'sensor' : 'device';   // a motion / presence sensor: its icon, lit while it sees someone
     const el = document.createElement('div');
     el.className = `item ${kind}`;
     if (domain === 'media_player') { const mk0 = mediaKind(it, this._hass); el.classList.add(mk0 === 'tv' || (!mk0 && isTv(st, it)) ? 'tv' : 'speaker'); if (mk0) el.classList.add(`media-${mk0}`); }
@@ -736,7 +736,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b77');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b78');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -1007,7 +1007,7 @@ class FloorplanStudioCard extends HTMLElement {
         continue;
       }
       // switched off (not a sensor, not unavailable): the icon half see-through, so what is on stands out
-      const off = !on && ((vs && vs.state === 'off') || ['off', 'standby'].includes(st?.state));
+      const off = !on && ((vs && vs.state === 'off') || (['off', 'standby'].includes(st?.state) && !/^(binary_)?sensor\./.test(id)));   // (a sensor that reads "off" is not switched off)
       rec.el.classList.toggle('off', off);
       if (!st) { rec.el.classList.toggle('on', on); rec.el.querySelector('.tag').textContent = ''; continue; }
       rec.el.classList.toggle('on', on);
