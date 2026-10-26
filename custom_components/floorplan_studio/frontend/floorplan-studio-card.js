@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b79';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b79';
+} from './fps-core.js?v=1.4.0b84';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b84';
 
 
 const CSS = `
@@ -331,6 +331,15 @@ class FloorplanStudioCard extends HTMLElement {
     this._items = new Map();
     this._zoomRoom = null;
     this._moving = false;
+    const cores = Number(globalThis.navigator?.hardwareConcurrency);
+    const memory = Number(globalThis.navigator?.deviceMemory);
+    const weakDevice = (Number.isFinite(cores) && cores > 0 && cores <= 4) || (Number.isFinite(memory) && memory > 0 && memory <= 2);
+    const fastDevice = Number.isFinite(cores) && cores >= 8 && Number.isFinite(memory) && memory >= 6;
+    this._hassUpdateInterval = 1000 / (weakDevice ? 15 : fastDevice ? 60 : 30);
+    this._hassUpdateTimer = 0;
+    this._hassUpdateRaf = 0;
+    this._hassUpdatePending = false;
+    this._lastHassUpdateAt = null;
   }
 
   static getStubConfig() { return { theme: 'warm', mode: 'all' }; }
@@ -347,9 +356,39 @@ class FloorplanStudioCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
-    this._walk?.setHass(hass);
     if (first) this._load();
-    else this._update();
+    else this._scheduleHassUpdate();
+  }
+
+  /** Coalesce Home Assistant state bursts and cap card updates for the current device. */
+  _scheduleHassUpdate() {
+    this._hassUpdatePending = true;
+    if (!this._built || !this._hass || !this.isConnected || this._hassUpdateTimer || this._hassUpdateRaf) return;
+    const now = globalThis.performance?.now?.() ?? Date.now();
+    const elapsed = this._lastHassUpdateAt == null ? Infinity : now - this._lastHassUpdateAt;
+    const wait = Math.max(0, this._hassUpdateInterval - elapsed);
+    if (wait > 0) {
+      this._hassUpdateTimer = window.setTimeout(() => {
+        this._hassUpdateTimer = 0;
+        this._requestHassUpdateFrame();
+      }, wait);
+    } else this._requestHassUpdateFrame();
+  }
+
+  _requestHassUpdateFrame() {
+    if (!this._hassUpdatePending || !this._built || !this._hass || !this.isConnected || this._hassUpdateRaf) return;
+    this._hassUpdateRaf = window.requestAnimationFrame(() => {
+      this._hassUpdateRaf = 0;
+      if (this._hassUpdatePending && this._built && this._hass) this._update();
+    });
+  }
+
+  _cancelHassUpdate(clearPending = false) {
+    if (this._hassUpdateTimer) window.clearTimeout(this._hassUpdateTimer);
+    if (this._hassUpdateRaf) window.cancelAnimationFrame(this._hassUpdateRaf);
+    this._hassUpdateTimer = 0;
+    this._hassUpdateRaf = 0;
+    if (clearPending) this._hassUpdatePending = false;
   }
 
   connectedCallback() {
@@ -364,9 +403,12 @@ class FloorplanStudioCard extends HTMLElement {
     // wait until the size has settled (full screen, rotating, a scrollbar) before switching
     this._ro = this._ro || new ResizeObserver(() => { clearTimeout(this._roT); this._roT = setTimeout(() => this._compactCheck(), 150); });
     this._ro.observe(this);
+    if (this._hassUpdatePending) this._scheduleHassUpdate();
   }
 
   disconnectedCallback() {
+    this._cancelHassUpdate();
+    this._walk?.close();
     window.removeEventListener('fps-plans-changed', this._onChanged);
     window.removeEventListener('fps-fullscreen', this._fsHook);
     clearInterval(this._usageTimer);
@@ -515,6 +557,7 @@ class FloorplanStudioCard extends HTMLElement {
 
   /* ---------------------------------------------------------- build */
   _build() {
+    this._stalkNodes = null;
     // walk: tour in the card's config (a TV, a wall tablet, Home Assistant Cast): the walk-through opens and tours by itself, round and round
     if (['tour', 'loop', true].includes(this._config?.walk) && !this._walkAuto) { this._walkAuto = true; setTimeout(() => this._openWalk(), 800); }
     if (this._config.home) return this._buildHome();
@@ -736,7 +779,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b79');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b84');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -751,9 +794,12 @@ class FloorplanStudioCard extends HTMLElement {
     // a fresh drawing for the new angle (with perspective the floor can't follow one matrix)
     svg.insertAdjacentHTML('afterend', planSVG(this._drawPlan(plan), { proj: this._proj }));
     svg.remove();
-    this.shadowRoot.querySelector('svg.plan').addEventListener('click', this._svgClick);
+    const nextSvg = this.shadowRoot.querySelector('svg.plan');
+    nextSvg.addEventListener('click', this._svgClick);
+    this._stalkNodes = null;
     this._glows = new Map(); this._radar = new Map(); this._last = new Map();
-    for (const rec of this._items.values()) { rec.stalk = null; rec.strip = undefined; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
+    for (const rec of this._items.values()) { rec.stalk = undefined; rec.strip = undefined; this._place(rec.el, rec.it, this._hass.states[rec.it.entity_id]); }
+    this._stalkNodes = new Map([...nextSvg.querySelectorAll('[data-stalk]')].map((node) => [node.dataset.stalk, node]));
     this.shadowRoot.querySelectorAll('.rinfo').forEach((d) => { if (d._fx != null) [d.style.left, d.style.top] = this._at(d._fx, d._fy); });
     this._update(true);
   }
@@ -967,6 +1013,12 @@ class FloorplanStudioCard extends HTMLElement {
   }
 
   _update(force = false) {
+    const hasPendingHass = this._hassUpdatePending;
+    this._cancelHassUpdate(true);
+    if (hasPendingHass) {
+      this._lastHassUpdateAt = globalThis.performance?.now?.() ?? Date.now();
+      this._walk?.setHass(this._hass);
+    }
     if (!this._built || !this._hass) return;
     const h = this._hass;
     this._themeTick();
@@ -977,11 +1029,12 @@ class FloorplanStudioCard extends HTMLElement {
     this._tvGlow();
     this._ringClocks();
     this._beams();
+    if (this._proj && !this._stalkNodes) this._stalkNodes = new Map([...this.shadowRoot.querySelectorAll('svg.plan [data-stalk]')].map((node) => [node.dataset.stalk, node]));
     for (const [id, rec] of this._items) {
       const st = h.states[id];
       const vis = this._visible(id, rec.it);
       rec.el.classList.toggle('hidden', !vis);
-      if (this._proj) { const sk = rec.stalk || (rec.stalk = [...this.shadowRoot.querySelectorAll('[data-stalk]')].find((n) => n.dataset.stalk === id) || null); if (sk) sk.style.display = vis ? '' : 'none'; }
+      if (this._proj) { if (rec.stalk === undefined) rec.stalk = this._stalkNodes.get(id) || null; if (rec.stalk) rec.stalk.style.display = vis ? '' : 'none'; }
       if (isMotion(st)) {
         // fades from the accent colour back to grey over a few minutes after the last movement
         const f = motionFade(st, this._s);

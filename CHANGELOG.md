@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Review-wijzigingen samengevoegd (stonden alleen live in Home Assistant): zwaardere controle bij het uploaden van 3D-modellen (max. 12 MB, in delen van 256 KB, tijdelijke delen worden opgeruimd) en bij het inlezen ervan; de kaart verwerkt een stroom van statuswijzigingen gebundeld (15–60 keer per seconde, naar wat het apparaat aankan); de wandeling kiest een start-kwaliteit per apparaat (tv's en zwakke toestellen lichter) en heeft een **VR-knop** (WebXR) voor een VR-bril; `floorplan_studio.place_device` en de assistent alleen nog voor beheerders, ook vanuit automatiseringen.
 - Wandeling: **Walkthrough** (stap 5 → *Wandeling (3D) en rondleiding*): de rondleiding, en lopen naar een plek waar je op tikte, gaat rechtdoor dwars door meubels; alleen muren en dichte deuren houden hem tegen. Standaard uit.
 - Kaart: een **bewegings- of aanwezigheidsmelder** staat er als icoon (dat oplicht zolang hij iemand ziet), niet meer als tekstje *Uit*; en een sensor die "uit" leest wordt niet meer half doorzichtig (dat is alleen voor dingen die uit staan).
 - Wandeling: loopt hij zelf (rondleiding of op weg naar een plek), dan **stopt een klik alleen** — ook op een lamp, apparaat of camerascherm wordt dan niets geschakeld of geopend. Sta je stil, dan werkt een tik zoals altijd.
