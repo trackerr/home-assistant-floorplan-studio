@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Rondleiding / naar een plek lopen: loopt hij ergens echt vast, dan zoekt hij vanaf daar een nieuwe weg naar hetzelfde doel (om het meubel heen) in plaats van om te keren; langzaam draaien bij een bocht telt niet meer als vastlopen.
+- Camerawand: boven elk scherm staat of de camera beweging ziet (bewegings- of persoonsensor van die camera, als die er is): *rust* klein en groen, *beweging* groot, vet, rood en knipperend.
 - Wandeling: **zoomen met het scrollwiel** (met of zonder Ctrl), overal in de wandeling en nooit de pagina; zonder scrollwiel met **+** en **−** (ook met Ctrl), Ctrl 0 = weer normaal. (Scrollen is geen stapje lopen meer: lopen gaat met de pijltjes/WASD of door op de vloer te tikken.)
 - De gloeiende lens van een eigen lampmodel zit nu óp de voorkant van de kop (bij een spot de kant waar hij op gericht is, bij een plafond- of hanglamp de onderkant), plat en zo groot als die voorkant, in plaats van als blokje ernaast.
 - Eigen 3D-model voor een lamp: een kleine lens gloeit in de echte kleur en helderheid van de lamp (donker als hij uit staat) — bij een spot vooraan de kop, waar het licht uitkomt.
