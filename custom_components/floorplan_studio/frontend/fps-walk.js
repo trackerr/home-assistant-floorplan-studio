@@ -4,10 +4,10 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b64';
+} from './fps-core.js?v=1.4.0b65';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
-const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
+const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
 const H = 2.6, DOOR_H = 2.1, SILL = 0.9, WIN_TOP = 2.15, EYE = 1.62, R_PLAYER = 0.22, MAX_LIGHTS = 16;
 const FURN_NAME = {
   en: { sofa: 'Sofa', bed: 'Bed', table: 'Table', round: 'Round table', coffee: 'Coffee table', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camera wall', dishwasher: 'Dishwasher', washer: 'Washing machine', dryer: 'Dryer', desk: 'Desk', counter: 'Kitchen counter', cabinet: 'Cupboard', bath: 'Bath', shower: 'Shower', toilet: 'Toilet', stairs: 'Stairs', tv: 'TV', plant: 'Plant', mirror: 'Mirror', model: '3D model', hob: 'Hob', sink: 'Sink', stove: 'Cooker', fridge: 'Fridge', island: 'Kitchen island', wallcab: 'Wall cupboard' },
@@ -113,6 +113,10 @@ function buildWorld(plan, hass, selFurn = null) {
 
   const openings = (plan.openings || []).map((o) => ({ ...o, x1: safeNumber(o.x1), y1: safeNumber(o.y1), x2: safeNumber(o.x2), y2: safeNumber(o.y2) }));
   const walls = computeWalls(rooms);
+  // wall colours: a room's own (step 2), else your colour for all walls (step 5), else the usual
+  const hex3 = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? [1, 3, 5].map((i) => parseInt(v.slice(i, i + 2), 16) / 255) : null);
+  const WALL_ALL = hex3(plan.settings?.wall_color) || COL.wall;
+  const wallOf = (room) => hex3(room?.wall_color) || WALL_ALL;
   for (const w of walls) {
     const hor = w.y1 === w.y2, at = hor ? w.y1 : w.x1, t = (w.kind === 'outer' ? 0.24 : 0.12) * S;
     const a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2);
@@ -128,9 +132,17 @@ function buildWorld(plan, hass, selFurn = null) {
     }
     if (pos < a1) pieces.push({ lo: pos, hi: a1, kind: 'solid' });
     // a box along the wall, in metres
-    const span = (lo, hi, y0, y1, col = COL.wall, grow = 0) => {
+    const span = (lo, hi, y0, y1, col = null, grow = 0) => {
       const [x0, z0, x1, z1] = hor ? [lo, at - t / 2 - grow, hi, at + t / 2 + grow] : [at - t / 2 - grow, lo, at + t / 2 + grow, hi];
-      solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, col);
+      if (col) solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, col);
+      else {
+        // a wall: each half in the colour of the room on that side (outside: your wall colour)
+        const mid = (lo + hi) / 2, rA = hor ? roomAt(rooms, mid, at - t / 2 - 3) : roomAt(rooms, at - t / 2 - 3, mid), rB = hor ? roomAt(rooms, mid, at + t / 2 + 3) : roomAt(rooms, at + t / 2 + 3, mid);
+        const cA = wallOf(rA), cB = wallOf(rB);
+        if (cA === cB) solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, cA);
+        else if (hor) { solid.box(M(x0), M(z0), M(x1), M(at), y0, y1, cA); solid.box(M(x0), M(at), M(x1), M(z1), y0, y1, cB); }
+        else { solid.box(M(x0), M(z0), M(at), M(z1), y0, y1, cA); solid.box(M(at), M(z0), M(x1), M(z1), y0, y1, cB); }
+      }
       return [M(x0), M(z0), M(x1), M(z1)];
     };
     for (const pc of pieces) {
@@ -855,6 +867,10 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         if (k === 'nas') { const [cx, cz] = at(0.23); ob(cx, cz, -0.05, 0.05, -0.115, 0.115, base, base + 0.17, DK); for (let i = 0; i < 3; i++) ob(cx, cz, -0.035 + i * 0.03, -0.025 + i * 0.03, 0.115, 0.118, base + 0.13, base + 0.14, [0.3, 0.75, 0.4]); set([cx, base + 0.09, cz], 0.15, base + 0.35); return [cx, base, cz]; }
         if (k === 'router') { const [cx, cz] = at(0.16); ob(cx, cz, -0.12, 0.12, -0.08, 0.08, base, base + 0.035, WH); for (const a0 of [-0.1, -0.035, 0.035, 0.1]) ob(cx, cz, a0 - 0.006, a0 + 0.006, -0.085, -0.075, base + 0.035, base + 0.2, DK); set([cx, base + 0.08, cz], 0.18, base + 0.4); return [cx, base, cz]; }
         if (k === 'printer') { const [cx, cz] = at(0.4); ob(cx, cz, -0.22, 0.22, -0.2, 0.2, base, base + 0.3, [0.3, 0.3, 0.32]); ob(cx, cz, -0.18, 0.18, 0.2, 0.32, base + 0.08, base + 0.1, [0.85, 0.85, 0.86]); set([cx, base + 0.15, cz], 0.3, base + 0.5); return [cx, base, cz]; }
+        // a smoke / gas detector: a white disc on the ceiling with a small light (red when it goes off)
+        if (k === 'smoke') { const alarm = st?.state === 'on'; fixtures.prism(circle(px, pz, 0.06, 16), H - 0.045, H - 0.002, WH); (alarm ? markers : fixtures).prism(circle(px, pz, 0.008, 8), H - 0.05, H - 0.045, alarm ? [1, 0.2, 0.15] : [0.3, 0.75, 0.35]); set([px, H - 0.03, pz], 0.12, H - 0.25); return [px, H - 0.05, pz]; }
+        // a water leak sensor: a small white puck on the floor (blue light when it is wet)
+        if (k === 'leak') { const wet = st?.state === 'on'; fixtures.prism(circle(px, pz, 0.035, 12), 0, 0.02, WH); (wet ? markers : fixtures).prism(circle(px, pz, 0.006, 6), 0.02, 0.022, wet ? [0.3, 0.6, 1] : [0.6, 0.6, 0.62]); set([px, 0.02, pz], 0.1, 0.25); return [px, 0.02, pz]; }
         // a universal remote / IR hub (Harmony, Broadlink): a small dark puck with a blue light
         if (k === 'irhub') { const [cx, cz] = at(0.12); fixtures.prism(circle(cx, cz, 0.055, 14), base, base + 0.03, DK); glow.prism(circle(cx, cz, 0.012, 8), base + 0.03, base + 0.033, [0.4, 0.6, 1]); set([cx, base + 0.02, cz], 0.12, base + 0.25); return [cx, base + 0.03, cz]; }
         // an alarm base station (Eufy HomeBase, Ajax hub...): a white box with a light ring on top

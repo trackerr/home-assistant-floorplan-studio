@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b64';
+export const VERSION = '1.4.0b65';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -136,6 +136,8 @@ export function themeStyle(name, hass, s = DEFAULT_SETTINGS) {
   }
   const vars = { ...(th.daylight ? daylightVars(hass, s).vars : th.vars),
     '--fps-icon-scale': (s.icon_size || 100) / 100, '--fps-lamp-scale': (s.lamp_size || 100) / 100, '--fps-dev-scale': (s.device_size || 100) / 100, '--fps-glow': (s.glow ?? 100) / 100, '--fps-turn-op': s.turn_ghost === false ? 1 : Math.max(0, Math.min(100, safeNumber(s.turn_ghost_pct, 10))) / 100 };
+  // your own wall colour (step 5): the walls on the plan, in 2.5D and in the walk
+  if (/^#[0-9a-f]{6}$/i.test(s.wall_color || '')) { vars['--fps-wall'] = s.wall_color; vars['--fps-wall-inner'] = s.wall_color; }
   return Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
 }
 
@@ -685,6 +687,7 @@ export const DEFAULT_SETTINGS = {
   show_stalks: false,       // 2.5D: thin lines from the floor up to raised icons
   perspective: true,        // 2.5D: real perspective (nearer = a little bigger)
   height_25d: 80,           // 2.5D: 'real' = true height, or a % of it, for walls, furniture and raised icons
+  wall_color: '',           // walls in your own colour (#rrggbb), '' = the theme's; a room can have its own (room.wall_color, walk)
   walk_fov: 100,            // walk: how wide you see, in degrees across (Ctrl + scroll wheel changes it for the moment)
   walk_start: '',           // room the tour starts in (at its door); '' = at the front door
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
@@ -1068,6 +1071,10 @@ export function mediaKind(it, hass) {
   if (/atom echo|satellite|m5stack|voice ?pe|respeaker/i.test(t)) return 'voice';
   if (/nest audio|google home|homepod|\becho\b|sonos|speaker|luidspreker|audio/i.test(t)) return 'speaker';
   if (/chromecast|shield|apple ?tv|fire ?tv|android ?tv|google ?tv|kodi|mediabox|tv ?box/i.test(t)) return 'player';
+  // what Home Assistant itself says it is
+  const dc = st?.attributes?.device_class;
+  if (dc === 'speaker') return 'speaker';
+  if (dc === 'receiver') return 'player';
   return null;
 }
 /**
@@ -1291,6 +1298,9 @@ export function deviceKind(it, st, hass) {
   if (d === 'humidifier') return 'purifier';
   if (d === 'fan') return PURIFIER_RE.test(t) ? 'purifier' : CEILFAN_RE.test(t) ? 'ceiling_fan' : 'fan';
   if (d === 'switch' && (a.device_class === 'outlet' || PLUG_RE.test(t))) return 'plug';
+  // what Home Assistant says it is (device class): smoke / gas / CO detector on the ceiling, a water leak sensor on the floor
+  if (d === 'binary_sensor' && ['smoke', 'gas', 'carbon_monoxide'].includes(a.device_class)) return 'smoke';
+  if (d === 'binary_sensor' && a.device_class === 'moisture') return 'leak';
   if (d === 'siren') return 'siren';
   if (d === 'alarm_control_panel') return 'alarmhub';
   if (d === 'remote') return 'irhub';
@@ -1303,10 +1313,10 @@ export function deviceKind(it, st, hass) {
 const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermostat: 1.5, ceiling_fan: 2.3, fan: 0.95, purifier: 0.55, plug: 0.3, motion: 2.3,
   '3dprinter': 0.25, holofan: 1.7, tree: 0.9, syncbox: 0.03, hood: 1.75, kettle: 0.12, coffee: 0.18, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03,
   inverter: 1.4, nas: 0.1, router: 0.04, printer: 0.15, screen: 2.45, thermo: 1.5, doorbell: 1.35, pixeldisplay: 1.6,
-  fingerbot: 1.1, irhub: 0.03, alarmhub: 0.05, siren: 2.3, bedsensor: 0.5 };
+  fingerbot: 1.1, irhub: 0.03, alarmhub: 0.05, siren: 2.3, bedsensor: 0.5, smoke: 2.55, leak: 0.02 };
 /** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
 const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer', 'irhub', 'alarmhub'];
-export const KIND_ICON = { fingerbot: 'mdi:gesture-tap-button', irhub: 'mdi:remote', alarmhub: 'mdi:shield-home', siren: 'mdi:alarm-light', bedsensor: 'mdi:bed', '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
+export const KIND_ICON = { smoke: 'mdi:smoke-detector', leak: 'mdi:water-alert', fingerbot: 'mdi:gesture-tap-button', irhub: 'mdi:remote', alarmhub: 'mdi:shield-home', siren: 'mdi:alarm-light', bedsensor: 'mdi:bed', '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
   coffee: 'mdi:coffee-maker', dishwasher: 'mdi:dishwasher', washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', powerstrip: 'mdi:power-socket-eu', inverter: 'mdi:solar-power',
   nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video', pixeldisplay: 'mdi:dots-grid',
   vacuum: 'mdi:robot-vacuum', camera: 'mdi:cctv', lock: 'mdi:lock', radiator: 'mdi:radiator', thermostat: 'mdi:thermostat', ceiling_fan: 'mdi:ceiling-fan', fan: 'mdi:fan', purifier: 'mdi:air-purifier', plug: 'mdi:power-socket-eu', motion: 'mdi:motion-sensor' };
