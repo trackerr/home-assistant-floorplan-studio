@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b86';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b86';
+} from './fps-core.js?v=1.4.0b87';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b87';
 
 
 const CSS = `
@@ -779,7 +779,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b86');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b87');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -1034,7 +1034,7 @@ class FloorplanStudioCard extends HTMLElement {
       const st = h.states[id];
       const vis = this._visible(id, rec.it);
       rec.el.classList.toggle('hidden', !vis);
-      if (this._proj) { if (rec.stalk === undefined) rec.stalk = this._stalkNodes.get(id) || null; if (rec.stalk) rec.stalk.style.display = vis ? '' : 'none'; }
+      if (this._proj) { if (rec.stalk === undefined) rec.stalk = this._stalkNodes.get(id) || null; if (rec.stalk) rec.stalk.style.display = vis || (this._mode === 'none' && rec.kind === 'lamp') ? '' : 'none'; }   // "None": a lamp's cone of light stays
       if (isMotion(st)) {
         // fades from the accent colour back to grey over a few minutes after the last movement
         const f = motionFade(st, this._s);
@@ -1204,7 +1204,8 @@ class FloorplanStudioCard extends HTMLElement {
     box.querySelector('.rh').textContent = info.headline;
     const rows = box.querySelector('.rrows');
     rows.innerHTML = '';
-    for (const r of info.rows) {
+    // view "None": a calm map — only the temperature (the big value) and, if you show it, the humidity
+    for (const r of this._mode === 'none' ? info.rows.filter((x) => x.icon === 'mdi:water-percent') : info.rows) {
       const d = document.createElement('div');
       d.className = `rr ${r.on ? 'on' : ''} ${r.warn ? 'warn' : ''}`;
       let ic;
@@ -1389,7 +1390,8 @@ class FloorplanStudioCard extends HTMLElement {
         const [gx, gy] = p.P(rec.it.x, rec.it.y), [a, b2, cc, d] = p.J(rec.it.x, rec.it.y);
         c.setAttribute('cx', gx); c.setAttribute('cy', gy); c.setAttribute('rx', r0 * Math.hypot(a, cc)); c.setAttribute('ry', r0 * Math.hypot(b2, d));
       } else { c.setAttribute('cx', rec.it.x); c.setAttribute('cy', rec.it.y); c.setAttribute('rx', r0); c.setAttribute('ry', r0); }
-      const lit = on && rec.el.classList.contains('on') && !rec.el.classList.contains('hidden');
+      // (view "None": no icons, but every lamp that is on still lights the floor)
+      const lit = on && rec.el.classList.contains('on') && (!rec.el.classList.contains('hidden') || this._mode === 'none');
       const col = rec.el.style.getPropertyValue('--c') || '255,176,90';
       const b = levelMode(this._s) !== 'off' ? parseFloat(rec.el.style.getPropertyValue('--b')) || 1 : 1;
       c.setAttribute('fill', `rgb(${col})`);

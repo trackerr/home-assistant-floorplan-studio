@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Kaart, weergave **Geen**: geen iconen, maar wel alle lichtgloed van lampen die aan zijn, de lichtkegels (2.5D) en de richting van spots; bij de ruimtes alleen de temperatuur (en het vocht als je dat toont).
 - Wandeling, lang indrukken op een lamp: naast helderheid, kleur en effect nu ook de **preset** (en playlist) van het apparaat, zoals Home Assistant die heeft (WLED: zijn *Preset*- en *Playlist*-keuze).
 - **Rondleiding = jouw eigen route**: de automatische rondleiding is weg. Bij stap 3 (*Deuren & meubels*) teken je onder *Route van de rondleiding* punt voor punt de route (dubbeltik of *Klaar* om af te ronden); tik daarna op een punt om de rondleiding daar te laten stoppen en rondkijken (oranje). De wandeling volgt die route precies, en begint (ook zonder rondleiding) aan het begin ervan. Zonder route doet de knop *Rondleiding* niets.
 - Vloer per ruimte (stap 2): **één kleur** met een kleurkiezer, op de kaart, in 2.5D en in de wandeling.
