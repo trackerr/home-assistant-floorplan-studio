@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling, lang indrukken op een lamp: naast helderheid, kleur en effect nu ook de **preset** (en playlist) van het apparaat, zoals Home Assistant die heeft (WLED: zijn *Preset*- en *Playlist*-keuze).
 - **Rondleiding = jouw eigen route**: de automatische rondleiding is weg. Bij stap 3 (*Deuren & meubels*) teken je onder *Route van de rondleiding* punt voor punt de route (dubbeltik of *Klaar* om af te ronden); tik daarna op een punt om de rondleiding daar te laten stoppen en rondkijken (oranje). De wandeling volgt die route precies, en begint (ook zonder rondleiding) aan het begin ervan. Zonder route doet de knop *Rondleiding* niets.
 - Vloer per ruimte (stap 2): **één kleur** met een kleurkiezer, op de kaart, in 2.5D en in de wandeling.
 - Review-wijzigingen samengevoegd (stonden alleen live in Home Assistant): zwaardere controle bij het uploaden van 3D-modellen (max. 12 MB, in delen van 256 KB, tijdelijke delen worden opgeruimd) en bij het inlezen ervan; de kaart verwerkt een stroom van statuswijzigingen gebundeld (15–60 keer per seconde, naar wat het apparaat aankan); de wandeling kiest een start-kwaliteit per apparaat (tv's en zwakke toestellen lichter) en heeft een **VR-knop** (WebXR) voor een VR-bril; `floorplan_studio.place_device` en de assistent alleen nog voor beheerders, ook vanuit automatiseringen.
