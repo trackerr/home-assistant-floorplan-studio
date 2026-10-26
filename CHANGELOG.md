@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- De gloeiende lens van een eigen lampmodel zit nu óp de voorkant van de kop (bij een spot de kant waar hij op gericht is, bij een plafond- of hanglamp de onderkant), plat en zo groot als die voorkant, in plaats van als blokje ernaast.
 - Eigen 3D-model voor een lamp: een kleine lens gloeit in de echte kleur en helderheid van de lamp (donker als hij uit staat) — bij een spot vooraan de kop, waar het licht uitkomt.
 - Wandeling op de pc: Ctrl + scrollwiel (ook boven een icoon, knop of infovenster) en Ctrl + / Ctrl − / Ctrl 0 zoomen alleen het 3D-beeld, nooit de hele pagina; knoppen en iconen blijven even groot.
 - Editor: **overal Home Assistant's eigen kiezers** voor entiteiten en ruimtes — ruimte (gebied), kopregel, deur-/raamsensor, lamp via schakelaar, apparaat toevoegen, achtergrond uit een afbeelding/camera, en bij stap 5 thema-keuzelijst, robotstofzuiger en kaart, personen, zijkolom (weer, hoofdknop, knoppen, energie, prijs, status) en de slimme knop. Eén manier, met zoeken, iconen en ruimtes; werkt met elke Home Assistant-opzet (is de kiezer er niet, dan de gewone lijst).

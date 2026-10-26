@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b72';
+} from './fps-core.js?v=1.4.0b73';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -819,16 +819,39 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         }
         const sz = modelSizeFn(mm.model, it.up, pitch), k = mh / (sz.h || 1);
         const ff = { x: px * S, y: pz * S, rot: yaw, pitch, w: Math.max(0.02, sz.w * k) * S, h: Math.max(0.02, sz.d * k) * S, z: mh, elev: base, up: it.up };
+        const mv0 = fixtures.v.length;
         placeModelFn(mm.model, ff, S, (vx, vy, vz, nx, ny, nz, r, g, b2) => fixtures.v.push(vx, vy, vz, nx, ny, nz, r, g, b2, 0));
+        const mv1 = fixtures.v.length;
         hit = { c: [px, base + mh / 2, pz], r: Math.max(0.15, Math.min(0.8, Math.max(mh, sz.w * k, sz.d * k) / 2)) };
         P = [px, base + mh + 0.15, pz];
         if (lampKind) {
           // where its light comes out: a spot at the front of its head (towards its aim), others at the shade / bulb;
           // a small glowing lens there takes the lamp's real colour (and is dark when it is off)
           const sdir = lampType === 'spot' ? spotDir(plan, it, h) : null;
-          const cy = base + mh / 2, LP = sdir ? [px + sdir[0] * mh * 0.55, cy + sdir[1] * mh * 0.55, pz + sdir[2] * mh * 0.55] : [px, hangs ? base + 0.02 : onWall ? cy : base + mh * 0.8, pz];
-          const g0 = markers.v.length / 10, lr = Math.max(0.018, Math.min(0.06, mh * 0.18));
-          markers.prism(circle(LP[0], LP[2], lr, 12), LP[1] - lr * 0.4, LP[1] + lr * 0.4, [1, 1, 1]);
+          // the side the light leaves by: a spot towards its aim, a ceiling lamp or pendant downwards
+          const out = sdir || (hangs ? [0, -1, 0] : null);
+          const g0 = markers.v.length / 10;
+          let LP;
+          if (out) {
+            // the model's own front face on that side: the corners furthest that way, their middle and size = the lens
+            const V = fixtures.v, cx0 = px, cy0 = base + mh / 2, cz0 = pz;
+            let tmax = -Infinity;
+            for (let i = mv0; i < mv1; i += 10) tmax = Math.max(tmax, (V[i] - cx0) * out[0] + (V[i + 1] - cy0) * out[1] + (V[i + 2] - cz0) * out[2]);
+            const eps = Math.max(0.004, mh * 0.04), cap = [];
+            for (let i = mv0; i < mv1; i += 10) if ((V[i] - cx0) * out[0] + (V[i + 1] - cy0) * out[1] + (V[i + 2] - cz0) * out[2] > tmax - eps) cap.push([V[i], V[i + 1], V[i + 2]]);
+            const C = cap.reduce((acc, q) => [acc[0] + q[0], acc[1] + q[1], acc[2] + q[2]], [0, 0, 0]).map((v) => v / Math.max(1, cap.length));
+            const lr = Math.max(0.01, Math.min(0.08, Math.max(...cap.map((q) => Math.hypot(q[0] - C[0], q[1] - C[1], q[2] - C[2])), 0) * 0.85));
+            // a flat disc facing out, just in front of that face
+            const n0 = nrm(out), t1 = nrm(Math.abs(n0[1]) < 0.9 ? cross(n0, [0, 1, 0]) : cross(n0, [1, 0, 0])), t2 = cross(n0, t1);
+            const c0 = [C[0] + n0[0] * 0.002, C[1] + n0[1] * 0.002, C[2] + n0[2] * 0.002], K = 16;
+            const rim = Array.from({ length: K }, (_, k) => { const a2 = (k / K) * 2 * Math.PI, ca = Math.cos(a2) * lr, sa = Math.sin(a2) * lr; return [c0[0] + t1[0] * ca + t2[0] * sa, c0[1] + t1[1] * ca + t2[1] * sa, c0[2] + t1[2] * ca + t2[2] * sa]; });
+            for (let k = 0; k < K; k++) markers.tri(c0, rim[k], rim[(k + 1) % K], n0, [1, 1, 1], 0);
+            LP = [c0[0] + n0[0] * 0.03, c0[1] + n0[1] * 0.03, c0[2] + n0[2] * 0.03];
+          } else {
+            LP = [px, onWall ? base + mh / 2 : base + mh * 0.8, pz];
+            const lr = Math.max(0.018, Math.min(0.06, mh * 0.18));
+            markers.prism(circle(LP[0], LP[2], lr, 12), LP[1] - lr * 0.4, LP[1] + lr * 0.4, [1, 1, 1]);
+          }
           lamps.push({ it, P: LP, bb: lampBox(room), start: g0, count: markers.v.length / 10 - g0, share: 1, down: hangs && lampType === 'pendant', dir: sdir || undefined });
         }
         if (!['lamp:floor', 'lamp:table'].includes(kind) && !hangs && !onWall && !under) obstacles.push([px, pz, Math.max(sz.w, sz.d) * k * 0.5 + 0.1]);
