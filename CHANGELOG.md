@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: **iconen blijven in hun ruimte**: je ziet de iconen van de ruimte waar je bent, en van een ruimte waar je door een open doorgang in kijkt — niet meer door muren of deuren heen (ook niet om een hoek).
+- **Eigen 3D-model voor apparaten**: bij stap 4 → *Meer opties* → *Eigen 3D-model* kies of upload je een .glb/.obj voor dat apparaat. Het krijgt vanzelf een maat en plek die passen bij wat het is (plafondlamp aan het plafond, wandlamp of camera aan de muur, staande lamp op de vloer, de rest op het meubel eronder); *Hoogte model* en *Rechtop* zijn instelbaar. Een lamp blijft licht geven en schakelt met een tik.
 - Een box of tv die je zelf aan een lamp koppelt, wordt niet meer óók automatisch door een andere lamp (met "boxen" of "TV" in de naam) opgeëist: de koppeling met de hand wint.
 - **Koppelen vanuit het meubel én vanuit de lamp**: bij een speakerbox of tv kies je *Lamp erin* (gloed / ambilight); bij de lamp kies je onder *Hoort bij* → *Zelf kiezen* en vink je de tv of boxen aan. Eén lamp kan zo in meerdere boxen zitten (bijv. links én rechts). Boxen in dezelfde ruimte heten *links* / *rechts* (of 1, 2, 3).
 - **Speakerbox aan een speler**: kies bij een box een *Speler* (mediaspeler). Tik op de box = de bediening van die speler; hij gloeit zacht blauw zolang hij speelt, en de speler heeft geen los icoon meer.

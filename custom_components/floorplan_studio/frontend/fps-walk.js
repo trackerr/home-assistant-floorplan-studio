@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b62';
+} from './fps-core.js?v=1.4.0b63';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -90,7 +90,8 @@ function modelFor(url) {
   return MODELS.get(url);
 }
 let placeModelFn = null;
-import(`./fps-model.js?v=${VERSION}`).then((m) => { placeModelFn = m.placeModel; }).catch(() => {});
+let modelSizeFn = null;
+import(`./fps-model.js?v=${VERSION}`).then((m) => { placeModelFn = m.placeModel; modelSizeFn = m.modelSize; }).catch(() => {});
 
 /** Everything that stays put: floors, ceilings, walls with their doors and windows, furniture. */
 function buildWorld(plan, hass, selFurn = null) {
@@ -565,7 +566,19 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   let camWalls = [];   // camera walls: their screens (3D corners) and the picture elements laid over them
   let obstacles = [], clocks = [], tvFurn = new Map(), clockBuf = null, clockSec = -1;
   let world, graph, nav, buf = {}, lamps = [], spills = [], items = [], doorSig = '';
-  modelsChanged = () => { worldDirty = true; };   // a 3D model of yours finished loading: draw it
+  // which rooms you can look into from each room: through an open passage (no door)
+  const openNext = new Map();
+  for (const o of plan.openings || []) {
+    if (!['open', 'passage'].includes(o.type)) continue;
+    const x1 = safeNumber(o.x1), y1 = safeNumber(o.y1), x2 = safeNumber(o.x2), y2 = safeNumber(o.y2), len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = -(y2 - y1) / len, ny = (x2 - x1) / len, mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const A = roomAt(plan.rooms, mx + nx * 8, my + ny * 8), B = roomAt(plan.rooms, mx - nx * 8, my - ny * 8);
+    if (!A || !B || A === B) continue;
+    if (!openNext.has(A.id)) openNext.set(A.id, new Set());
+    if (!openNext.has(B.id)) openNext.set(B.id, new Set());
+    openNext.get(A.id).add(B.id); openNext.get(B.id).add(A.id);
+  }
+  let itemsDirty = false;
+  modelsChanged = () => { worldDirty = true; itemsDirty = true; };   // a 3D model of yours finished loading: draw it (furniture and devices)
   const S = planScale(plan) || 70, M = (v) => v / S;
   const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
 
@@ -730,6 +743,25 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       let P = [px, h, pz];
       const isClock = !!ringClock(it, hass);
       let hit = null;   // where the device itself can be tapped (then it needs no icon)
+      // your own 3D model for this device (step 4, More options): drawn instead of the built-in one, sized for what it is
+      let ownModel = false;
+      const mm = it.model ? modelFor(it.model) : null;
+      if (mm?.state === 'ok' && placeModelFn && modelSizeFn) {
+        ownModel = true;
+        const kind = lampKind ? `lamp:${lampType}` : deviceKind(it, st, hass) || mediaKind(it, hass) || d;
+        // how tall such a thing usually is, and where it is: hanging from the ceiling, on the wall, or standing (on furniture or the floor)
+        const DEF_H = { 'lamp:floor': 1.6, 'lamp:table': 0.5, 'lamp:pendant': 0.45, 'lamp:ceiling': 0.25, 'lamp:wall': 0.35, 'lamp:spot': 0.15, 'lamp:other': 0.45, '3dprinter': 0.5, printer: 0.4, router: 0.2, nas: 0.25, tv: 0.8, speaker: 0.3, mini: 0.12, player: 0.1, voice: 0.12, camera: 0.15, vacuum: 0.1, fan: 1.0, purifier: 0.6, thermostat: 0.12, thermo: 0.1, doorbell: 0.15, kettle: 0.25, coffee: 0.35, holofan: 0.6, tree: 1.8, plug: 0.1 };
+        const mh = +it.model_h > 0 ? +it.model_h : DEF_H[kind] || 0.4;
+        const hangs = ['lamp:ceiling', 'lamp:pendant'].includes(kind), onWall = ['lamp:wall', 'camera', 'thermostat', 'thermo', 'doorbell', 'screen', 'pixeldisplay'].includes(kind) || isClock;
+        const base = hangs ? (kind === 'lamp:ceiling' ? H - mh : Math.max(0, Math.min(H - mh, h - mh * 0.5))) : onWall ? Math.max(0, h - mh / 2) : under ? furnHeight(under) : 0;   // standing: on the furniture under it, else the floor
+        const sz = modelSizeFn(mm.model, it.up), k = mh / (sz.h || 1);
+        const ff = { x: px * S, y: pz * S, rot: +it.rot || 0, w: Math.max(0.02, sz.w * k) * S, h: Math.max(0.02, sz.d * k) * S, z: mh, elev: base, up: it.up };
+        placeModelFn(mm.model, ff, S, (vx, vy, vz, nx, ny, nz, r, g, b2) => fixtures.v.push(vx, vy, vz, nx, ny, nz, r, g, b2, 0));
+        hit = { c: [px, base + mh / 2, pz], r: Math.max(0.15, Math.min(0.8, Math.max(mh, sz.w * k, sz.d * k) / 2)) };
+        P = [px, base + mh + 0.15, pz];
+        if (lampKind) lamps.push({ it, P: [px, hangs ? base + 0.05 : base + mh * 0.8, pz], bb: lampBox(room), start: 0, count: 0, share: 1, down: hangs && lampType === 'pendant' });
+        if (!['lamp:floor', 'lamp:table'].includes(kind) && !hangs && !onWall && !under) obstacles.push([px, pz, Math.max(sz.w, sz.d) * k * 0.5 + 0.1]);
+      }
       /**
        * Things recognised by name and make (applianceKind): drawn as what they are. lit = it is a lamp (its
        * glowing parts light up with it). Returns where its light is.
@@ -841,7 +873,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         if (k === 'doorbell') { const [cx, cz] = [wallP[0], wallP[1]]; ob(cx, cz, -0.025, 0.025, 0, 0.025, h - 0.075, h + 0.075, DK); ob(cx, cz, -0.012, 0.012, 0.025, 0.03, h - 0.05, h - 0.026, [0.3, 0.6, 0.9]); set([cx + n[0] * 0.03, h, cz + n[1] * 0.03], 0.14, h + 0.3); return [cx, h, cz]; }
         return null;
       };
-      if (lampKind && !isClock) {   // a ring clock is drawn as its ring, not as a lamp
+      if (lampKind && !isClock && !ownModel) {   // a ring clock is drawn as its ring, not as a lamp
         let bb = lampBox(room);
         const start = markers.v.length / 10, livePieces = [];
         let lightY = h, lampPushed = false;
@@ -1095,7 +1127,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         if (!lampPushed) lamps.push({ it, down: overT, pieces: livePieces.length ? livePieces : null, P: [px, lightY, pz], bb, start, count: markers.v.length / 10 - start, share: overT ? 1.25 : lampType === 'strip' ? 1 / Math.sqrt(Math.max(1, Math.min(4, Math.round(pathLength(strip.map(([sx, sy]) => [M(sx), M(sy)])) / 1.2)))) : 1 });
       }
       const tvf = tvl.get(it.entity_id);
-      if (tvf && !tvl.secondary?.has(it.entity_id)) {
+      if (tvf && !tvl.secondary?.has(it.entity_id) && !ownModel) {
         // a TV on the TV furniture: its screen lights up (and lights the room a little) when it is on
         const r0 = (safeNumber(tvf.rot) * Math.PI) / 180, cr = Math.cos(r0), sr = Math.sin(r0), fw = safeNumber(tvf.w, 100) / 2, [sy0, sy1] = tvScreen(tvf, S, plan);
         const pts = [[-fw, -3], [fw, -3], [fw, 3], [-fw, 3]].map(([u, v]) => [M(safeNumber(tvf.x) + u * cr - v * sr), M(safeNumber(tvf.y) + u * sr + v * cr)]);
@@ -1104,7 +1136,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         lamps.push({ it, tv: true, P: [M(safeNumber(tvf.x)), (sy0 + sy1) / 2, M(safeNumber(tvf.y))], bb: lampBox(room), start, count: markers.v.length / 10 - start, share: 0.6 });
         tvFurn.set(tvf.id, it);
       }
-      if (isAircon(it, st)) {
+      if (isAircon(it, st) && !ownModel) {
         // an air conditioner: a white unit on the wall; its air slot glows blue (cooling) or orange (heating)
         const fr = wallFrame(room, px, pz), cx = fr.cx + fr.nx * 0.12, cz = fr.cz + fr.nz * 0.12, hw = 0.42, hd = 0.11;
         const box = (a, b, y0, y1, d0, d1) => [[cx + fr.ux * a + fr.nx * d0, cz + fr.uz * a + fr.nz * d0], [cx + fr.ux * b + fr.nx * d0, cz + fr.uz * b + fr.nz * d0], [cx + fr.ux * b + fr.nx * d1, cz + fr.uz * b + fr.nz * d1], [cx + fr.ux * a + fr.nx * d1, cz + fr.uz * a + fr.nz * d1]];
@@ -1116,7 +1148,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         P = [cx, h + 0.3, cz];
       }
       const mk = !tvf ? mediaKind(it, hass) : null;
-      if (mk && !['tv', 'group'].includes(mk)) {
+      if (mk && !['tv', 'group'].includes(mk) && !ownModel) {
         // a speaker, smart display or player as the thing it is, standing where it stands; its light shows when it plays
         const top = { mini: 0.03, speaker: 0.1, hub: 0.09, soundbar: 0.05, player: 0.03, voice: 0.03 }[mk], base = Math.max(0, h - top);
         const fabric = [0.55, 0.56, 0.58], dark = [0.12, 0.12, 0.13], start0 = markers.v.length / 10;
@@ -1135,7 +1167,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         P = [px, topY + 0.12, pz];
       }
       // other devices recognised by what they are: drawn as that thing (vacuum, camera, radiator valve...)
-      const dk = !lampKind && !tvf && !mk && !rads.byEntity.has(it.entity_id) ? deviceKind(it, st, hass) : null;
+      const dk = !ownModel && !lampKind && !tvf && !mk && !rads.byEntity.has(it.entity_id) ? deviceKind(it, st, hass) : null;
       if (dk) {
         const W1 = [0.94, 0.94, 0.93], G = [0.62, 0.63, 0.65], D2 = [0.16, 0.16, 0.17];
         const fr = wallFrame(room, px, pz), wx = fr.free ? px : fr.cx, wz = fr.free ? pz : fr.cz;
@@ -1212,7 +1244,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           out(0.03, h, 0.13);
         }
       }
-      const ringN = ringClock(it, hass);
+      const ringN = ownModel ? 0 : ringClock(it, hass);
       if (ringN) { const fr = wallFrame(room, px, pz), off = fr.free ? 0 : 0.03; hit = { c: [fr.cx + fr.nx * off, h, fr.cz + fr.nz * off], r: 0.2 }; clocks.push({ it, n: ringN, h, fr: { ...fr, cx: fr.cx + fr.nx * off, cz: fr.cz + fr.nz * off } }); P = [fr.cx + fr.nx * off, h - 0.28, fr.cz + fr.nz * off]; }
       // the icon you can tap
       const el = document.createElement('div');
@@ -2340,6 +2372,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     if (hoverXY && now - hoverT > 250) hoverCheck();   // you walk or turn: what is under the mouse changes
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (worldDirty) rebuildWorld();
+    if (itemsDirty) { itemsDirty = false; buildItems(); }
     for (const r of curt.values()) { const dd = r.target - r.c; if (Math.abs(dd) > 0.002) { r.c += Math.sign(dd) * Math.min(Math.abs(dd), dt * 0.7); curtDirty = true; } }
     if (curtDirty) buildCurtains();
     step(dt);
@@ -2489,9 +2522,11 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       // the room you are in, plus anything close by in the next room (keeps it calm)
       // the one under the mouse always shows (its name too): the pointing already looked past the walls
       const hov = I === hoverIt;
-      let show = cwv > 0.1 && (hov || dist < (editing ? 7 : 3.5) || (dist < 10 && I.room === lastRoom));
-      // hidden behind a wall (the wall it hangs on itself doesn't count)
-      if (show && !hov) show = !world.blockers.some((q) => segHitsBox(cam.x, cam.z, x, z, q));
+      // icons stay in their room: the room you are in, and a room you look into through an open passage (not through walls or doors)
+      const same = I.room === lastRoom, nextDoor = !same && openNext.get(lastRoom)?.has(I.room);
+      let show = cwv > 0.1 && (hov || (same && dist < 12) || (nextDoor && dist < 8));
+      // looking into the next room: only what you can really see (walls a little thicker, so nothing peeks round a corner)
+      if (show && !hov && !same) show = !world.blockers.some((q) => segHitsBox(cam.x, cam.z, x, z, [q[0] - 0.08, q[1] - 0.08, q[2] + 0.08, q[3] + 0.08]));
       if (!show) { if (I.el.style.display !== 'none') I.el.style.display = 'none'; continue; }
       const sx = ((cx / cwv + 1) / 2) * cw, sy = ((1 - cy / cwv) / 2) * ch, sc = Math.max(0.5, Math.min(1.25, 2.2 / Math.max(dist, 0.5)));
       if (sx < -60 || sx > cw + 60 || sy < -60 || sy > ch + 60) { I.el.style.display = 'none'; continue; }
