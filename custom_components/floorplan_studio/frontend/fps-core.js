@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b61';
+export const VERSION = '1.4.0b62';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1154,6 +1154,12 @@ export function radiatorLinks(plan, hass) {
  * lights (one when the name says left/right, else all of them close by), or [].
  */
 const BOXLIGHT_RE = /\bbox(en|es)?\b|speaker|luidspreker|lautsprecher/i;
+/** The furniture other lights were linked to by hand (step 4 "Belongs to", or from the furniture). */
+function linkedFurniture(plan, self) {
+  const out = new Set();
+  for (const i of plan.items || []) { if (i === self || i.entity_id === self?.entity_id || !i.link || i.link === 'none') continue; for (const id of Array.isArray(i.link) ? i.link : [i.link]) out.add(id); }
+  return out;
+}
 export function speakerBoxes(plan, it, st) {
   if (it.entity_id.split('.')[0] !== 'light' || stripPath(it) || it.boxlight === false) return [];
   // linked by hand (step 4: "Belongs to")
@@ -1162,7 +1168,8 @@ export function speakerBoxes(plan, it, st) {
   if (/sync|hdmi|hue ?sync|ambilight/i.test(label)) return [];
   if (!(it.boxlight || BOXLIGHT_RE.test(label) || /speaker/.test(it.icon || st?.attributes?.icon || ''))) return [];
   const x = safeNumber(it.x), y = safeNumber(it.y), lim = 2.0 * (planScale(plan) || 70), room = roomAt(plan.rooms, x, y);
-  const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox' && (!room || roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) === room)).map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
+  const claimed = linkedFurniture(plan, it);   // boxes another light was linked to by hand are that light's
+  const near = (plan.furniture || []).filter((f) => f.type === 'speakerbox' && !claimed.has(f.id) && (!room || roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) === room)).map((f) => [f, Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y)]).filter(([, d]) => d < lim).sort((a, b) => a[1] - b[1]);
   if (!near.length) return [];
   return /links|rechts|left|right|\b[lr]\b/i.test(label) ? [near[0][0]] : near.map(([f]) => f);
 }
@@ -1250,7 +1257,8 @@ export function ambilightTv(plan, it, st) {
   if (typeof it.ambilight === 'string') return (plan.furniture || []).find((f) => f.id === it.ambilight) || null;
   const x = safeNumber(it.x), y = safeNumber(it.y), room = roomAt(plan.rooms, x, y);
   let best = null, bd = 2.0 * (planScale(plan) || 70);
-  for (const f of plan.furniture || []) { if (f.type !== 'tv' || (room && roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) !== room)) continue; const dd = Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y); if (dd < bd) { bd = dd; best = f; } }
+  const claimed = linkedFurniture(plan, it);
+  for (const f of plan.furniture || []) { if (f.type !== 'tv' || claimed.has(f.id) || (room && roomAt(plan.rooms, safeNumber(f.x), safeNumber(f.y)) !== room)) continue; const dd = Math.hypot(safeNumber(f.x) - x, safeNumber(f.y) - y); if (dd < bd) { bd = dd; best = f; } }
   return best;
 }
 export function applianceKind(it, st, hass) {

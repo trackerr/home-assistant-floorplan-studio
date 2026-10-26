@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Een box of tv die je zelf aan een lamp koppelt, wordt niet meer óók automatisch door een andere lamp (met "boxen" of "TV" in de naam) opgeëist: de koppeling met de hand wint.
 - **Koppelen vanuit het meubel én vanuit de lamp**: bij een speakerbox of tv kies je *Lamp erin* (gloed / ambilight); bij de lamp kies je onder *Hoort bij* → *Zelf kiezen* en vink je de tv of boxen aan. Eén lamp kan zo in meerdere boxen zitten (bijv. links én rechts). Boxen in dezelfde ruimte heten *links* / *rechts* (of 1, 2, 3).
 - **Speakerbox aan een speler**: kies bij een box een *Speler* (mediaspeler). Tik op de box = de bediening van die speler; hij gloeit zacht blauw zolang hij speelt, en de speler heeft geen los icoon meer.
 - **Spiegel** als meubel: aan de muur, met onder- en bovenkant instelbaar.
