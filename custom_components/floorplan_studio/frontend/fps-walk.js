@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b71';
+} from './fps-core.js?v=1.4.0b72';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -822,7 +822,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         placeModelFn(mm.model, ff, S, (vx, vy, vz, nx, ny, nz, r, g, b2) => fixtures.v.push(vx, vy, vz, nx, ny, nz, r, g, b2, 0));
         hit = { c: [px, base + mh / 2, pz], r: Math.max(0.15, Math.min(0.8, Math.max(mh, sz.w * k, sz.d * k) / 2)) };
         P = [px, base + mh + 0.15, pz];
-        if (lampKind) lamps.push({ it, P: [px, hangs ? base + 0.05 : onWall ? base + mh / 2 : base + mh * 0.8, pz], bb: lampBox(room), start: 0, count: 0, share: 1, down: hangs && lampType === 'pendant', dir: lampType === 'spot' ? spotDir(plan, it, h) : undefined });
+        if (lampKind) {
+          // where its light comes out: a spot at the front of its head (towards its aim), others at the shade / bulb;
+          // a small glowing lens there takes the lamp's real colour (and is dark when it is off)
+          const sdir = lampType === 'spot' ? spotDir(plan, it, h) : null;
+          const cy = base + mh / 2, LP = sdir ? [px + sdir[0] * mh * 0.55, cy + sdir[1] * mh * 0.55, pz + sdir[2] * mh * 0.55] : [px, hangs ? base + 0.02 : onWall ? cy : base + mh * 0.8, pz];
+          const g0 = markers.v.length / 10, lr = Math.max(0.018, Math.min(0.06, mh * 0.18));
+          markers.prism(circle(LP[0], LP[2], lr, 12), LP[1] - lr * 0.4, LP[1] + lr * 0.4, [1, 1, 1]);
+          lamps.push({ it, P: LP, bb: lampBox(room), start: g0, count: markers.v.length / 10 - g0, share: 1, down: hangs && lampType === 'pendant', dir: sdir || undefined });
+        }
         if (!['lamp:floor', 'lamp:table'].includes(kind) && !hangs && !onWall && !under) obstacles.push([px, pz, Math.max(sz.w, sz.d) * k * 0.5 + 0.1]);
       }
       /**

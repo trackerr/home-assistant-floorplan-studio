@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Eigen 3D-model voor een lamp: een kleine lens gloeit in de echte kleur en helderheid van de lamp (donker als hij uit staat) — bij een spot vooraan de kop, waar het licht uitkomt.
 - Wandeling op de pc: Ctrl + scrollwiel (ook boven een icoon, knop of infovenster) en Ctrl + / Ctrl − / Ctrl 0 zoomen alleen het 3D-beeld, nooit de hele pagina; knoppen en iconen blijven even groot.
 - Editor: **overal Home Assistant's eigen kiezers** voor entiteiten en ruimtes — ruimte (gebied), kopregel, deur-/raamsensor, lamp via schakelaar, apparaat toevoegen, achtergrond uit een afbeelding/camera, en bij stap 5 thema-keuzelijst, robotstofzuiger en kaart, personen, zijkolom (weer, hoofdknop, knoppen, energie, prijs, status) en de slimme knop. Eén manier, met zoeken, iconen en ruimtes; werkt met elke Home Assistant-opzet (is de kiezer er niet, dan de gewone lijst).
 - Editor: kiezen van een entiteit gaat met **Home Assistant's eigen kiezer** (zoeken, iconen, ruimtes): de camera's van een camerawand (alle camera-entiteiten van HA, meerdere tegelijk), de speler van een speakerbox, waar een vaatwasser/wasmachine/droger aan hangt, en de temperatuur- en vochtsensor van een ruimte. Is die kiezer (nog) niet geladen, dan blijft de gewone lijst; die toont nu ook alle camera's met hun ruimte en entiteit-id.
