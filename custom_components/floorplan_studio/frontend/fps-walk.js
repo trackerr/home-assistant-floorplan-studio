@@ -5,6 +5,8 @@ import {
   computeWalls, climateTarget, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
 } from './fps-core.js?v=1.4.0b77';
+import { qualityForDevice } from './fps-quality.js?v=1.4.0b77';
+import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b77';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -14,8 +16,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camerawand', dishwasher: 'Vaatwasser', washer: 'Wasmachine', dryer: 'Droger', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', mirror: 'Spiegel', model: '3D-model', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · scroll wheel or + / − to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', cam_idle: 'idle', cam_motion: 'motion', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · scrollwiel of + / − = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', clip: 'Clip', cam_idle: 'rust', cam_motion: 'beweging', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
+  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', vr: 'Enter VR', vrSecure: 'VR needs a secure HTTPS Home Assistant address.', vrError: 'Could not start VR on this browser.', vrHint: 'VR: left stick walks · right stick turns 30° · point at the floor and press a trigger to walk, or point at a supported light, switch, fan or helper to toggle it · use the Quest menu to exit.', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · scroll wheel or + / − to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', cam_idle: 'idle', cam_motion: 'motion', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
+  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', vr: 'VR starten', vrSecure: 'VR vereist een beveiligd HTTPS-adres voor Home Assistant.', vrError: 'VR starten lukt niet in deze browser.', vrHint: 'VR: linker stick loopt · rechter stick draait 30° · richt op de vloer en druk een trigger om daarheen te lopen, of richt op een ondersteunde lamp, schakelaar, ventilator of helper om die te schakelen · gebruik het Quest-menu om VR te verlaten.', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · scrollwiel of + / − = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', clip: 'Clip', cam_idle: 'rust', cam_motion: 'beweging', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -591,6 +593,7 @@ button ha-icon { --mdc-icon-size: 22px; }
 .editing .badge { display: inline-block; }
 .msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; }
 .touch .bar .tw { display: inline-flex; } .bar .tw { display: none; }
+.wk.xr .top, .wk.xr .bar, .wk.xr .hint, .wk.xr .sheet, .wk.xr .map, .wk.xr .icons { display: none !important; }
 @media (max-width: 560px) { .map { width: 120px !important; height: auto !important; } .room b { font-size: 15px; } }
 `;
 
@@ -609,29 +612,62 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     <div class="top"><button class="x" id="close" title="${T.close}"><ha-icon icon="mdi:close"></ha-icon></button><div class="room"><b></b><small></small></div><span class="badge">${T.edit}</span></div>
     <canvas class="map"></canvas>
     <div class="hint">${T.hint}</div><div class="sheet"></div>
-    <div class="bar"><button class="tw" id="back"><ha-icon icon="mdi:arrow-down"></ha-icon></button><button id="tour" class="active"><ha-icon icon="mdi:pause"></ha-icon><span>${T.pause}</span></button><button class="tw" id="fwd"><ha-icon icon="mdi:arrow-up"></ha-icon>${T.fwd}</button>${canEdit ? `<button id="edit"><ha-icon icon="mdi:pencil"></ha-icon><span>${T.edit}</span></button><button id="ecancel" style="display:none">${T.cancel}</button><button id="esave" class="active" style="display:none"><ha-icon icon="mdi:content-save"></ha-icon>${T.save}</button>` : ''}</div>
+    <div class="bar"><button class="tw" id="back"><ha-icon icon="mdi:arrow-down"></ha-icon></button><button id="tour" class="active"><ha-icon icon="mdi:pause"></ha-icon><span>${T.pause}</span></button><button class="tw" id="fwd"><ha-icon icon="mdi:arrow-up"></ha-icon>${T.fwd}</button><button id="vr" style="display:none"><ha-icon icon="mdi:virtual-reality"></ha-icon><span>${T.vr}</span></button>${canEdit ? `<button id="edit"><ha-icon icon="mdi:pencil"></ha-icon><span>${T.edit}</span></button><button id="ecancel" style="display:none">${T.cancel}</button><button id="esave" class="active" style="display:none"><ha-icon icon="mdi:content-save"></ha-icon>${T.save}</button>` : ''}</div>
   </div>`;
   document.body.appendChild(wrap);
   const $ = (s) => root.querySelector(s);
   const canvas = $('canvas.gl'), iconsEl = $('.icons'), mapEl = $('canvas.map'), roomEl = $('.room');
-  let closed = false, raf = 0;
+  // Browser hints select only a starting budget; measured frame times adapt it later.
+  const quality = qualityForDevice({
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: navigator.deviceMemory,
+    userAgent: navigator.userAgent,
+    platform: navigator.userAgentData?.platform,
+    finePointer: globalThis.matchMedia?.('(pointer: fine)').matches === true,
+    coarsePointer: globalThis.matchMedia?.('(pointer: coarse)').matches === true,
+    touchPoints: navigator.maxTouchPoints,
+  });
+  let closed = false, raf = 0, xrSession = null, xrLayer = null, xrRefSpace = null, xrFloorY = 0, xrTurnReady = true, xrTurnAt = 0;
+  let ro = null, liveSub = null, camTimer = 0, onKey = null, onKeyUp = null;
   let dirtyEdit = false, warnedClose = false;
   const close = () => {
     if (closed) return;
     if (dirtyEdit && !warnedClose) { warnedClose = true; showRoom(null, T.unsaved); return; }
-    closed = true; cancelAnimationFrame(raf); ro.disconnect(); liveSub?.stop();
-    window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKeyUp, true);
+    closed = true; cancelAnimationFrame(raf); ro?.disconnect(); liveSub?.stop(); clearInterval(camTimer);
+    if (xrSession) { const session = xrSession; xrSession = null; session.removeEventListener('end', onXREnd); session.removeEventListener('select', onXRSelect); session.end().catch(() => {}); }
+    if (onKey) window.removeEventListener('keydown', onKey, true);
+    if (onKeyUp) window.removeEventListener('keyup', onKeyUp, true);
     wrap.remove(); onClose?.();
   };
   $('#close').addEventListener('click', close);
 
-  const gl = canvas.getContext('webgl', { antialias: true, alpha: false, depth: true });
+  const gl = canvas.getContext('webgl', { antialias: quality.name !== 'low', alpha: false, depth: true });
   if (!gl) { root.querySelector('.wk').insertAdjacentHTML('beforeend', `<div class="msg">${T.nogl}</div>`); return { setHass() {}, close }; }
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.warn('fps-walk', gl.getShaderInfoLog(s)); return s; };
-  const prog = gl.createProgram();
-  // as many lamps at once as the graphics chip allows (32, or 16 on very old ones): no lamps dropping out while you walk
-  const NL = (gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0) >= 240 ? 32 : MAX_LIGHTS;
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS(NL))); gl.linkProgram(prog); gl.useProgram(prog);
+  const viewportMax = gl.getParameter(gl.MAX_VIEWPORT_DIMS) || [4096, 4096];
+  const bufferMax = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 4096;
+  const sh = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { gl.deleteShader(s); return null; }
+    return s;
+  };
+  // A few older TV/browser GPUs report less fragment-uniform space than the
+  // common case. Try smaller light arrays instead of leaving a broken program.
+  const fragmentVectors = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0;
+  const maxLights = Math.min(quality.lights, Math.floor(Math.max(0, fragmentVectors - 8) / 6));
+  let prog = null, NL = 0;
+  for (const n of [32, 16, 8, 4, 2, 1]) {
+    if (n > maxLights) continue;
+    const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS(n));
+    if (!vs || !fs) { if (vs) gl.deleteShader(vs); if (fs) gl.deleteShader(fs); continue; }
+    const candidate = gl.createProgram();
+    gl.attachShader(candidate, vs); gl.attachShader(candidate, fs); gl.linkProgram(candidate);
+    gl.deleteShader(vs); gl.deleteShader(fs);
+    if (gl.getProgramParameter(candidate, gl.LINK_STATUS)) { prog = candidate; NL = n; break; }
+    gl.deleteProgram(candidate);
+  }
+  if (!prog) { root.querySelector('.wk').insertAdjacentHTML('beforeend', `<div class="msg">${T.nogl}</div>`); return { setHass() {}, close }; }
+  gl.useProgram(prog);
   const A = Object.fromEntries(['aP', 'aN', 'aC', 'aM'].map((n) => [n, gl.getAttribLocation(prog, n)]));
   const U = Object.fromEntries(['uVP', 'uEye', 'uSky', 'uAmb', 'uSun', 'uSunDir', 'uNL', 'uLP', 'uLC', 'uLB', 'uLB2', 'uLB3', 'uLD', 'uAlpha', 'uEmis', 'uTint'].map((n) => [n, gl.getUniformLocation(prog, n)]));
   const upload = (mesh) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.v), gl.STATIC_DRAW); return { b, n: mesh.v.length / 10 }; };
@@ -657,6 +693,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     openNext.get(A.id).add(B.id); openNext.get(B.id).add(A.id);
   }
   let itemsDirty = false;
+  let hasWledMatrix = false;
   modelsChanged = () => { worldDirty = true; itemsDirty = true; };   // a 3D model of yours finished loading: draw it (furniture and devices)
   const S = planScale(plan) || 70, M = (v) => v / S;
   const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
@@ -723,6 +760,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
 
   /** Lamps (their spot, the room their light stays in, and a small fixture to draw) and the icons. */
   function buildItems() {
+    hasWledMatrix = false;
     lamps = []; items = []; obstacles = []; clocks = []; tvFurn = new Map(); iconsEl.innerHTML = '';
     const tvl = tvLinks(plan, hass), rads = radiatorLinks(plan, hass);
     // what a lamp may light: exactly its own room (its walls' inner sides are inside the room's rectangle, the other
@@ -1261,12 +1299,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             const half = /pixoo|divoom/i.test(`${it.entity_id} ${st?.attributes?.friendly_name || ''}`) ? 0.11 : n >= 8 && n <= 64 ? (n * 0.01) / 2 + 0.01 : 0.16;
             fixtures.prism(wq(-half - 0.01, half + 0.01, 0, 0.02), h - half - 0.01, h + half + 0.01, [0.1, 0.1, 0.11]);
             if (isWled(it) && n >= 4 && n <= 32) {
+              hasWledMatrix = true;
               // a WLED matrix: its pixels, live (row by row from the top left, as you look at it)
-              const px2 = (2 * half) / n;
-              for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
+              // Lower tiers keep the panel shape but sample fewer cells, cutting
+              // geometry and draw calls without dropping the live colour feature.
+              const cells = Math.min(n, matrixBudget), px2 = (2 * half) / cells;
+              for (let row = 0; row < cells; row++) for (let col = 0; col < cells; col++) {
                 const p0 = markers.v.length / 10, a0 = -half + col * px2, y1 = h + half - row * px2;
                 markers.prism(wq(a0 + px2 * 0.08, a0 + px2 * 0.92, 0.02, 0.026), y1 - px2 * 0.92, y1 - px2 * 0.08, GL);
-                livePieces.push({ start: p0, count: markers.v.length / 10 - p0, cell: [col, row, n] });
+                livePieces.push({ start: p0, count: markers.v.length / 10 - p0, cell: [col, row, cells] });
               }
             } else markers.prism(wq(-half, half, 0.02, 0.026), h - half, h + half, GL);
             wallAt(0.03, h, half + 0.06); P[1] = h - half - 0.3;   // its icon below the panel (a clock often hangs above)
@@ -1493,7 +1534,6 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   // live WLED colours on drawn strips and matrices (fetched by the integration from WLED's /json/live)
   const isWled = (it) => hass?.entities?.[it.entity_id]?.platform === 'wled';
   const liveLeds = new Map();
-  let liveSub = null;
   const liveSegs = new Map();
   function liveSync() {
     const amb = lamps.filter((l) => l.pieces?.some((pc) => pc.amb || pc.full)).map((l) => l.it.entity_id);
@@ -1706,7 +1746,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   }
 
   const keys = new Set();
-  const onKey = (ev) => {
+  onKey = (ev) => {
     // Ctrl + / Ctrl − / Ctrl 0: zoom the 3D view itself, never the page (the buttons and icons stay their size)
     // + and − (with or without Ctrl, also on the number pad): zoom for those without a scroll wheel; Ctrl 0 = back to normal
     if (((ev.ctrlKey || ev.metaKey) && ['+', '=', '-', '_', '0'].includes(ev.key)) || (!ev.ctrlKey && !ev.metaKey && !ev.altKey && ['+', '-'].includes(ev.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test(ev.composedPath()[0]?.tagName || ''))) {
@@ -1728,7 +1768,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       route = route.filter(() => false);
     }
   };
-  const onKeyUp = (ev) => keys.delete(ev.key.toLowerCase());
+  onKeyUp = (ev) => keys.delete(ev.key.toLowerCase());
   window.addEventListener('keydown', onKey, true); window.addEventListener('keyup', onKeyUp, true);
 
   // dragging looks around; a short tap on the floor walks there
@@ -1903,14 +1943,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     return [cam.x + d[0] * k, cam.z + d[2] * k];
   }
   /** The first thing you point at, with its height: [x, z, y]. */
-  function aimHit(cx, cy) {
-    const d = ray(cx, cy), e = eyeY();
+  function aimHitFromRay(origin, d) {
     for (let t = 0.1; t < 14; t += 0.02) {
-      const x = cam.x + d[0] * t, y = e + d[1] * t, z = cam.z + d[2] * t;
+      const x = origin[0] + d[0] * t, y = origin[1] + d[1] * t, z = origin[2] + d[2] * t;
       if (y < 0 || y > H || world.blockers.some((q) => x >= q[0] && x <= q[2] && z >= q[1] && z <= q[3]) || (plan.furniture || []).some((f) => y <= furnHeight(f) && furnAt({ furniture: [f] }, x * S, z * S))) return [x, z, Math.max(0, Math.min(H, y))];
     }
     return null;
   }
+  function aimHit(cx, cy) { return aimHitFromRay([cam.x, eyeY(), cam.z], ray(cx, cy)); }
   /** The first thing you point at (wall, furniture or floor), as [x, z] just in front of it. */
   function surfaceHit(cx, cy) {
     const d = ray(cx, cy), e = eyeY();
@@ -1923,8 +1963,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     return null;
   }
   /** The device you point at (its lamp, speaker, curtain...), nearest first, not through walls. */
-  function pickDevice(cx, cy) {
-    const d = nrm(ray(cx, cy)), e = [cam.x, eyeY(), cam.z], wall = aimHit(cx, cy), tw = wall ? Math.hypot(wall[0] - e[0], wall[2] - e[1], wall[1] - e[2]) + 0.15 : 99;
+  function pickDeviceFromRay(origin, direction) {
+    const d = nrm(direction), e = origin, wall = aimHitFromRay(origin, direction), tw = wall ? Math.hypot(wall[0] - e[0], wall[2] - e[1], wall[1] - e[2]) + 0.15 : 99;
     // a ball (or, with ry, a tall egg: curtains, standing strips) around the device; also how far off its middle you point (0 = dead centre, 1 = the edge)
     let off = 1;
     const toSphere = (c, r, ry = r) => {
@@ -1956,6 +1996,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     const t0 = Math.min(...cands.map((c) => c.t));
     return cands.filter((c) => c.t < t0 + 0.6).sort((a, b) => a.off - b.off || a.t - b.t)[0].I;
   }
+  function pickDevice(cx, cy) { return pickDeviceFromRay([cam.x, eyeY(), cam.z], ray(cx, cy)); }
   /** The piece of furniture you point at (not through walls). */
   function pickFurniture(cx, cy) {
     const d = ray(cx, cy), e = eyeY();
@@ -2191,7 +2232,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     showSheet();
   }
   /* ------------------------------------------------------- info and buttons */
-  let infoIt = null, infoFull = false, camTimer = 0;
+  let infoIt = null, infoFull = false;
   /** What a device is doing, with its buttons: TV/speaker, climate, curtain, or just its state. */
   /** Close the info window (and stop a camera picture that is still streaming). */
   function hideSheet() {
@@ -2366,7 +2407,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (touring) { pausedTour = route; setTouring(false); }
       route = [];
     } else { sel = null; stripDraft = null; menu = null; openMode = null; aimFor = null; drawDraft(); }
-    for (const [id, show] of [['#edit', !on], ['#ecancel', on], ['#esave', on], ['#tour', !on]]) { const el = $(id); if (el) el.style.display = show ? '' : 'none'; }
+    for (const [id, show] of [['#edit', !on], ['#ecancel', on], ['#esave', on], ['#tour', !on], ['#vr', !on && vrButton.dataset.available === 'true']]) { const el = $(id); if (el) el.style.display = show ? '' : 'none'; }
     rebuildWorld(); buildItems(); showSheet();
   }
   $('#edit')?.addEventListener('click', () => setEditing(true));
@@ -2516,6 +2557,100 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     roomT = setTimeout(() => roomEl.classList.remove('show'), 4500);
   }
 
+  const vrButton = $('#vr');
+  if (!window.isSecureContext) {
+    const questBrowser = /Quest|OculusBrowser/i.test(navigator.userAgent);
+    vrButton.dataset.available = questBrowser ? 'true' : 'false';
+    vrButton.style.display = questBrowser && !editing ? 'inline-flex' : 'none';
+    if (questBrowser) { vrButton.title = T.vrSecure; $('.hint').textContent = T.vrSecure; }
+  }
+  else if (navigator.xr?.isSessionSupported) navigator.xr.isSessionSupported('immersive-vr').then((supported) => { if (!closed) { vrButton.dataset.available = supported ? 'true' : 'false'; vrButton.style.display = supported && !editing ? 'inline-flex' : 'none'; if (supported) $('.hint').textContent = T.vrHint; } }).catch(() => {});
+  vrButton.addEventListener('click', startVR);
+
+  async function startVR() {
+    if (closed || editing || xrSession) return;
+    if (!window.isSecureContext) { showRoom(null, T.vrSecure); return; }
+    if (!navigator.xr?.requestSession) { showRoom(null, T.vrError); return; }
+    let session = null;
+    try {
+      if (touring) { pausedTour = route; route = []; setTouring(false); }
+      route = [];
+      session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+      xrSession = session;
+      session.addEventListener('end', onXREnd);
+      cancelAnimationFrame(raf); raf = 0;
+      if (closed) { session.end().catch(() => {}); return; }
+      await gl.makeXRCompatible();
+      if (closed || xrSession !== session) { session.end().catch(() => {}); return; }
+      const layer = new XRWebGLLayer(session, gl);
+      session.updateRenderState({ baseLayer: layer });
+      let refSpace;
+      try { refSpace = await session.requestReferenceSpace('local-floor'); xrFloorY = 0; }
+      catch { refSpace = await session.requestReferenceSpace('local'); xrFloorY = EYE; }
+      if (closed || xrSession !== session) { session.end().catch(() => {}); return; }
+      xrLayer = layer; xrRefSpace = refSpace;
+      session.addEventListener('select', onXRSelect);
+      root.querySelector('.wk').classList.add('xr');
+      last = performance.now(); lastRaf = 0; lastFrame = 0; renderAccumulator = 0; rafSamples.length = 0;
+      session.requestAnimationFrame(frame);
+    } catch (err) {
+      if (session && xrSession === session) { session.end().catch(() => {}); onXREnd(); }
+      else if (session) session.end().catch(() => {});
+      if (!closed) showRoom(null, T.vrError, String(err?.message || ''));
+    }
+  }
+
+  function onXREnd() {
+    if (!xrSession) return;
+    if (xrSession) { xrSession.removeEventListener('end', onXREnd); xrSession.removeEventListener('select', onXRSelect); }
+    xrSession = null; xrLayer = null; xrRefSpace = null;
+    root.querySelector('.wk')?.classList.remove('xr');
+    gl.disable(gl.SCISSOR_TEST); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!closed) { last = performance.now(); lastRaf = 0; lastFrame = 0; renderAccumulator = 0; rafSamples.length = 0; raf = requestAnimationFrame(frame); }
+  }
+
+  function onXRSelect(ev) {
+    if (!xrSession || !xrRefSpace || !ev.inputSource?.targetRaySpace) return;
+    const pose = ev.frame.getPose(ev.inputSource.targetRaySpace, xrRefSpace);
+    if (!pose) return;
+    const m = pose.transform.matrix, room = roomTransform(cam.yaw, cam.x, cam.z, xrFloorY);
+    const origin = transformPoint4(room.worldFromReference, [m[12], m[13], m[14]]);
+    const direction = transformDirection4(room.worldFromReference, [-m[8], -m[9], -m[10]]);
+    const hit = pickDeviceFromRay(origin, direction);
+    if (hit) {
+      const it = hit.it, domain = it.via ? 'switch' : hit.d;
+      if (['light', 'switch', 'fan', 'input_boolean'].includes(domain) && !ringClock(it, hass) && !['thermo', 'holofan'].includes(applianceKind(it, hass.states[it.entity_id], hass))) hass.callService('homeassistant', 'toggle', { entity_id: it.via || it.entity_id });
+      return;
+    }
+    if (direction[1] >= -0.04) return;
+    const distance = -origin[1] / direction[1];
+    if (distance <= 0.2 || distance > 14) return;
+    const x = origin[0] + direction[0] * distance, z = origin[2] + direction[2] * distance;
+    if (roomOf(x, z)) walkTo(x, z);
+  }
+
+  function xrAimPoint(xrFrame, room) {
+    const sources = [...(xrSession?.inputSources || [])], source = sources.find((x) => x.handedness === 'right' && x.targetRaySpace) || sources.find((x) => x.targetRaySpace);
+    if (!source) return;
+    const pose = xrFrame.getPose(source.targetRaySpace, xrRefSpace);
+    if (!pose) return;
+    const m = pose.transform.matrix, origin = transformPoint4(room.worldFromReference, [m[12], m[13], m[14]]), direction = transformDirection4(room.worldFromReference, [-m[8], -m[9], -m[10]]);
+    const hit = aimHitFromRay(origin, direction);
+    return hit ? [hit[0], hit[2], hit[1]] : [origin[0] + direction[0] * 3, origin[1] + direction[1] * 3, origin[2] + direction[2] * 3];
+  }
+
+  function drawXRReticle(viewport, VP, target) {
+    if (!target) return;
+    const cx = VP[0] * target[0] + VP[4] * target[1] + VP[8] * target[2] + VP[12], cy = VP[1] * target[0] + VP[5] * target[1] + VP[9] * target[2] + VP[13], cw = VP[3] * target[0] + VP[7] * target[1] + VP[11] * target[2] + VP[15];
+    if (cw <= 0.1) return;
+    const x = Math.round(viewport.x + ((cx / cw + 1) / 2) * viewport.width), y = Math.round(viewport.y + ((cy / cw + 1) / 2) * viewport.height);
+    if (x < viewport.x + 8 || x > viewport.x + viewport.width - 8 || y < viewport.y + 8 || y > viewport.y + viewport.height - 8) return;
+    gl.disable(gl.DEPTH_TEST); gl.enable(gl.SCISSOR_TEST); gl.clearColor(1, 0.72, 0.28, 1);
+    gl.scissor(x - 6, y - 1, 12, 2); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.scissor(x - 1, y - 6, 2, 12); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.SCISSOR_TEST); gl.enable(gl.DEPTH_TEST);
+  }
+
   /* ---------------------------------------------------------------- map */
   let mapBox = { x: 0, y: 0, w: 1, h: 1 };
   function drawMap() {
@@ -2524,8 +2659,9 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     const qs = rooms.flatMap((r) => r.rects.map(norm));
     const x0 = M(Math.min(...qs.map((q) => q[0]))) - 0.5, y0 = M(Math.min(...qs.map((q) => q[1]))) - 0.5, x1 = M(Math.max(...qs.map((q) => q[2]))) + 0.5, y1 = M(Math.max(...qs.map((q) => q[3]))) + 0.5;
     mapBox = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-    const cw = innerWidth < 560 ? 120 : 180, ch = Math.round((cw * mapBox.h) / mapBox.w), dpr = Math.min(2, devicePixelRatio || 1);
-    if (mapEl.width !== cw * dpr) { mapEl.width = cw * dpr; mapEl.height = ch * dpr; mapEl.style.width = `${cw}px`; mapEl.style.height = `${ch}px`; }
+    const cw = innerWidth < 560 ? 120 : 180, ch = Math.round((cw * mapBox.h) / mapBox.w), dpr = Math.min(quality.dpr, devicePixelRatio || 1);
+    const mw = Math.round(cw * dpr), mh = Math.round(ch * dpr);
+    if (mapEl.width !== mw || mapEl.height !== mh) { mapEl.width = mw; mapEl.height = mh; mapEl.style.width = `${cw}px`; mapEl.style.height = `${ch}px`; }
     const g = mapEl.getContext('2d'), k = (cw * dpr) / mapBox.w, X = (x) => (x - x0) * k, Y = (z) => (z - y0) * k;
     g.clearRect(0, 0, mapEl.width, mapEl.height);
     for (const r of rooms) {
@@ -2545,25 +2681,56 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   /* -------------------------------------------------------------- render */
   // the drawing size: sharp, but never more than ~2 million pixels, and smaller by itself when the computer can't keep up
   // (a slow graphics chip otherwise makes the whole browser hang)
-  let rscale = 1, ftAvg = 16, ftT = 0, lastLit = 0, lastIds = [];
+  let rscale = 1, matrixBudget = quality.matrix, slowWindows = 0, fastWindows = 0, ftAvg = 1000 / quality.fps, ftT = 0, lastLit = 0, lastIds = [];
   const sizeCanvas = () => {
-    const w = canvas.clientWidth, h = canvas.clientHeight, cap = Math.min(2, devicePixelRatio || 1, Math.sqrt(2.1e6 / Math.max(1, w * h)));
-    const k = Math.max(0.35, cap * rscale), W = Math.max(1, Math.round(w * k)), Hh = Math.max(1, Math.round(h * k));
+    const w = canvas.clientWidth, h = canvas.clientHeight, cap = Math.min(quality.dpr, devicePixelRatio || 1, Math.sqrt(quality.pixels / Math.max(1, w * h)), viewportMax[0] / Math.max(1, w), viewportMax[1] / Math.max(1, h), bufferMax / Math.max(1, w), bufferMax / Math.max(1, h));
+    const k = cap * rscale, W = Math.max(1, Math.round(w * k)), Hh = Math.max(1, Math.round(h * k));
     if (canvas.width !== W || canvas.height !== Hh) { canvas.width = W; canvas.height = Hh; }
   };
-  const ro = new ResizeObserver(sizeCanvas);
+  ro = new ResizeObserver(sizeCanvas);
   ro.observe(canvas);
-  let last = performance.now(), mapT = 0;
-  function frame(now) {
+  let last = performance.now(), lastRaf = 0, lastFrame = 0, renderAccumulator = 0, mapT = 0, displayHz = quality.fps;
+  const rafSamples = [];
+  function frame(now, xrFrame = null) {
     if (closed) return;
-    raf = requestAnimationFrame(frame);
-    ftAvg += (Math.min(400, now - last) - ftAvg) * 0.1;
+    if (xrSession) { if (xrFrame) xrSession.requestAnimationFrame(frame); else return; }
+    else raf = requestAnimationFrame(frame);
+    if (document.hidden) { last = now; lastRaf = 0; lastFrame = 0; renderAccumulator = 0; rafSamples.length = 0; return; }
+    let rafDt = 0;
+    if (lastRaf) {
+      rafDt = now - lastRaf;
+      if (rafSamples.length < 16 && rafDt >= 4 && rafDt <= 50) {
+        rafSamples.push(rafDt);
+        if (rafSamples.length === 16) {
+          const sorted = [...rafSamples].sort((a, b) => a - b);
+          displayHz = Math.min(xrSession ? 90 : quality.fps, 1000 / sorted[4]);
+        }
+      }
+    }
+    lastRaf = now;
+    const targetFrame = 1000 / displayHz;
+    renderAccumulator += rafDt;
+    if (renderAccumulator > targetFrame * 2.5) renderAccumulator = targetFrame;
+    if (renderAccumulator < targetFrame * 0.94) return;
+    renderAccumulator -= targetFrame;
+    if (lastFrame) ftAvg += (Math.min(400, now - lastFrame) - ftAvg) * 0.1;
+    lastFrame = now;
     if (now - ftT > 700) {
       ftT = now;
       const r0 = rscale;
-      if (ftAvg > 42 && rscale > 0.4) rscale = Math.max(0.4, rscale * 0.8);
-      else if (ftAvg < 22 && rscale < 1) rscale = Math.min(1, rscale * 1.1);
-      if (rscale !== r0) sizeCanvas();
+      if (!xrSession && ftAvg > targetFrame * 1.35 && rscale > 0.4) rscale = Math.max(0.4, rscale * 0.8);
+      // At the selected FPS, a steady frame interval is already ~targetFrame;
+      // requiring 12% extra headroom made recovery impossible on a 60 Hz screen.
+      else if (!xrSession && ftAvg <= targetFrame * 1.05 && rscale < 1) rscale = Math.min(1, rscale + 0.1);
+      if (rscale !== r0 && !xrSession) sizeCanvas();
+      if (ftAvg > targetFrame * 1.35) { slowWindows++; fastWindows = 0; }
+      else if (ftAvg <= targetFrame * 1.05) { fastWindows++; slowWindows = 0; }
+      else { slowWindows = 0; fastWindows = 0; }
+      if (hasWledMatrix && slowWindows >= 3 && matrixBudget > 4) {
+        matrixBudget = Math.max(4, Math.floor(matrixBudget / 2)); itemsDirty = true; slowWindows = 0;
+      } else if (hasWledMatrix && fastWindows >= 8 && matrixBudget < quality.matrix) {
+        matrixBudget = Math.min(quality.matrix, matrixBudget * 2); itemsDirty = true; fastWindows = 0;
+      }
     }
     if (hoverXY && now - hoverT > 250) hoverCheck();   // you walk or turn: what is under the mouse changes
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -2571,99 +2738,143 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     if (itemsDirty) { itemsDirty = false; buildItems(); }
     for (const r of curt.values()) { const dd = r.target - r.c; if (Math.abs(dd) > 0.002) { r.c += Math.sign(dd) * Math.min(Math.abs(dd), dt * 0.7); curtDirty = true; } }
     if (curtDirty) buildCurtains();
+    if (xrFrame && xrSession) {
+      const { moveX, moveY, turnX } = xrStickInput(xrSession.inputSources);
+      if (Math.abs(turnX) < 0.3) xrTurnReady = true;
+      else if (xrTurnReady && now >= xrTurnAt && Math.abs(turnX) > 0.65) { cam.yaw += Math.sign(turnX) * (Math.PI / 6); xrTurnReady = false; xrTurnAt = now + 250; }
+      if (Math.abs(moveX) + Math.abs(moveY) > 0.08) {
+        if (touring) { pausedTour = route; setTouring(false); }
+        route = [];
+        const len = Math.hypot(moveX, moveY), side = moveX / Math.max(1, len), forward = -moveY / Math.max(1, len), sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw), ox = cam.x, oz = cam.z;
+        cam.x += (sy * forward - cy * side) * 1.15 * dt;
+        cam.z += (cy * forward + sy * side) * 1.15 * dt;
+        collide();
+        if (!roomOf(cam.x, cam.z)) { cam.x = ox; cam.z = oz; }
+      }
+    }
     step(dt);
-    const w = canvas.width, h = canvas.height;
-    gl.viewport(0, 0, w, h);
     const day = sunFactor(hass.states['sun.sun']);
     const sky = [0.03 + 0.59 * day, 0.05 + 0.71 * day, 0.1 + 0.82 * day];
-    gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    const eye = [cam.x, eyeY(), cam.z], f = fwd();
-    fitFov();
-    const VP = mul(perspective(fov, w / h, 0.1, 150), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
-    gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
-    lastVP = VP;
-    gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);
-    gl.uniform1f(U.uAmb, 0.24 + 0.36 * day); gl.uniform1f(U.uSun, 0.38 * day); gl.uniform3fv(U.uSunDir, nrm([0.45, 0.8, 0.35]));
-    // the lamps that are on, nearest first
-    // the lamps: on/off, brightness and colour glide (a quarter of a second) so changes from Home Assistant show smoothly;
-    // the ones that light what you see most are used, with a margin so the choice doesn't flip back and forth
-    const ease = Math.min(1, dt * 7);
-    for (const l of lamps) {
-      const tk = l.on ? l.k : 0;
-      l.kv = l.kv == null ? tk : l.kv + (tk - l.kv) * ease;
-      l.cv = l.cv ? l.cv.map((v, c) => v + (l.col[c] - v) * ease) : [...l.col];
-      const d2 = (l.P[0] - cam.x) ** 2 + (l.P[2] - cam.z) ** 2;
-      l.score = l.kv * (l.share ?? 1) * (l.dir ? 2.2 : 1) / (1 + 0.04 * d2) * (l.sel ? 1.3 : 1);
-    }
-    // the light coming in through openings follows its lamp
-    for (const l of spills) {
-      l.kv = l.parent.kv; l.cv = l.parent.cv;
-      const d2 = (l.P[0] - cam.x) ** 2 + (l.P[2] - cam.z) ** 2;
-      l.score = 0.5 * l.kv * l.share / (1 + 0.04 * d2) * (l.sel ? 1.3 : 1);
-    }
-    const all = spills.length ? lamps.concat(spills) : lamps;
-    const chosen = all.filter((l) => l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
-    for (const l of all) { l.sel = chosen.includes(l); l.sw = (l.sw ?? (l.sel ? 1 : 0)) + ((l.sel ? 1 : 0) - (l.sw ?? 0)) * ease; }
-    const lit = all.filter((l) => l.sw > 0.01 && l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
-    const LP = new Float32Array(NL * 4), LC = new Float32Array(NL * 3), LB = new Float32Array(NL * 4), LB2 = new Float32Array(NL * 4), LB3 = new Float32Array(NL * 4), LD = new Float32Array(NL * 4);
-    lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.kv * l.sw * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.cv, i * 3); LB.set(l.bb.slice(0, 4), i * 4); LB2.set(l.bb.length > 4 ? l.bb.slice(4, 8) : l.bb.slice(0, 4), i * 4); LB3.set(l.bb.length > 8 ? l.bb.slice(8, 12) : l.bb.slice(0, 4), i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); else if (l.down) LD.set([0, -1, 0, -1], i * 4); });
-    lastLit = lit.length; lastIds = lit.map((l) => (l.parent ? '>' + l.parent.it.entity_id : l.it.entity_id) + ':' + (l.score || 0).toFixed(3));
-    gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB); gl.uniform4fv(U.uLB2, LB2); gl.uniform4fv(U.uLB3, LB3); gl.uniform4fv(U.uLD, LD);
-    gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
-    gl.disable(gl.BLEND); gl.depthMask(true);
-    if (buf.solid) { bind(buf.solid); gl.drawArrays(gl.TRIANGLES, 0, buf.solid.n); }
-    if (buf.fixtures) { bind(buf.fixtures); gl.drawArrays(gl.TRIANGLES, 0, buf.fixtures.n); }
-    if (buf.curtains) { bind(buf.curtains); gl.drawArrays(gl.TRIANGLES, 0, buf.curtains.n); }
-    if (clocks.length) {
-      const nowD = new Date();
-      if (nowD.getSeconds() !== clockSec || !clockBuf) {
-        clockSec = nowD.getSeconds();
-        const m = new Mesh();
-        for (const ck of clocks) {
-          const st = hass.states[ck.it.entity_id], on = isOn(st), col = rgb(lightColor(st) || '255,120,60'), { hour, minute, second } = ringClockLeds(ck.n, nowD), fr = ck.fr, R = 0.15;
-          for (let i = 0; i < ck.n; i++) {
-            const a = (i / ck.n) * 2 * Math.PI, ox = Math.sin(a) * R, oy = Math.cos(a) * R, big = on && (i === hour || i === minute), sz = big ? 0.011 : 0.006;
-            const c = !on ? [0.18, 0.18, 0.2] : i === hour || i === minute ? col : i === second ? [1, 1, 1] : col.map((v) => v * 0.18);
-            const x = fr.cx + fr.ux * ox, z = fr.cz + fr.uz * ox, y = ck.h + oy;
-            m.prism([[x - fr.ux * sz, z - fr.uz * sz], [x + fr.ux * sz, z + fr.uz * sz], [x + fr.ux * sz + fr.nx * 0.01, z + fr.uz * sz + fr.nz * 0.01], [x - fr.ux * sz + fr.nx * 0.01, z - fr.uz * sz + fr.nz * 0.01]], y - sz, y + sz, c);
-          }
-        }
-        if (clockBuf) gl.deleteBuffer(clockBuf.b);
-        clockBuf = m.v.length ? upload(m) : null;
-      }
-      if (clockBuf) { bind(clockBuf); gl.uniform1f(U.uEmis, 2); gl.drawArrays(gl.TRIANGLES, 0, clockBuf.n); gl.uniform1f(U.uEmis, 0); }
-    }
-    if (buf.markers) {
-      bind(buf.markers); gl.uniform1f(U.uEmis, 1);
+    let w = canvas.width, h = canvas.height, VP = null, eye = [cam.x, eyeY(), cam.z];
+    const drawView = (viewW, viewH, viewVP, viewEye, viewport, eyeDt) => {
+      const w = viewW, h = viewH, VP = viewVP, eye = viewEye;
+      gl.viewport(viewport.x, viewport.y, w, h);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(viewport.x, viewport.y, w, h);
+      gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST);
+      gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
+      lastVP = VP;
+      gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);
+      gl.uniform1f(U.uAmb, 0.24 + 0.36 * day); gl.uniform1f(U.uSun, 0.38 * day); gl.uniform3fv(U.uSunDir, nrm([0.45, 0.8, 0.35]));
+      // the lamps that are on, nearest first
+      // the lamps: on/off, brightness and colour glide (a quarter of a second) so changes from Home Assistant show smoothly;
+      // the ones that light what you see most are used, with a margin so the choice doesn't flip back and forth
+      const ease = Math.min(1, eyeDt * 7);
       for (const l of lamps) {
-        if (!l.count) continue;
-        const lv = l.pieces && l.on ? liveLeds.get(l.it.entity_id) : null;
-        if (lv?.leds?.length) {
-          // live WLED colours, piece by piece
-          for (const pc of l.pieces) {
-            let hx;
-            if (pc.cell) { const [c0, r0, n0] = pc.cell, w0 = lv.w || n0, h0 = lv.h || n0; hx = lv.leds[Math.floor((r0 * h0) / n0) * w0 + Math.floor((c0 * w0) / n0)]; }
-            else hx = lv.leds[Math.min(lv.leds.length - 1, Math.floor(pc.f * lv.leds.length))];
-            const v = parseInt(hx || '000000', 16), col = [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
-            gl.uniform3fv(U.uTint, col.map((c) => (pc.cell ? 0.1 : 0.04) + (pc.cell ? 0.9 : 0.96) * c)); gl.drawArrays(gl.TRIANGLES, pc.start, pc.count);   // a matrix shows its unlit LEDs as a faint grid
+        const tk = l.on ? l.k : 0;
+        l.kv = l.kv == null ? tk : l.kv + (tk - l.kv) * ease;
+        l.cv = l.cv ? l.cv.map((v, c) => v + (l.col[c] - v) * ease) : [...l.col];
+        const d2 = (l.P[0] - cam.x) ** 2 + (l.P[2] - cam.z) ** 2;
+        l.score = l.kv * (l.share ?? 1) * (l.dir ? 2.2 : 1) / (1 + 0.04 * d2) * (l.sel ? 1.3 : 1);
+      }
+      // the light coming in through openings follows its lamp
+      for (const l of spills) {
+        l.kv = l.parent.kv; l.cv = l.parent.cv;
+        const d2 = (l.P[0] - cam.x) ** 2 + (l.P[2] - cam.z) ** 2;
+        l.score = 0.5 * l.kv * l.share / (1 + 0.04 * d2) * (l.sel ? 1.3 : 1);
+      }
+      const all = spills.length ? lamps.concat(spills) : lamps;
+      const chosen = all.filter((l) => l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
+      for (const l of all) { l.sel = chosen.includes(l); l.sw = (l.sw ?? (l.sel ? 1 : 0)) + ((l.sel ? 1 : 0) - (l.sw ?? 0)) * ease; }
+      const lit = all.filter((l) => l.sw > 0.01 && l.kv > 0.004).sort((a, b) => b.score - a.score).slice(0, NL);
+      const LP = new Float32Array(NL * 4), LC = new Float32Array(NL * 3), LB = new Float32Array(NL * 4), LB2 = new Float32Array(NL * 4), LB3 = new Float32Array(NL * 4), LD = new Float32Array(NL * 4);
+      lit.forEach((l, i) => { LP.set([l.P[0], l.P[1], l.P[2], 1.5 * l.kv * l.sw * (l.share ?? 1) * (l.dir ? 2.2 : 1)], i * 4); LC.set(l.cv, i * 3); LB.set(l.bb.slice(0, 4), i * 4); LB2.set(l.bb.length > 4 ? l.bb.slice(4, 8) : l.bb.slice(0, 4), i * 4); LB3.set(l.bb.length > 8 ? l.bb.slice(8, 12) : l.bb.slice(0, 4), i * 4); if (l.dir) LD.set([...l.dir, 0.86], i * 4); else if (l.down) LD.set([0, -1, 0, -1], i * 4); });
+      lastLit = lit.length; lastIds = lit.map((l) => (l.parent ? '>' + l.parent.it.entity_id : l.it.entity_id) + ':' + (l.score || 0).toFixed(3));
+      gl.uniform1i(U.uNL, lit.length); gl.uniform4fv(U.uLP, LP); gl.uniform3fv(U.uLC, LC); gl.uniform4fv(U.uLB, LB); gl.uniform4fv(U.uLB2, LB2); gl.uniform4fv(U.uLB3, LB3); gl.uniform4fv(U.uLD, LD);
+      gl.uniform1f(U.uEmis, 0); gl.uniform1f(U.uAlpha, 1);
+      gl.disable(gl.BLEND); gl.depthMask(true);
+      if (buf.solid) { bind(buf.solid); gl.drawArrays(gl.TRIANGLES, 0, buf.solid.n); }
+      if (buf.fixtures) { bind(buf.fixtures); gl.drawArrays(gl.TRIANGLES, 0, buf.fixtures.n); }
+      if (buf.curtains) { bind(buf.curtains); gl.drawArrays(gl.TRIANGLES, 0, buf.curtains.n); }
+      if (clocks.length) {
+        const nowD = new Date();
+        if (nowD.getSeconds() !== clockSec || !clockBuf) {
+          clockSec = nowD.getSeconds();
+          const m = new Mesh();
+          for (const ck of clocks) {
+            const st = hass.states[ck.it.entity_id], on = isOn(st), col = rgb(lightColor(st) || '255,120,60'), { hour, minute, second } = ringClockLeds(ck.n, nowD), fr = ck.fr, R = 0.15;
+            for (let i = 0; i < ck.n; i++) {
+              const a = (i / ck.n) * 2 * Math.PI, ox = Math.sin(a) * R, oy = Math.cos(a) * R, big = on && (i === hour || i === minute), sz = big ? 0.011 : 0.006;
+              const c = !on ? [0.18, 0.18, 0.2] : i === hour || i === minute ? col : i === second ? [1, 1, 1] : col.map((v) => v * 0.18);
+              const x = fr.cx + fr.ux * ox, z = fr.cz + fr.uz * ox, y = ck.h + oy;
+              m.prism([[x - fr.ux * sz, z - fr.uz * sz], [x + fr.ux * sz, z + fr.uz * sz], [x + fr.ux * sz + fr.nx * 0.01, z + fr.uz * sz + fr.nz * 0.01], [x - fr.ux * sz + fr.nx * 0.01, z - fr.uz * sz + fr.nz * 0.01]], y - sz, y + sz, c);
+            }
           }
-          continue;
+          if (clockBuf) gl.deleteBuffer(clockBuf.b);
+          clockBuf = m.v.length ? upload(m) : null;
         }
-        {
-          // the lamp itself glows in its colour; switching on or off fades (kv glides to its brightness)
-          const off = l.tv || l.media === 'hub' ? [0.03, 0.035, 0.045] : l.media ? [0.2, 0.2, 0.22] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7];
-          const onC = (l.tv ? (l.cv || l.col).map((v) => 0.2 + 0.6 * v) : (l.cv || l.col).map((v) => 0.55 + 0.45 * v)), f = Math.max(0, Math.min(1, (l.kv ?? (l.on ? 1 : 0)) / Math.max(0.15, l.k || 0.15)));
-          gl.uniform3fv(U.uTint, l.on || f > 0.02 ? onC.map((v, c) => off[c] + (v - off[c]) * f) : off); gl.drawArrays(gl.TRIANGLES, l.start, l.count);
-        } }
-      gl.uniform1f(U.uEmis, 0);
+        if (clockBuf) { bind(clockBuf); gl.uniform1f(U.uEmis, 2); gl.drawArrays(gl.TRIANGLES, 0, clockBuf.n); gl.uniform1f(U.uEmis, 0); }
+      }
+      if (buf.markers) {
+        bind(buf.markers); gl.uniform1f(U.uEmis, 1);
+        for (const l of lamps) {
+          if (!l.count) continue;
+          const lv = l.pieces && l.on ? liveLeds.get(l.it.entity_id) : null;
+          if (lv?.leds?.length) {
+            // live WLED colours, piece by piece
+            for (const pc of l.pieces) {
+              let hx;
+              if (pc.cell) { const [c0, r0, n0] = pc.cell, w0 = lv.w || n0, h0 = lv.h || n0; hx = lv.leds[Math.floor((r0 * h0) / n0) * w0 + Math.floor((c0 * w0) / n0)]; }
+              else hx = lv.leds[Math.min(lv.leds.length - 1, Math.floor(pc.f * lv.leds.length))];
+              const v = parseInt(hx || '000000', 16), col = [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
+              gl.uniform3fv(U.uTint, col.map((c) => (pc.cell ? 0.1 : 0.04) + (pc.cell ? 0.9 : 0.96) * c)); gl.drawArrays(gl.TRIANGLES, pc.start, pc.count);   // a matrix shows its unlit LEDs as a faint grid
+            }
+            continue;
+          }
+          {
+            // the lamp itself glows in its colour; switching on or off fades (kv glides to its brightness)
+            const off = l.tv || l.media === 'hub' ? [0.03, 0.035, 0.045] : l.media ? [0.2, 0.2, 0.22] : l.ac ? [0.3, 0.32, 0.35] : [0.72, 0.72, 0.7];
+            const onC = (l.tv ? (l.cv || l.col).map((v) => 0.2 + 0.6 * v) : (l.cv || l.col).map((v) => 0.55 + 0.45 * v)), f = Math.max(0, Math.min(1, (l.kv ?? (l.on ? 1 : 0)) / Math.max(0.15, l.k || 0.15)));
+            gl.uniform3fv(U.uTint, l.on || f > 0.02 ? onC.map((v, c) => off[c] + (v - off[c]) * f) : off); gl.drawArrays(gl.TRIANGLES, l.start, l.count);
+          } }
+        gl.uniform1f(U.uEmis, 0);
+      }
+      if (draftBuf) { bind(draftBuf); gl.uniform1f(U.uEmis, 1); gl.uniform3fv(U.uTint, [1, 0.85, 0.45]); gl.drawArrays(gl.TRIANGLES, 0, draftBuf.n); gl.uniform1f(U.uEmis, 0); }
+      if (buf.glass) {
+        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+        gl.uniform1f(U.uAlpha, 0.2); bind(buf.glass); gl.drawArrays(gl.TRIANGLES, 0, buf.glass.n);
+        gl.depthMask(true); gl.disable(gl.BLEND);
+      }
+      gl.disable(gl.SCISSOR_TEST);
+    };
+    if (xrFrame && xrSession && xrLayer && xrRefSpace) {
+      const pose = xrFrame.getViewerPose(xrRefSpace);
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrLayer.framebuffer);
+        const room = roomTransform(cam.yaw, cam.x, cam.z, xrFloorY);
+        const aimPoint = xrAimPoint(xrFrame, room), eyeDt = dt / Math.max(1, pose.views.length);
+        for (const view of pose.views) {
+          const viewport = xrLayer.getViewport(view);
+          if (!viewport) continue;
+          w = viewport.width; h = viewport.height;
+          VP = xrViewProjection(view.projectionMatrix, view.transform.inverse.matrix, room.referenceFromWorld);
+          const p = view.transform.position;
+          eye = transformPoint4(room.worldFromReference, [p.x, p.y, p.z]);
+          drawView(w, h, VP, eye, viewport, eyeDt);
+          drawXRReticle(viewport, VP, aimPoint);
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+    } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      w = canvas.width; h = canvas.height; eye = [cam.x, eyeY(), cam.z];
+      gl.viewport(0, 0, w, h);
+      fitFov();
+      const f = fwd();
+      VP = mul(perspective(fov, w / h, 0.1, 150), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
+      drawView(w, h, VP, eye, { x: 0, y: 0, width: w, height: h }, dt);
     }
-    if (draftBuf) { bind(draftBuf); gl.uniform1f(U.uEmis, 1); gl.uniform3fv(U.uTint, [1, 0.85, 0.45]); gl.drawArrays(gl.TRIANGLES, 0, draftBuf.n); gl.uniform1f(U.uEmis, 0); }
-    if (buf.glass) {
-      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-      gl.uniform1f(U.uAlpha, 0.2); bind(buf.glass); gl.drawArrays(gl.TRIANGLES, 0, buf.glass.n);
-      gl.depthMask(true); gl.disable(gl.BLEND);
-    }
+    if (!xrSession) {
     // camera walls: each picture is laid exactly over its screen (perspective), only when you can see it;
     // pictures refresh one by one (every couple of seconds each), so many cameras don't flood Home Assistant
     if (camWalls.length) {
@@ -2733,6 +2944,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       I.el.classList.toggle('hov', hov);
     }
     if (now - mapT > 80) { mapT = now; drawMap(); }
+    }
   }
 
   buildAll();
@@ -2769,7 +2981,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     _walkTo(x, z) { walkTo(x, z); },
     _hits() { return items.filter((I) => I.hit).map((I) => ({ id: I.it.entity_id, hit: I.hit, shown: I.el.style.display !== 'none' })); },
     _pick(x, y) { const d = pickDevice(x, y), f = pickFurniture(x, y); return { dev: d?.it?.entity_id, furn: f?.f?.id, tv: f ? tvFurn.has(f.f.id) : null }; },
-    _perf() { return { ids: lastIds, lit: lastLit, spills: spills.length, lamps: lamps.length, w: canvas.width, h: canvas.height, ft: Math.round(ftAvg), rscale }; },
+    _perf() { return { profile: quality.name, fpsTarget: Math.round(displayHz), ids: lastIds, lit: lastLit, spills: spills.length, lamps: lamps.length, w: canvas.width, h: canvas.height, ft: Math.round(ftAvg), rscale, lights: NL, matrix: matrixBudget }; },
     _edges() { return graph.edges.map((e) => [e.a, e.b, !!e.door, !!e.ghost]); },
     _hover() { return hoverIt ? { id: hoverIt.it.entity_id, hidden: !!hoverIt.hidden, disp: hoverIt.el.style.display, P: hoverIt.P } : null; },
     _setCam(x, z, yaw, pitch = -0.06) { route = []; setTouring(false); Object.assign(cam, { x, z, yaw, pitch }); },
