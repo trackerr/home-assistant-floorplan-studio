@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b70';
+} from './fps-core.js?v=1.4.0b71';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -1592,6 +1592,12 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
 
   const keys = new Set();
   const onKey = (ev) => {
+    // Ctrl + / Ctrl − / Ctrl 0: zoom the 3D view itself, never the page (the buttons and icons stay their size)
+    if ((ev.ctrlKey || ev.metaKey) && ['+', '=', '-', '_', '0'].includes(ev.key)) {
+      ev.preventDefault(); ev.stopPropagation();
+      if (ev.key === '0') { hfov = ((+plan.settings?.walk_fov || 100) * Math.PI) / 180; setZoom(1); } else setZoom(['-', '_'].includes(ev.key) ? 1.12 : 1 / 1.12);
+      return;
+    }
     if (ev.key === 'Escape') {
       ev.stopPropagation();
       if (stripDraft) { stripDraft = null; drawDraft(); showSheet(); return; }
@@ -2284,9 +2290,11 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     hfov = Math.max((30 * Math.PI) / 180, Math.min((120 * Math.PI) / 180, hfov * k)); fitFov();
     clearTimeout(fovSave); fovSave = setTimeout(() => { try { localStorage.setItem('fps_walk_fov', JSON.stringify({ v: Math.round((hfov * 180) / Math.PI), s: +plan.settings?.walk_fov || 100 })); } catch (e) { /* fine */ } }, 600);
   };
+  // Ctrl + scroll wheel anywhere in the walk (also over an icon, a button or the info window): zoom the 3D view, not the page
+  wrap.addEventListener('wheel', (ev) => { if (!(ev.ctrlKey || ev.metaKey)) return; ev.preventDefault(); ev.stopPropagation(); setZoom(Math.exp(ev.deltaY * 0.0012)); }, { passive: false, capture: true });
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    if (ev.ctrlKey || ev.metaKey) { setZoom(Math.exp(ev.deltaY * 0.0012)); return; }
+    if (ev.ctrlKey || ev.metaKey) return;   // (handled above)
     // plain scroll wheel: a small step forward or back
     const st = Math.max(-0.6, Math.min(0.6, -ev.deltaY * 0.004));
     cam.x += Math.sin(cam.yaw) * st; cam.z += Math.cos(cam.yaw) * st; collide();
