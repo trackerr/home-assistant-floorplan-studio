@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b54';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b54';
+} from './fps-core.js?v=1.4.0b55';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b55';
 
 
 const CSS = `
@@ -42,6 +42,7 @@ const CSS = `
          background: var(--fps-off); border: 1.5px solid var(--fps-lamp-border, var(--fps-line)); color: var(--fps-muted); transition: background .3s, box-shadow .3s, color .3s; }
   .bub ha-state-icon, .bub ha-icon { --mdc-icon-size: calc(max(14px, 1.6cqw) * var(--fps-icon-scale, 1) * var(--fps-k, 1)); }
   .bub.pic { background-size: cover !important; background-position: center; background-color: #000 !important; } .bub.pic > * { opacity: 0; }
+  .item.off .bub, .item.off .tag { opacity: .5; }
   .item.on .bub { background: rgb(var(--c, var(--fps-accent-rgb))); color: #10161d; border: 2px solid var(--fps-ring, transparent);
                   box-shadow: 0 0 1.2cqw rgba(var(--c, var(--fps-accent-rgb)), .9), 0 0 3cqw rgba(var(--c, var(--fps-accent-rgb)), .45); }
   .item.lamp.on .bub { background: color-mix(in srgb, rgb(var(--c, var(--fps-accent-rgb))) calc(45% + 55% * var(--b, 1)), var(--fps-off));
@@ -717,7 +718,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b54');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b55');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -971,6 +972,9 @@ class FloorplanStudioCard extends HTMLElement {
       if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON' && st) { rec.icon.hass = h; rec.icon.stateObj = st; }
       if (vs) rec.el.style.opacity = '';
       const on = vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
+      // switched off (not a sensor, not unavailable): the icon half see-through, so what is on stands out
+      const off = !on && ((vs && vs.state === 'off') || ['off', 'standby'].includes(st?.state));
+      rec.el.classList.toggle('off', off);
       if (!st) { rec.el.classList.toggle('on', on); rec.el.querySelector('.tag').textContent = ''; continue; }
       rec.el.classList.toggle('on', on);
       rec.stalk?.classList.toggle('on', on);

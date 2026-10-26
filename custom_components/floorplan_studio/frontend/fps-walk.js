@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b54';
+} from './fps-core.js?v=1.4.0b55';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -464,6 +464,7 @@ canvas.gl:active { cursor: grabbing; }
 .cs::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px); pointer-events: none; }
 .wi { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
 .wi .b { position: absolute; left: -22px; top: -22px; pointer-events: auto; cursor: pointer; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; background: rgba(20,24,32,.72); border: 1.5px solid rgba(255,255,255,.35); color: #e8edf3; backdrop-filter: blur(4px); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.wi.off .b { opacity: .5; }
 .wi.on .b { background: rgb(var(--c, 255, 190, 110)); color: #151a20; border-color: rgba(255,255,255,.9); box-shadow: 0 0 18px rgba(var(--c, 255, 190, 110), .85); }
 .wi .b ha-icon, .wi .b ha-state-icon { --mdc-icon-size: 24px; }
 .wi .b.txt { font-size: 12px; font-weight: 600; }
@@ -1377,6 +1378,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       const st = hass.states[I.it.entity_id];
       const on = I.it.kind === 'lamp' || I.d === 'light' ? lampOn(I.it) : isOn(st);
       I.el.classList.toggle('on', on);
+      I.el.classList.toggle('off', !on && ['off', 'standby'].includes(st?.state));   // off: half see-through
       const L = lamps.find((l) => l.it === I.it);
       if (L && on) I.el.style.setProperty('--c', L.col.map((v) => Math.round(v * 255)).join(','));
       if (I.isSensor) I.el.querySelector('.b').textContent = st ? `${st.state}${st.attributes.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : ''}`.slice(0, 7) : '';

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Apparaten die **uit** staan zijn op de kaart en in de wandeling half doorzichtig (50 %), zodat wat aan staat eruit springt. Sensoren en onbereikbare apparaten blijven zoals ze waren.
 - **Meer vanzelf herkend**, met een eigen model in de wandeling: knopdrukker (Fingerbot, SwitchBot Bot) op de lichtschakelaar, IR-hub / universele afstandsbediening (Harmony, Broadlink, IR-ontvanger), alarmbasis (Eufy HomeBase, Ajax…) en sirene (rood, gloeit als hij gaat). Een bedsensor wordt *bed bezet* in plaats van een bewegingsmelder.
 - Apparatenoverzicht: de Zigbee2MQTT/Z-Wave-bridge en Frigate-zones (detecties van een camera) staan er niet meer in; een wasmachine of droger met alleen status-entiteiten wel. Een als meubel getekende vaatwasser, wasmachine of droger telt als *op de kaart*, en tikken op een ontbrekende zet hem als meubel in zijn ruimte (gekoppeld aan zijn status).
 - Projectiescherm: *open* (of een hogere stand) is nu uitgerold, dicht/0 % opgerold — zoals de meeste schermmotoren het melden. Werkt het bij jou andersom, kies dan bij stap 4 *Projectiescherm: open betekent* → *Opgerold*.
