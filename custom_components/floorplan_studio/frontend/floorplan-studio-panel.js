@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b66';
+import './floorplan-studio-card.js?v=1.4.0b67';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b66';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b66';
+} from './fps-core.js?v=1.4.0b67';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b67';
 
 const L = {
   en: {
@@ -717,7 +717,7 @@ class FloorplanStudioPanel extends HTMLElement {
           <div class="field"><span>${l.f_kind}</span><select id="ftype">${Object.keys(FURN_TYPES).map((k) => `<option value="${k}" ${f.type === k ? 'selected' : ''}>${l['f_' + k]}</option>`).join('')}</select></div>
           ${dim('w')}${dim('h')}
           ${f.type === 'videowall' ? (() => {
-            const [b0, b1] = videoWallSpan(f), allCams = videoWallCams({}, this._hass), sel = Array.isArray(f.cams) ? f.cams : [];
+            const [b0, b1] = videoWallSpan(f), sel = Array.isArray(f.cams) ? f.cams : [], allCams = [...new Set([...videoWallCams({}, this._hass), ...sel.filter((id) => this._hass?.states[id])])];   // the ones already picked always stay in the list
             return `<div class="field"><span>${l.vw_from}</span><input type="number" id="vwbot" min="0" max="3" step="0.05" value="${String(b0).replace('.', ',')}"></div>
               <div class="field"><span>${l.vw_to}</span><input type="number" id="vwtop" min="0.3" max="3.2" step="0.05" value="${String(b1).replace('.', ',')}"></div>
               <div class="field"><span>${l.vw_cams}</span><div class="list" style="max-height:220px;overflow:auto">${allCams.map((id) => `<label class="row" style="font-size:13px"><input type="checkbox" data-vwcam="${esc(id)}" ${sel.includes(id) ? 'checked' : ''} style="flex:none">${esc(friendly(this._hass, id))}</label>`).join('') || `<p class="hint">${l.vw_none}</p>`}</div></div>

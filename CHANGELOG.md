@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Camerawand: camera's die al gekozen zijn blijven altijd in de lijst staan (een hoofdstream naast zijn substream viel er eerder uit, en verdween dan bij de volgende wijziging uit de wand).
 - **Licht in open ruimtes als één ruimte**: ruimtes waartussen de muur helemaal weg is (een doorgang over (bijna) de hele muur, zoals keuken – eettafel – woonkamer) worden voor het licht één ruimte: elke lamp verlicht ze samen, met een vloeiende overgang, in plaats van dat het licht bij de getekende grens stopt.
 - **Alleen beheerders veranderen de opzet**: naast de editor, het verplaatsen van iconen/tekstblokken en bewerken in de wandeling (dat al alleen voor beheerders was) kan nu ook de assistent (*zet de lamp boven de tafel*) en de actie `floorplan_studio.place_device` alleen door een beheerder gebruikt worden (automatiseringen mogen het wel).
 - **Muren in je eigen kleur**: bij stap 5 (Uiterlijk) *Kleur van de muren* voor de kaart, 2.5D en de wandeling; per ruimte bij stap 2 *Muren van deze ruimte* (wandeling) — een tussenmuur krijgt aan elke kant de kleur van de ruimte aan die kant.
