@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b59';
+export const VERSION = '1.4.0b60';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -1150,7 +1150,7 @@ const BOXLIGHT_RE = /\bbox(en|es)?\b|speaker|luidspreker|lautsprecher/i;
 export function speakerBoxes(plan, it, st) {
   if (it.entity_id.split('.')[0] !== 'light' || stripPath(it) || it.boxlight === false) return [];
   // linked by hand (step 4: "Belongs to")
-  if (it.link) { const f = (plan.furniture || []).find((x) => x.id === it.link); return f?.type === 'speakerbox' ? [f] : []; }
+  if (it.link) { const ids = Array.isArray(it.link) ? it.link : [it.link]; return (plan.furniture || []).filter((x) => ids.includes(x.id) && x.type === 'speakerbox'); }   // one or more boxes
   const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   if (/sync|hdmi|hue ?sync|ambilight/i.test(label)) return [];
   if (!(it.boxlight || BOXLIGHT_RE.test(label) || /speaker/.test(it.icon || st?.attributes?.icon || ''))) return [];
@@ -1237,7 +1237,7 @@ export const isHeating = (st) => !!st && (st.attributes?.hvac_action === 'heatin
 const AMBI_RE = /\btv\b|ambilight|ambi|achter ?(de )?tv|tv ?back|bias ?light|hyperion|hyperhdr|sync ?box|hdmi ?sync|hue ?sync|gradient ?lightstrip/i;
 export function ambilightTv(plan, it, st) {
   if (it.ambilight === false || it.entity_id.split('.')[0] !== 'light' || stripPath(it)) return null;
-  if (it.link) { const f = (plan.furniture || []).find((x) => x.id === it.link); return f?.type === 'tv' ? f : null; }
+  if (it.link) { const ids = Array.isArray(it.link) ? it.link : [it.link]; return (plan.furniture || []).find((x) => ids.includes(x.id) && x.type === 'tv') || null; }
   const label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   if (!(it.ambilight === true || it.ambilight || (AMBI_RE.test(label) && !BOXLIGHT_RE.test(label)))) return null;
   if (typeof it.ambilight === 'string') return (plan.furniture || []).find((f) => f.id === it.ambilight) || null;

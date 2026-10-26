@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Eén lamp in meerdere boxen**: kies bij de lamp onder *Hoort bij* een speakerbox, dan kun je eronder *Ook deze boxen* aanvinken (bijv. links én rechts); ze gloeien allemaal met die lamp. Boxen in dezelfde ruimte heten nu *links* / *rechts* (of 1, 2, 3).
 - Editor: stap 5 (Instellingen) opende niet meer (sinds de keuze *De rondleiding begint in*); werkt weer.
 - Stap 3 (deuren & meubels): er staat niet meer standaard *Deur* aan. Een klik op een muur plaatst pas iets als je deur, raam of doorgang kiest; nog eens op die knop zet het weer uit.
 - Wandeling: **beeldhoek instelbaar** bij stap 5 (*Wandeling: beeldhoek*, 60–120°, standaard 100°). Ctrl + scrollwiel (of knijpen) past hem even aan; die keuze onthoudt de browser tot je de instelling wijzigt.
