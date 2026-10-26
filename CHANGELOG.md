@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Licht in open ruimtes als één ruimte**: ruimtes waartussen de muur helemaal weg is (een doorgang over (bijna) de hele muur, zoals keuken – eettafel – woonkamer) worden voor het licht één ruimte: elke lamp verlicht ze samen, met een vloeiende overgang, in plaats van dat het licht bij de getekende grens stopt.
+- **Alleen beheerders veranderen de opzet**: naast de editor, het verplaatsen van iconen/tekstblokken en bewerken in de wandeling (dat al alleen voor beheerders was) kan nu ook de assistent (*zet de lamp boven de tafel*) en de actie `floorplan_studio.place_device` alleen door een beheerder gebruikt worden (automatiseringen mogen het wel).
 - **Muren in je eigen kleur**: bij stap 5 (Uiterlijk) *Kleur van de muren* voor de kaart, 2.5D en de wandeling; per ruimte bij stap 2 *Muren van deze ruimte* (wandeling) — een tussenmuur krijgt aan elke kant de kleur van de ruimte aan die kant.
 - Herkenning gebruikt nog meer wat Home Assistant zelf weet: een rook-, gas- of CO-melder (apparaatklasse) hangt als rookmelder aan het plafond (rood lampje bij alarm), een waterlekmelder ligt op de vloer (blauw als hij nat is), en een mediaspeler met apparaatklasse *speaker* of *receiver* wordt een speaker of speler.
 - Eigen 3D-model bij een apparaat: alleen staande lampen, tafellampen en lage apparaten staan op de vloer of het meubel; een spot en alles wat hoger hangt (eigen hoogte) komt op zijn hoogte, en een spot schijnt nog steeds waar je hem op richtte.

@@ -20,5 +20,5 @@
   "issue_tracker": "https://github.com/trackerr/home-assistant-floorplan-studio/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.4.0b65"
+  "version": "1.4.0b66"
 }

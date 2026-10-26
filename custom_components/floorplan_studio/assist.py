@@ -37,6 +37,19 @@ async def _save(hass: HomeAssistant, plan: dict[str, Any]) -> dict[str, Any]:
     return saved
 
 
+async def _is_admin(hass: HomeAssistant, user_id: str | None) -> bool:
+    """Only administrators change the floorplan; a regular user (or an unknown voice) never does."""
+    if not user_id:
+        return False
+    user = await hass.auth.async_get_user(user_id)
+    return bool(user and user.is_admin)
+
+
+def _not_allowed(hass: HomeAssistant) -> str:
+    nl = (hass.config.language or "en").startswith("nl")
+    return "Alleen een beheerder kan de plattegrond aanpassen." if nl else "Only an administrator can change the floorplan."
+
+
 async def async_place(hass: HomeAssistant, data: dict[str, Any]) -> tuple[bool, str]:
     plans = list(hass.data[DOMAIN]["plans"].plans.values())
     # work on a copy, so a request that fails halfway changes nothing
@@ -73,7 +86,10 @@ class PlaceDeviceIntent(intent.IntentHandler):
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         slots = self.async_validate_slots(intent_obj.slots)
         data = {k: v["value"] for k, v in slots.items()}
-        ok, msg = await async_place(intent_obj.hass, data)
+        if await _is_admin(intent_obj.hass, intent_obj.context.user_id):
+            ok, msg = await async_place(intent_obj.hass, data)
+        else:
+            ok, msg = False, _not_allowed(intent_obj.hass)
         response = intent_obj.create_response()
         response.async_set_speech(msg)
         if not ok:
@@ -102,6 +118,11 @@ async def async_setup(hass: HomeAssistant) -> None:
     """Register the actions (floorplan_studio.place_device / describe) and the assistant tools."""
 
     async def _place(call: ServiceCall) -> ServiceResponse:
+        # called by a person: only an administrator (an automation or script, without a user, may)
+        if call.context.user_id and not await _is_admin(hass, call.context.user_id):
+            from homeassistant.exceptions import Unauthorized  # noqa: PLC0415
+
+            raise Unauthorized(context=call.context)
         ok, msg = await async_place(hass, dict(call.data))
         if not ok and not call.return_response:
             _LOGGER.warning("floorplan_studio.place_device: %s", msg)
