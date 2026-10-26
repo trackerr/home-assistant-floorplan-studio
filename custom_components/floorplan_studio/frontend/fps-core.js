@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b84';
+export const VERSION = '1.4.0b85';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -678,6 +678,9 @@ export function transformImage(img, ops = []) {
 }
 
 /* --------------------------------------------------------- plan drawing */
+/** A room's floor in one colour of your own (step 2: Floor → one colour): '#rrggbb', or null. */
+export const floorColor = (room) => (room?.floor === 'color' && /^#[0-9a-f]{6}$/i.test(room.floor_color || '') ? room.floor_color : null);
+
 /** Every user-adjustable setting with its default (stored per floorplan in plan.settings). */
 export const DEFAULT_SETTINGS = {
   theme: 'warm',            // default theme of the card
@@ -709,7 +712,6 @@ export const DEFAULT_SETTINGS = {
   wall_color: '',           // walls in your own colour (#rrggbb), '' = the theme's; a room can have its own (room.wall_color, walk)
   walk_fov: 100,            // walk: how wide you see, in degrees across (Ctrl + scroll wheel changes it for the moment)
   walk_start: '',           // room the tour starts in (at its door); '' = at the front door
-  walk_ghost: false,        // walkthrough: the tour (and walking to a spot you tapped) goes straight through furniture
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
   turn_ghost_pct: 10,       // ... to this % visible
@@ -790,6 +792,8 @@ function groundSVG(plan, proj, editor) {
     for (const q of rects) out.push(`<polygon class="floor" data-room="${esc(room.id)}" points="${poly(q)}"/>`);
   }
   for (const room of plan.rooms) {
+    const fc = floorColor(room);
+    if (fc) { for (const q of room.rects.map(norm)) out.push(`<polygon class="floortex" style="fill:${fc};fill-opacity:.6" points="${poly(q)}"/>`); continue; }
     if (!['tiles', 'wood'].includes(room.floor)) continue;
     const [x0, y0, x1, y1] = roomBBox(room), ref = safeSvgId(room.id);
     out.push(`<g clip-path="url(#cp-${ref})"><rect class="floortex" transform="${mat(J((x0 + x1) / 2, (y0 + y1) / 2))}" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="url(#fps-${room.floor})"/></g>`);
@@ -1940,6 +1944,8 @@ export function planSVG(plan, { showBackground = false, editor = false, proj = n
     }
   }
   for (const room of plan.rooms) {
+    const fc = floorColor(room);
+    if (fc) { for (const q of room.rects.map(norm)) out.push(`<rect class="floortex" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" style="fill:${fc};fill-opacity:.6"/>`); continue; }
     if (!['tiles', 'wood'].includes(room.floor)) continue;
     for (const q of room.rects.map(norm)) out.push(`<rect class="floortex" x="${q[0]}" y="${q[1]}" width="${q[2] - q[0]}" height="${q[3] - q[1]}" fill="url(#fps-${room.floor})"/>`);
   }

@@ -2,11 +2,11 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   VERSION,
-  computeWalls, climateTarget, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
+  computeWalls, climateTarget, floorColor, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b84';
-import { qualityForDevice } from './fps-quality.js?v=1.4.0b84';
-import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b84';
+} from './fps-core.js?v=1.4.0b85';
+import { qualityForDevice } from './fps-quality.js?v=1.4.0b85';
+import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b85';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -16,8 +16,8 @@ const FURN_NAME = {
   nl: { sofa: 'Bank', bed: 'Bed', table: 'Tafel', round: 'Ronde tafel', coffee: 'Salontafel', radiator: 'Radiator', speakerbox: 'Speaker / box', videowall: 'Camerawand', dishwasher: 'Vaatwasser', washer: 'Wasmachine', dryer: 'Droger', desk: 'Bureau', counter: 'Aanrecht', cabinet: 'Kast', bath: 'Bad', shower: 'Douche', toilet: 'Wc', stairs: 'Trap', tv: 'Tv', plant: 'Plant', mirror: 'Spiegel', model: '3D-model', hob: 'Kookplaat', sink: 'Gootsteen', stove: 'Fornuis', fridge: 'Koelkast', island: 'Kookeiland', wallcab: 'Bovenkast' },
 };
 const TXT = {
-  en: { tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', vr: 'Enter VR', vrSecure: 'VR needs a secure HTTPS Home Assistant address.', vrError: 'Could not start VR on this browser.', vrHint: 'VR: left stick walks · right stick turns 30° · point at the floor and press a trigger to walk, or point at a supported light, switch, fan or helper to toggle it · use the Quest menu to exit.', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · scroll wheel or + / − to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', cam_idle: 'idle', cam_motion: 'motion', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
-  nl: { tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', vr: 'VR starten', vrSecure: 'VR vereist een beveiligd HTTPS-adres voor Home Assistant.', vrError: 'VR starten lukt niet in deze browser.', vrHint: 'VR: linker stick loopt · rechter stick draait 30° · richt op de vloer en druk een trigger om daarheen te lopen, of richt op een ondersteunde lamp, schakelaar, ventilator of helper om die te schakelen · gebruik het Quest-menu om VR te verlaten.', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · scrollwiel of + / − = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', clip: 'Clip', cam_idle: 'rust', cam_motion: 'beweging', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
+  en: { no_tour: 'No tour route yet', no_tour_how: 'Draw one in the editor: step 3 → Tour route', tour: 'Tour', pause: 'Pause', play: 'Continue', close: 'Close', vr: 'Enter VR', vrSecure: 'VR needs a secure HTTPS Home Assistant address.', vrError: 'Could not start VR on this browser.', vrHint: 'VR: left stick walks · right stick turns 30° · point at the floor and press a trigger to walk, or point at a supported light, switch, fan or helper to toggle it · use the Quest menu to exit.', hint: 'Drag to look around · click to stop · tap a device = on/off or info · tap the floor to walk there · arrow keys or WASD to walk · scroll wheel or + / − to zoom', done: 'Tour done – feel free to look around', nogl: 'This browser cannot show 3D (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'light' : 'lights'} on`, fwd: 'Walk', back: 'Back', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved', height: 'Height', strip: 'Draw LED strip', strip_icon: 'Back to icon', strip_hint: 'Tap the wall or furniture point by point where the strip runs; it is placed at this height. Then Done', done: 'Done', rotate: 'Turn', remove: 'Remove', add_dev: 'Add a device', add_furn: 'Add furniture', add_open: 'Window / door', open_hint: 'Click on a wall where the window or door goes', remove_dev: 'Remove from the plan', none_left: 'Every device of this room is on the plan.', width: 'Width', depth: 'Depth', kind: 'Kind', window: 'Window', door: 'Door', passage: 'Opening', back2: 'Back', aim: 'Aim', aim_hint: 'Click where the spot should shine (wall, floor or furniture)', edit_hint: 'Drag a device sideways to slide it along the floor, or up/down to change its height (one direction per drag) · drag furniture over the floor · tap to pick one', unsaved: 'Not saved – close again to throw the changes away', save_err: 'Could not save', power: 'On/off', vol: 'Volume', target: 'Set to', now: 'now', open: 'Open', stop: 'Stop', closeit: 'Close', vstart: 'Clean', chairs: 'Chairs', legs: 'Legs', vw_bot: 'Bottom', vw_top: 'Top', strip_dir: 'Direction', strip_flat: 'Lying', strip_up: 'Standing', strip_frame: 'Frame', strip_frame3: 'Open frame', strip_to: 'Top', sofa_shape: 'Shape', sofa_straight: 'Straight', sofa_left: 'Corner, left', sofa_right: 'Corner, right', tv_wall: 'On the wall', tv_stand: 'On its stand (tap: on the wall)', tv_wall_h: 'Height = bottom of the screen', vdock: 'Dock', lockit: 'Lock', unlockit: 'Unlock', modes: { cool: 'cooling', heat: 'heating', dry: 'drying', fan: 'fan' }, app_run: 'Running', clip: 'Clip', cam_idle: 'idle', cam_motion: 'motion', app_idle: 'Not running', bri: 'Brightness', colour: 'Colour', ctemp: 'White', effect: 'Effect', mode: 'Mode', fanm: 'Fan', preset: 'Preset', source: 'Source', speed: 'Speed', pos: 'Position', choose: 'Choice' },
+  nl: { no_tour: 'Nog geen route voor de rondleiding', no_tour_how: 'Teken er een in de editor: stap 3 → Route van de rondleiding', tour: 'Rondleiding', pause: 'Pauze', play: 'Verder', close: 'Sluiten', vr: 'VR starten', vrSecure: 'VR vereist een beveiligd HTTPS-adres voor Home Assistant.', vrError: 'VR starten lukt niet in deze browser.', vrHint: 'VR: linker stick loopt · rechter stick draait 30° · richt op de vloer en druk een trigger om daarheen te lopen, of richt op een ondersteunde lamp, schakelaar, ventilator of helper om die te schakelen · gebruik het Quest-menu om VR te verlaten.', hint: 'Slepen = rondkijken · klik = stoppen · tik op een apparaat = aan/uit of info · tik op de vloer = daarheen lopen · pijltjes of WASD = lopen · scrollwiel of + / − = zoomen', done: 'Rondleiding klaar – kijk gerust verder rond', nogl: 'Deze browser kan geen 3D tonen (WebGL).', lamps: (n) => `${n} ${n === 1 ? 'lamp' : 'lampen'} aan`, fwd: 'Lopen', back: 'Terug', edit: 'Bewerken', save: 'Opslaan', cancel: 'Annuleren', saved: 'Opgeslagen', height: 'Hoogte', strip: 'Ledstrip tekenen', strip_icon: 'Terug naar icoon', strip_hint: 'Tik punt voor punt op de muur of het meubel waar de strip loopt; hij komt op deze hoogte. Dan Klaar', done: 'Klaar', rotate: 'Draaien', remove: 'Weghalen', add_dev: 'Apparaat toevoegen', add_furn: 'Meubel toevoegen', add_open: 'Raam / deur', open_hint: 'Klik op de muur waar het raam of de deur komt', remove_dev: 'Van de kaart halen', none_left: 'Alle apparaten van deze ruimte staan al op de kaart.', width: 'Breedte', depth: 'Diepte', kind: 'Soort', window: 'Raam', door: 'Deur', passage: 'Doorgang', back2: 'Terug', aim: 'Richten', aim_hint: 'Klik waar de spot op moet schijnen (muur, vloer of meubel)', edit_hint: 'Sleep een apparaat opzij om het over de vloer te schuiven, of omhoog/omlaag voor de hoogte (één richting per keer) · sleep meubels over de vloer · tik om er één te kiezen', unsaved: 'Niet opgeslagen – nog een keer sluiten gooit de wijzigingen weg', save_err: 'Opslaan lukte niet', power: 'Aan/uit', vol: 'Volume', target: 'Ingesteld', now: 'nu', open: 'Open', stop: 'Stop', closeit: 'Dicht', vstart: 'Zuigen', chairs: 'Stoelen', legs: 'Pootjes', vw_bot: 'Onder', vw_top: 'Boven', strip_dir: 'Richting', strip_flat: 'Liggend', strip_up: 'Staand', strip_frame: 'Kader', strip_frame3: 'Kader open', strip_to: 'Bovenkant', sofa_shape: 'Vorm', sofa_straight: 'Recht', sofa_left: 'Hoek links', sofa_right: 'Hoek rechts', tv_wall: 'Aan de muur', tv_stand: 'Op voet (tik: aan de muur)', tv_wall_h: 'Hoogte = onderkant scherm', vdock: 'Naar dock', lockit: 'Op slot', unlockit: 'Open', modes: { cool: 'koelt', heat: 'verwarmt', dry: 'droogt', fan: 'ventileert' }, app_run: 'Draait', clip: 'Clip', cam_idle: 'rust', cam_motion: 'beweging', app_idle: 'Draait niet', bri: 'Helderheid', colour: 'Kleur', ctemp: 'Wit', effect: 'Effect', mode: 'Modus', fanm: 'Ventilator', preset: 'Voorkeur', source: 'Bron', speed: 'Snelheid', pos: 'Stand', choose: 'Keuze' },
 };
 
 /* ------------------------------------------------------------ small maths */
@@ -128,7 +128,8 @@ function buildWorld(plan, hass, selFurn = null) {
   for (const room of rooms) {
     // the floor you chose in the editor; otherwise tiles in wet rooms and the hall, wood elsewhere
     const kind = ['wood', 'tiles'].includes(room.floor) ? room.floor : /bad|douche|toilet|wc|keuken|kitchen|bath|shower|hal\b|entree|entrance|hall|berging|storage|utility|wasruimte|laundry/i.test(room.name || '') ? 'tiles' : 'wood';
-    const mat = kind === 'wood' ? 1 : 2, col = kind === 'wood' ? COL.wood : COL.tiles;
+    const fc = floorColor(room);   // your own single colour (step 2)
+    const mat = fc ? 0 : kind === 'wood' ? 1 : 2, col = fc ? [1, 3, 5].map((i) => parseInt(fc.slice(i, i + 2), 16) / 255) : kind === 'wood' ? COL.wood : COL.tiles;
     // rects of one room overlap a few millimetres where they meet (no hairline cracks to the sky or the grass);
     // the ceiling is one colour everywhere, so it may overlap all round
     const qs = room.rects.map(norm), ge = 0.006 * S;
@@ -335,9 +336,7 @@ function buildNav(plan, world, S, extra = []) {
   };
   for (const q of world.blockers) mark(wall, q, 0.16);
   blocked.set(wall);
-  // walkthrough (step 5): walking by itself goes straight through furniture — only walls and closed doors are in the way
-  const ghost = !!plan.settings?.walk_ghost;
-  for (const f of ghost ? [] : plan.furniture || []) {
+  for (const f of plan.furniture || []) {
     if (!(furnHeight(f) > 0.25) || f.type === 'wallcab') continue;
     const r = (safeNumber(f.rot) * Math.PI) / 180, w = safeNumber(f.w, 100) / 2, h = safeNumber(f.h, 60) / 2, fx = safeNumber(f.x), fy = safeNumber(f.y);
     const pts = [[-w, -h], [w, -h], [w, h], [-w, h]].map(([x, y]) => [(fx + x * Math.cos(r) - y * Math.sin(r)) / S, (fy + x * Math.sin(r) + y * Math.cos(r)) / S]);
@@ -351,7 +350,7 @@ function buildNav(plan, world, S, extra = []) {
     }
   }
   // standing lamps and the like: round things on the floor (x, z, radius in metres)
-  for (const [ex, ez, er] of ghost ? [] : extra) {
+  for (const [ex, ez, er] of extra) {
     for (let j = Math.max(0, Math.floor((ez - er - 0.12 - z0) / g)); j <= Math.min(nz - 1, Math.floor((ez + er + 0.12 - z0) / g)); j++)
       for (let i = Math.max(0, Math.floor((ex - er - 0.12 - x0) / g)); i <= Math.min(nx - 1, Math.floor((ex + er + 0.12 - x0) / g)); i++)
         if (Math.hypot(cx(i) - ex, cz(j) - ez) <= er + 0.12) blocked[j * nx + i] = 1;
@@ -1659,45 +1658,21 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     setTouring(false);
     return true;
   };
+  /** The tour: the route you drew in the editor (step 3), point by point, looking around where you marked it. */
+  const drawnTour = () => (Array.isArray(plan.tour) ? plan.tour : []).filter((q) => Number.isFinite(+q?.x) && Number.isFinite(+q?.y)).map((q) => ({ x: +q.x / S, z: +q.y / S, look: !!q.look }));
   function startTour() {
-    const rooms = plan.rooms || [];
-    if (!rooms.length) return;
-    let ent = graph.entrance;
-    // a room chosen to start in (step 5): enter it through its door (a real door first, else an opening)
-    const want = plan.settings?.walk_start;
-    if (want && rooms.some((r) => r.id === want) && ent?.room !== want) {
-      const es = graph.edges.filter((e) => !e.ghost && (e.a === want || e.b === want)).sort((x, y) => (y.door ? 1 : 0) - (x.door ? 1 : 0));
-      if (es.length) { const e = es[0]; ent = e.a === want ? { room: want, inside: e.pa, outside: e.pb } : { room: want, inside: e.pb, outside: e.pa }; }
-    }
-    const start = ent?.room || rooms.slice().sort((a, b) => area(b) - area(a))[0].id;
-    // visit every room: go deeper first, and walk back through the doors when needed
-    const order = [], seen = new Set();
-    // from each room: first through open passages (the room flows on), then through doors, nearest first
-    const centre = (id) => graph.spot.get(id) || [0, 0];
-    const visit = (r) => {
-      seen.add(r); order.push(r);
-      const next = graph.edges.map((e) => ({ e, n: e.a === r ? e.b : e.b === r ? e.a : null })).filter((x) => x.n && !x.e.ghost)
-        .sort((x, y) => (x.e.door ? 1 : 0) - (y.e.door ? 1 : 0) || Math.hypot(centre(x.n)[0] - centre(r)[0], centre(x.n)[1] - centre(r)[1]) - Math.hypot(centre(y.n)[0] - centre(r)[0], centre(y.n)[1] - centre(r)[1]));
-      for (const { n } of next) if (!seen.has(n)) visit(n);
-      for (const e of graph.edges) { const n = e.a === r ? e.b : e.b === r ? e.a : null; if (n && !seen.has(n)) visit(n); }   // rooms only joined by a shared wall
-    };
-    visit(start);
-    for (const r of rooms) if (!seen.has(r.id)) visit(r.id);
-    if (ent) { cam.x = ent.inside[0]; cam.z = ent.inside[1]; cam.yaw = Math.atan2(ent.inside[0] - ent.outside[0], ent.inside[1] - ent.outside[1]); }
-    else { const sp = nav?.spot(rooms.find((r) => r.id === start)); if (sp) { cam.x = sp.x; cam.z = sp.z; cam.yaw = sp.look; } }
+    const pts = drawnTour();
     route = [];
-    let cur = start, px = cam.x, pz = cam.z;
-    for (const id of order) {
-      // the room you start in: look around where you came in (no walking to the back and turning round)
-      if (id === start && ent) { route.push({ x: cam.x, z: cam.z, look: true, lookYaw: cam.yaw, room: id }); continue; }
-      const r = rooms.find((x) => x.id === id), sp = nav?.spot(r) || { x: graph.spot.get(id)[0], z: graph.spot.get(id)[1], look: 0 };
-      const way = pathTo(px, pz, sp.x, sp.z);
-      if (!way) continue;   // no door into this room drawn: skip it rather than walk through a wall
-      route.push(...way.slice(0, -1));
-      route.push({ x: sp.x, z: sp.z, look: true, lookYaw: sp.look, room: id });
-      cur = id; px = sp.x; pz = sp.z;
-    }
+    if (pts.length < 2) { showRoom(null, T.no_tour, canEdit ? T.no_tour_how : ''); return false; }
+    // start at the first point, looking along the route
+    cam.x = pts[0].x; cam.z = pts[0].z; cam.yaw = Math.atan2(pts[1].x - pts[0].x, pts[1].z - pts[0].z);
+    pts.forEach((q, i) => {
+      const nx = pts[i + 1] || q, px = pts[i - 1] || q;
+      const dir = nx !== q ? Math.atan2(nx.x - q.x, nx.z - q.z) : Math.atan2(q.x - px.x, q.z - px.z);
+      route.push({ x: q.x, z: q.z, drawn: true, ...(q.look ? { look: true, lookYaw: dir } : {}) });
+    });
     route.push({ done: true });
+    return true;
   }
   /** Points to walk from a to b: around walls and furniture, or (no way through) through the rooms in between. */
   function pathTo(ax, az, bx, bz) {
@@ -1726,7 +1701,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   let pausedTour = null;
   $('#tour').addEventListener('click', () => {
     if (touring) { pausedTour = route; route = []; setTouring(false); return; }
-    if (tourDone || !pausedTour?.length) { tourDone = false; startTour(); } else route = pausedTour;
+    if (tourDone || !pausedTour?.length) { tourDone = false; if (!startTour()) { tourDone = true; return; } } else route = pausedTour;
     pausedTour = null; setTouring(true);
   });
 
@@ -2474,7 +2449,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (wpt.done) {
         route = []; tourDone = true; setTouring(false); showRoom(null, T.done);
         // on a TV / kiosk (walk: tour): the tour starts again by itself
-        if (loop) setTimeout(() => { if (!closed && tourDone && !route.length) { tourDone = false; startTour(); setTouring(true); } }, 5000);
+        if (loop) setTimeout(() => { if (!closed && tourDone && !route.length && startTour()) { tourDone = false; setTouring(true); } }, 5000);
       }
       else if (wpt.lookT != null || (wpt.look && Math.hypot(wpt.x - cam.x, wpt.z - cam.z) < 0.08)) {
         // standing in a room: look left, look right, then on
@@ -2506,6 +2481,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           const k = Math.min(d, sp * dt) / d;
           const ox = cam.x, oz = cam.z;
           cam.x += dx * k; cam.z += dz * k; moving = true;
+          if (!wpt.drawn) {   // (your own tour route is followed exactly as you drew it)
           collide(wpt.stopAtWall ? R_PLAYER : 0.13);   // never into a wall, also on a route
           if (!roomOf(cam.x, cam.z) && roomOf(ox, oz)) { cam.x = ox; cam.z = oz; }   // nor out of the house
           // really stuck (pushed back by a wall, not just turning or slowing down for a corner): find a new way from here
@@ -2520,6 +2496,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             const path = again && goal && goal.x != null && nav ? nav.find(cam.x, cam.z, goal.x, goal.z) : null;
             if (path && path.length) { const pts = path.slice(0, -1).map((q) => ({ ...q, replans: wpt.replans })); route.splice(0, end, ...pts); }
             else route.shift();
+          }
           }
         }
       }
@@ -2950,12 +2927,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   }
 
   buildAll();
-  if (tour || loop) startTour();
-  else {
-    // just looking: stand in the start room (step 5, else the biggest) with a view over it, and stay there
-    const rooms = plan.rooms || [], want = plan.settings?.walk_start, r = rooms.find((x) => x.id === want) || rooms.slice().sort((a, b) => area(b) - area(a))[0];
-    const sp = r ? nav?.spot(r) : null;
-    if (sp) { cam.x = sp.x; cam.z = sp.z; cam.yaw = sp.look; }
+  if (!((tour || loop) && startTour())) {
+    // just looking: at the start of your tour route, else in the start room (step 5, else the biggest) with a view over it, and stay there
+    const pts = drawnTour();
+    if (pts.length >= 2) { cam.x = pts[0].x; cam.z = pts[0].z; cam.yaw = Math.atan2(pts[1].x - pts[0].x, pts[1].z - pts[0].z); }
+    else {
+      const rooms = plan.rooms || [], want = plan.settings?.walk_start, r = rooms.find((x) => x.id === want) || rooms.slice().sort((a, b) => area(b) - area(a))[0];
+      const sp = r ? nav?.spot(r) : null;
+      if (sp) { cam.x = sp.x; cam.z = sp.z; cam.yaw = sp.look; }
+    }
     route = []; tourDone = true; setTouring(false);
   }
   showRoom(roomOf(cam.x, cam.z));
