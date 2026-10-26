@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: **Walkthrough** (stap 5 → *Wandeling (3D) en rondleiding*): de rondleiding, en lopen naar een plek waar je op tikte, gaat rechtdoor dwars door meubels; alleen muren en dichte deuren houden hem tegen. Standaard uit.
 - Kaart: een **bewegings- of aanwezigheidsmelder** staat er als icoon (dat oplicht zolang hij iemand ziet), niet meer als tekstje *Uit*; en een sensor die "uit" leest wordt niet meer half doorzichtig (dat is alleen voor dingen die uit staan).
 - Wandeling: loopt hij zelf (rondleiding of op weg naar een plek), dan **stopt een klik alleen** — ook op een lamp, apparaat of camerascherm wordt dan niets geschakeld of geopend. Sta je stil, dan werkt een tik zoals altijd.
 - Kaart (2D en 2.5D): **3D-printers en printers staan er als printer**: hun behuizing getekend waar je ze neerzette (op het meubel eronder, mee gedraaid), met het printer-icoon — ook als je de printer via zijn kamerlampje plaatste.

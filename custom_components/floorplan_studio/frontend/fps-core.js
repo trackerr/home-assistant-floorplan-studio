@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b78';
+export const VERSION = '1.4.0b79';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -709,6 +709,7 @@ export const DEFAULT_SETTINGS = {
   wall_color: '',           // walls in your own colour (#rrggbb), '' = the theme's; a room can have its own (room.wall_color, walk)
   walk_fov: 100,            // walk: how wide you see, in degrees across (Ctrl + scroll wheel changes it for the moment)
   walk_start: '',           // room the tour starts in (at its door); '' = at the front door
+  walk_ghost: false,        // walkthrough: the tour (and walking to a spot you tapped) goes straight through furniture
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
   turn_ghost_pct: 10,       // ... to this % visible
