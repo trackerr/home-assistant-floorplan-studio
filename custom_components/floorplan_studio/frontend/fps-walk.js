@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b55';
+} from './fps-core.js?v=1.4.0b56';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -728,6 +728,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
        */
       const drawThing = (k, lit) => {
         const fr = wallFrame(room, px, pz), near = !fr.free && fr.d < 0.45, u = near ? [fr.ux, fr.uz] : [1, 0], n = near ? [fr.nx, fr.nz] : [0, 1];
+        // turned yourself (it.rot, degrees): the whole thing turns about its own middle
+        if (+it.rot) { const r0 = (+it.rot * Math.PI) / 180, c0 = Math.cos(r0), s0 = Math.sin(r0); [u[0], u[1]] = [u[0] * c0 - u[1] * s0, u[0] * s0 + u[1] * c0]; [n[0], n[1]] = [n[0] * c0 - n[1] * s0, n[0] * s0 + n[1] * c0]; }
         const kh = { irhub: 0.03, alarmhub: 0.05, '3dprinter': 0.25, syncbox: 0.03, kettle: 0.12, coffee: 0.18, nas: 0.1, router: 0.04, printer: 0.15, dishwasher: 0.42, washer: 0.43, dryer: 0.43, powerstrip: 0.03, tree: 0.9 }[k];
         let base = kh != null ? Math.max(0, h - kh) : 0; const glow = lit ? markers : fixtures, GLW = lit ? [1, 1, 1] : [0.85, 0.85, 0.8];
         // an upright box: centre (cx, cz), a0..a1 along the wall, d0..d1 out from it
@@ -1843,7 +1845,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (rec) {
         const it = rec.it, lampish = it.kind !== 'device' && (rec.d === 'light' || it.kind === 'lamp' || ['switch', 'input_boolean'].includes(rec.d));
         const h0 = rec.h;   // what you see (your own height, or the usual one)
-        html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button><button data-a="idel"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove_dev}</button></div>
+        const turnable = THINGS.has(applianceKind(it, hass.states[it.entity_id], hass) || deviceKind(it, hass.states[it.entity_id], hass));   // a 3D printer, router, hub...: turn it on its spot
+        html = `<b>${esc(it.name || friendly(hass, it.entity_id))}</b><div class="row"><span>${T.height}</span><button data-a="h-">−</button><span>${fmtM(h0)}</span><button data-a="h+">+</button><button data-a="idel"><ha-icon icon="mdi:delete-outline"></ha-icon>${T.remove_dev}</button></div>${turnable ? `<div class="row"><span>${T.rotate}</span><button data-a="ir-15">↺ 15°</button><button data-a="ir15">↻ 15°</button><button data-a="ir90">↻ 90°</button></div>` : ''}
           ${lampish && isSpot(it, hass.states[it.entity_id]) ? `<div class="row"><button data-a="aim" class="${aimFor === it ? 'pri' : ''}"><ha-icon icon="mdi:crosshairs-gps"></ha-icon>${T.aim}</button>${aimFor === it ? `<span>${T.aim_hint}</span>` : ''}</div>` : ''}
           ${lampish ? `<div class="row"><button data-a="strip"><ha-icon icon="mdi:vector-polyline"></ha-icon>${T.strip}</button>${it.shape === 'strip' ? `<button data-a="icon">${T.strip_icon}</button>${stripPath(it) ? `<span>${fmtM(pathLength(stripPath(it)) / S)}</span>` : ''}` : ''}</div>${stripPath(it) ? `<div class="row"><span>${T.strip_dir}</span>${[['', T.strip_flat], ['up', T.strip_up], ['frame3', T.strip_frame3], ['frame', T.strip_frame]].map(([k, t2]) => `<button data-a="sd:${k}" class="${(it.strip_dir || '') === k ? 'pri' : ''}">${t2}</button>`).join('')}</div>${it.strip_dir ? `<div class="row"><span>${T.strip_to}</span><button data-a="st-">−</button><span>${fmtM(stripTop(it))}</span><button data-a="st+">+</button></div>` : ''}` : ''}` : ''}`;
       }
@@ -1891,6 +1894,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     else if (it && a.startsWith('sd:')) { const k = a.slice(3); if (k) { it.strip_dir = k; if (it.top == null) it.top = Math.round(Math.min(H - 0.05, (ownHeight(it) ?? 1) + 0.6) * 100) / 100; } else { delete it.strip_dir; delete it.top; } dirtyEdit = true; buildItems(); }
     else if (it && (a === 'st-' || a === 'st+')) { it.top = Math.round(Math.max((ownHeight(it) ?? 0) + 0.05, Math.min(H - 0.02, stripTop(it) + (a === 'st+' ? 0.05 : -0.05))) * 100) / 100; dirtyEdit = true; buildItems(); }
     else if (a === 'aim') { aimFor = aimFor === it ? null : it; }
+    else if (/^ir-?\d+$/.test(a) && it) { it.rot = ((((+it.rot || 0) + +a.slice(2)) % 360) + 360) % 360; if (!it.rot) delete it.rot; dirtyEdit = true; buildItems(); }
     else if (a === 'idel' && it) { plan.items = plan.items.filter((i) => i !== it); sel = null; dirtyEdit = true; buildItems(); nav = buildNav(plan, world, S, obstacles); }
     else if (a.startsWith('menu:')) { menu = a.slice(5) || null; }
     else if (a.startsWith('add:')) {

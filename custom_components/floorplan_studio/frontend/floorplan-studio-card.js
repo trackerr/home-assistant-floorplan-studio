@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b55';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b55';
+} from './fps-core.js?v=1.4.0b56';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b56';
 
 
 const CSS = `
@@ -718,7 +718,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b55');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b56');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -1138,7 +1138,9 @@ class FloorplanStudioCard extends HTMLElement {
       const fs0 = Math.max(9, Math.min(13, roomTextWidth(room) / 12)) * (S.label_size / 100);
       const fs = fs0 * (room.label_scale || 1);
       const rows = this._hass ? roomInfo(this._hass, room, S).rows.length : 2;
-      const [x, y] = room.label ? [room.label.x, room.label.y] : labelSpot(plan, room, fs0, rows);
+      // a text block you moved stays where you put it - as long as that is in (or right next to) its own room
+      const [bx0, by0, bx1, by1] = roomBBox(room), lb = room.label, inRoom = lb && Number.isFinite(+lb.x) && Number.isFinite(+lb.y) && +lb.x > bx0 - 40 && +lb.x < bx1 && +lb.y > by0 - 40 && +lb.y < by1;
+      const [x, y] = inRoom ? [+lb.x, +lb.y] : labelSpot(plan, room, fs0, rows);
       const d = document.createElement('div');
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
       if (this._proj) {
@@ -1146,6 +1148,7 @@ class FloorplanStudioCard extends HTMLElement {
         const name = String(room.name || ''), bw = Math.max(name.length * fs0 * 0.84, fs0 * 9.5), bh = fs0 * 3.9;
         d._fx = x + bw / 2; d._fy = y + bh / 2;
       } else { d._fx = x; d._fy = y; }
+      d._ox = d._fx - x; d._oy = d._fy - y;   // where the block hangs from, relative to the spot that is saved
       [d.style.left, d.style.top] = this._at(d._fx, d._fy);
       d.style.setProperty('--fs', `${((fs * (this._proj ? Math.min(1, this._proj.s * 1.1) : 1)) / plan.width) * 100}cqw`);
       d.innerHTML = '<div class="rn"><span></span><span class="pd"><ha-icon icon="mdi:motion-sensor"></ha-icon></span></div><div class="rh"></div><div class="rrows"></div>';
@@ -1206,7 +1209,9 @@ class FloorplanStudioCard extends HTMLElement {
     const up = async () => {
       d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up);
       d.classList.remove('dragging');
-      if (pos && this._proj) { const [fx, fy] = this._proj.inv(pos.x, pos.y); pos = { x: Math.round(fx), y: Math.round(fy) }; }
+      // 2.5D: back from the screen to the floorplan, and from where the block hangs to the spot that is saved
+      if (pos && this._proj) { const [fx, fy] = this._proj.inv(pos.x, pos.y); pos = { x: Math.round(fx - (d._ox || 0)), y: Math.round(fy - (d._oy || 0)) }; }
+      if (pos) { const [bx0, by0, bx1, by1] = roomBBox(room); pos = { x: Math.round(Math.max(bx0 - 30, Math.min(bx1 - 10, pos.x))), y: Math.round(Math.max(by0 - 30, Math.min(by1 - 10, pos.y))) }; }
       if (pos) await this._saveRoom(room, (r) => { r.label = pos; }, false); else this._dragging = false;
     };
     d.addEventListener('pointermove', move); d.addEventListener('pointerup', up);

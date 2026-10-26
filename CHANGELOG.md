@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- 2.5D: een verplaatst tekstblok van een ruimte komt na het slepen precies waar je het neerzet (eerder schoof het in 2.5D weg, soms buiten de plattegrond). Een tekstblok dat buiten zijn ruimte terecht was gekomen, staat weer vanzelf in zijn ruimte.
+- Herkende apparaten (3D-printer, router, hub, printer…) kun je **draaien**: in de wandeling bij Bewerken (↺ 15°, ↻ 15°, ↻ 90°) of bij stap 4 (*Gedraaid*, in graden).
 - Apparaten die **uit** staan zijn op de kaart en in de wandeling half doorzichtig (50 %), zodat wat aan staat eruit springt. Sensoren en onbereikbare apparaten blijven zoals ze waren.
 - **Meer vanzelf herkend**, met een eigen model in de wandeling: knopdrukker (Fingerbot, SwitchBot Bot) op de lichtschakelaar, IR-hub / universele afstandsbediening (Harmony, Broadlink, IR-ontvanger), alarmbasis (Eufy HomeBase, Ajax…) en sirene (rood, gloeit als hij gaat). Een bedsensor wordt *bed bezet* in plaats van een bewegingsmelder.
 - Apparatenoverzicht: de Zigbee2MQTT/Z-Wave-bridge en Frigate-zones (detecties van een camera) staan er niet meer in; een wasmachine of droger met alleen status-entiteiten wel. Een als meubel getekende vaatwasser, wasmachine of droger telt als *op de kaart*, en tikken op een ontbrekende zet hem als meubel in zijn ruimte (gekoppeld aan zijn status).
