@@ -320,7 +320,7 @@ Met de knop **2.5D** in de werkbalk kantelt de plattegrond. De muren komen omhoo
 Met het **wandelmannetje** in de werkbalk loop je door je eigen huis, alsof je er echt bent. De muren, deuren en ramen staan op hun echte plek en maat (vul bij stap 2 de echte maat van een ruimte in), meubels staan erin, en lampen die aan zijn verlichten hun ruimte in hun eigen kleur. 's Avonds is het buiten donker en zie je vooral je lampen.
 
 - De **rondleiding** begint vanzelf: bij de voordeur naar binnen, dan ruimte voor ruimte, door de deuren, om meubels heen. In elke ruimte kijkt hij even rond. Bovenin zie je de naam van de ruimte met temperatuur, vocht en hoeveel lampen er aan zijn.
-- **Zoomen:** Ctrl + scrollwiel (of knijpen op touchpad of telefoon) zoomt de ruimte in en uit; de iconen blijven even groot. Gewoon scrollen = een stapje vooruit of achteruit.
+- **Zoomen:** het scrollwiel (of knijpen op touchpad of telefoon) zoomt het 3D-beeld in en uit — nooit de pagina; de iconen en knoppen blijven even groot. Zonder scrollwiel: **+** en **−** (ook met Ctrl); Ctrl 0 = weer normaal.
 - **Zelf rondkijken:** slepen. **Lopen:** tik op de vloer waar je heen wilt (hij loopt om muren en meubels heen), of gebruik de pijltjes of W A S D (Shift = sneller). Op een telefoon kun je ook de knoppen **Lopen** en terug ingedrukt houden. Tik op het kaartje rechtsboven om daarheen te lopen.
 - **Klik = stoppen:** loop je (rondleiding, of op weg naar een plek), dan stopt een klik je meteen waar je bent. Sta je stil, dan loop je met een klik op de vloer daarheen.
 - Zodra je zelf iets doet, pauzeert de rondleiding; met **Verder** gaat hij door waar hij was.

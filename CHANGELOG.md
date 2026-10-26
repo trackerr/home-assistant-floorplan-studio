@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: **zoomen met het scrollwiel** (met of zonder Ctrl), overal in de wandeling en nooit de pagina; zonder scrollwiel met **+** en **−** (ook met Ctrl), Ctrl 0 = weer normaal. (Scrollen is geen stapje lopen meer: lopen gaat met de pijltjes/WASD of door op de vloer te tikken.)
 - De gloeiende lens van een eigen lampmodel zit nu óp de voorkant van de kop (bij een spot de kant waar hij op gericht is, bij een plafond- of hanglamp de onderkant), plat en zo groot als die voorkant, in plaats van als blokje ernaast.
 - Eigen 3D-model voor een lamp: een kleine lens gloeit in de echte kleur en helderheid van de lamp (donker als hij uit staat) — bij een spot vooraan de kop, waar het licht uitkomt.
 - Wandeling op de pc: Ctrl + scrollwiel (ook boven een icoon, knop of infovenster) en Ctrl + / Ctrl − / Ctrl 0 zoomen alleen het 3D-beeld, nooit de hele pagina; knoppen en iconen blijven even groot.
