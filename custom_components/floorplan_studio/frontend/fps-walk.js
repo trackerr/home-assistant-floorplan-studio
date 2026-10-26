@@ -2326,7 +2326,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   // the scroll wheel zooms the 3D view in and out (with or without Ctrl), anywhere in the walk - never the page;
   // a list in the info window still scrolls as usual
   wrap.addEventListener('wheel', (ev) => {
-    if (!(ev.ctrlKey || ev.metaKey) && ev.composedPath().some((n) => n.classList?.contains?.('sheet'))) return;
+    if (!(ev.ctrlKey || ev.metaKey) && ev.composedPath().some((n) => n.classList?.contains?.('sheet') && n.scrollHeight > n.clientHeight + 2)) return;   // only an info window that really scrolls
     ev.preventDefault(); ev.stopPropagation();
     setZoom(Math.exp(Math.max(-120, Math.min(120, ev.deltaY)) * 0.0015));
   }, { passive: false, capture: true });
