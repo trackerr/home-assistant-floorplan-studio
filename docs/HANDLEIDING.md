@@ -175,6 +175,7 @@ De instellingen zitten in onderdelen die je openklapt; alleen **Uiterlijk** staa
 | **Licht** | Lichtvlek per lamp, hele ruimte laten gloeien of geen gloed, de sterkte van de gloed, en hoe de sterkte van een lamp getoond wordt. |
 | **Tekst bij de ruimtes** | Temperatuur, vochtigheid, lampen aan, CO2, gordijnen, verwarming/airco, wat er speelt, labels onder apparaten, hoeveel regels, de begroeting en het kompas. |
 | **Telefoon, tablet en 2.5D** | **Kleine schermen** (per ruimte onder een bepaalde breedte, altijd of nooit; zie hoofdstuk 4), de **hoogte in de 2.5D-weergave** (echte maat of een eigen percentage), **perspectief** aan/uit, of er hulplijntjes van de vloer naar de iconen komen, en of de iconen **vervagen tijdens draaien** (standaard aan, tot 10% zichtbaar) zodat je de vorm van het huis beter ziet. |
+| **Wandeling (3D) en rondleiding** | Waar de **rondleiding begint** (een ruimte naar keuze, of automatisch bij de voordeur), de **beeldhoek** van de wandeling, en of beheerders **in de wandeling mogen bewerken**. |
 | **Tikken en vasthouden** | Tikken op een ruimte aan/uit en wat er dan gebeurt (**inzoomen** of de **eigen pagina** openen), wat vasthouden opent (het **snelmenu** of het venster van Home Assistant) en hoe lang. |
 | **Eenvoudig** | Standaardweergave, hoeveel dagen hij terugkijkt (1–60), en tot hoeveel dagen geschiedenis hij nog alles toont terwijl hij leert. |
 | **Thema Automatisch (zon)** | Alleen bij dat thema: hoeveel minuten vóór zonsopkomst het licht wordt, en hoe lang de overgang duurt. |

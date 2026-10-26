@@ -2,9 +2,9 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   VERSION,
-  computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
+  computeWalls, climateTarget, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b75';
+} from './fps-core.js?v=1.4.0b76';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -66,9 +66,9 @@ class Mesh {
   tri(a, b, c, n, col, m) { for (const p of [a, b, c]) this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], col[0], col[1], col[2], m); }
   quad(a, b, c, d, col, m = 0) { const n = nrm(cross(sub(b, a), sub(d, a))); this.tri(a, b, c, n, col, m); this.tri(a, c, d, n, col, m); }
   /** An upright prism on a floor outline (x, z in metres) from y0 to y1. */
-  prism(poly, y0, y1, col, m = 0, { top = true, bottom = true } = {}) {
+  prism(poly, y0, y1, col, m = 0, { top = true, bottom = true, skip = null } = {}) {
     const n = poly.length;
-    if (y1 > y0) for (let i = 0; i < n; i++) { const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % n]; this.quad([ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], col, m); }
+    if (y1 > y0) for (let i = 0; i < n; i++) { if (skip?.includes(i)) continue; const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % n]; this.quad([ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], col, m); }
     if (top) for (let i = 1; i < n - 1; i++) this.tri([poly[0][0], y1, poly[0][1]], [poly[i][0], y1, poly[i][1]], [poly[i + 1][0], y1, poly[i + 1][1]], [0, 1, 0], col, m);
     if (bottom && y0 > 0.01) for (let i = 1; i < n - 1; i++) this.tri([poly[0][0], y0, poly[0][1]], [poly[i][0], y0, poly[i][1]], [poly[i + 1][0], y0, poly[i + 1][1]], [0, -1, 0], col, m);
   }
@@ -93,6 +93,31 @@ let placeModelFn = null;
 let modelSizeFn = null;
 import(`./fps-model.js?v=${VERSION}`).then((m) => { placeModelFn = m.placeModel; modelSizeFn = m.modelSize; }).catch(() => {});
 
+/** Furniture against a wall (a cupboard, a camera wall, a radiator) that you drew a little into it: in 3D it stands just in front
+ *  of the wall face instead (the two faces would flicker into each other). Only straight pieces, at most a wall's thickness. */
+const WALLS_OF = new WeakMap();
+function wallSnap(plan, f) {
+  const x = safeNumber(f.x), y = safeNumber(f.y), rot = ((Math.round(safeNumber(f.rot)) % 360) + 360) % 360;
+  if (rot % 90 || f.type === 'model') return [x, y];
+  const S = planScale(plan) || 70, rooms = plan.rooms || [];
+  if (!WALLS_OF.has(rooms)) WALLS_OF.set(rooms, computeWalls(rooms));
+  const sw = rot % 180 === 0, hx = Math.max(10, safeNumber(f.w, 100)) / 2, hy = Math.max(6, safeNumber(f.h, 60)) / 2;
+  const ex = sw ? hx : hy, ey = sw ? hy : hx;   // half sizes along x and y of the plan
+  let dx = 0, dy = 0;
+  for (const w of WALLS_OF.get(rooms)) {
+    const hor = w.y1 === w.y2, at = hor ? w.y1 : w.x1, t = (w.kind === 'outer' ? 0.24 : 0.12) * S, gap = 0.003 * S;
+    const [c, e, a, ea] = hor ? [y, ey, x, ex] : [x, ex, y, ey];   // across the wall / along it
+    const a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2);
+    if (a + ea <= a0 + 1 || a - ea >= a1 - 1) continue;
+    let mv = 0;
+    if (c < at) { const p = c + e - (at - t / 2 - gap); if (p > 0 && p <= t + 2 * e) mv = -p; }
+    else { const p = (at + t / 2 + gap) - (c - e); if (p > 0 && p <= t + 2 * e) mv = p; }
+    if (!mv || Math.abs(mv) > t) continue;
+    if (hor) { if (Math.abs(mv) > Math.abs(dy)) dy = mv; } else if (Math.abs(mv) > Math.abs(dx)) dx = mv;
+  }
+  return [x + dx, y + dy];
+}
+
 /** Everything that stays put: floors, ceilings, walls with their doors and windows, furniture. */
 function buildWorld(plan, hass, selFurn = null) {
   const S = planScale(plan) || 70, M = (v) => v / S;
@@ -102,9 +127,15 @@ function buildWorld(plan, hass, selFurn = null) {
     // the floor you chose in the editor; otherwise tiles in wet rooms and the hall, wood elsewhere
     const kind = ['wood', 'tiles'].includes(room.floor) ? room.floor : /bad|douche|toilet|wc|keuken|kitchen|bath|shower|hal\b|entree|entrance|hall|berging|storage|utility|wasruimte|laundry/i.test(room.name || '') ? 'tiles' : 'wood';
     const mat = kind === 'wood' ? 1 : 2, col = kind === 'wood' ? COL.wood : COL.tiles;
-    for (const q of room.rects.map(norm)) {
-      solid.floorRect(M(q[0]), M(q[1]), M(q[2]), M(q[3]), 0, col, mat);
-      solid.floorRect(M(q[0]), M(q[1]), M(q[2]), M(q[3]), H, COL.ceil, 0);
+    // rects of one room overlap a few millimetres where they meet (no hairline cracks to the sky or the grass);
+    // the ceiling is one colour everywhere, so it may overlap all round
+    const qs = room.rects.map(norm), ge = 0.006 * S;
+    const touches = (q, k) => qs.some((r) => r !== q && (k === 0 ? r[2] === q[0] : k === 2 ? r[0] === q[2] : k === 1 ? r[3] === q[1] : r[1] === q[3])
+      && (k % 2 === 0 ? r[1] < q[3] && r[3] > q[1] : r[0] < q[2] && r[2] > q[0]));
+    for (const q of qs) {
+      const g = [0, 1, 2, 3].map((k) => (touches(q, k) ? ge : 0));
+      solid.floorRect(M(q[0] - g[0]), M(q[1] - g[1]), M(q[2] + g[2]), M(q[3] + g[3]), 0, col, mat);
+      solid.floorRect(M(q[0] - ge), M(q[1] - ge), M(q[2] + ge), M(q[3] + ge), H, COL.ceil, 0);
     }
   }
   // the garden around the house
@@ -117,9 +148,30 @@ function buildWorld(plan, hass, selFurn = null) {
   const hex3 = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? [1, 3, 5].map((i) => parseInt(v.slice(i, i + 2), 16) / 255) : null);
   const WALL_ALL = hex3(plan.settings?.wall_color) || COL.wall;
   const wallOf = (room) => hex3(room?.wall_color) || WALL_ALL;
-  for (const w of walls) {
+  // how far a wall end reaches: into the wall across it (just short of its far face, so no two faces lie in one plane),
+  // and only a hair where the same wall line simply goes on (another room beside it)
+  const WL = walls.map((w) => { const hor = w.y1 === w.y2; return { hor, at: hor ? w.y1 : w.x1, a0: hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1: hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2), t: (w.kind === 'outer' ? 0.24 : 0.12) * S }; });
+  const reach = (me, p) => {
+    if (WL.some((v) => v !== me && v.hor === me.hor && v.at === me.at && (v.a1 === p || v.a0 === p))) return 0;
+    const across = WL.filter((v) => v.hor !== me.hor && v.at === p && v.a0 <= me.at && v.a1 >= me.at);
+    if (!across.length) return me.t / 2;
+    const ta = Math.max(...across.map((v) => v.t)) / 2;
+    // the wall across goes on past this end (a T): stay just inside it
+    if (across.some((v) => v.a0 < me.at) && across.some((v) => v.a1 > me.at)) return ta - 0.02 * S;
+    // a corner: both stay just inside the other (a 1 cm inset on the outer edge you don't see, nothing lies in one plane)
+    return ta - 0.01 * S;
+  };
+  const TOP = H + 0.01;   // walls reach just into the ceiling: a clean line where they meet
+  // every wall is cut at the same heights (sill, window top, door top), so neighbouring parts share their edges exactly
+  const LV = [...new Set([0, SILL, DOOR_H, WIN_TOP, TOP])].sort((p, q) => p - q);
+  // does the part next to this one close this height band (so no end face is drawn there)?
+  const shut = (q, y0, y1) => q.kind === 'solid' || (q.kind === 'door' && y0 >= DOOR_H - 1e-6) || (q.kind === 'window' && (y1 <= SILL + 1e-6 || y0 >= WIN_TOP - 1e-6));
+  // an end of a wall line: an end face, unless the same line simply goes on with a wall at least as thick
+  const endFace = (me, p) => !WL.some((v) => v !== me && v.hor === me.hor && v.at === me.at && (v.a1 === p || v.a0 === p) && v.t >= me.t);
+  for (const [wi, w] of walls.entries()) {
     const hor = w.y1 === w.y2, at = hor ? w.y1 : w.x1, t = (w.kind === 'outer' ? 0.24 : 0.12) * S;
     const a0 = hor ? Math.min(w.x1, w.x2) : Math.min(w.y1, w.y2), a1 = hor ? Math.max(w.x1, w.x2) : Math.max(w.y1, w.y2);
+    const r0 = reach(WL[wi], a0), r1 = reach(WL[wi], a1);
     const cuts = openings.filter((o) => (hor ? o.y1 === o.y2 && Math.abs(o.y1 - at) < 3 : o.x1 === o.x2 && Math.abs(o.x1 - at) < 3))
       .map((o) => ({ o, lo: Math.max(a0, hor ? Math.min(o.x1, o.x2) : Math.min(o.y1, o.y2)), hi: Math.min(a1, hor ? Math.max(o.x1, o.x2) : Math.max(o.y1, o.y2)) }))
       .filter((c) => c.hi > c.lo).sort((p, q) => p.lo - q.lo);
@@ -131,28 +183,39 @@ function buildWorld(plan, hass, selFurn = null) {
       pos = Math.max(pos, c.hi);
     }
     if (pos < a1) pieces.push({ lo: pos, hi: a1, kind: 'solid' });
-    // a box along the wall, in metres
-    const span = (lo, hi, y0, y1, col = null, grow = 0) => {
+    // a box along the wall, in metres (frames and sills)
+    const span = (lo, hi, y0, y1, col, grow = 0) => {
       const [x0, z0, x1, z1] = hor ? [lo, at - t / 2 - grow, hi, at + t / 2 + grow] : [at - t / 2 - grow, lo, at + t / 2 + grow, hi];
-      if (col) solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, col);
-      else {
-        // a wall: each half in the colour of the room on that side (outside: your wall colour)
-        const mid = (lo + hi) / 2, rA = hor ? roomAt(rooms, mid, at - t / 2 - 3) : roomAt(rooms, at - t / 2 - 3, mid), rB = hor ? roomAt(rooms, mid, at + t / 2 + 3) : roomAt(rooms, at + t / 2 + 3, mid);
-        const cA = wallOf(rA), cB = wallOf(rB);
-        if (cA === cB) solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, cA);
-        else if (hor) { solid.box(M(x0), M(z0), M(x1), M(at), y0, y1, cA); solid.box(M(x0), M(at), M(x1), M(z1), y0, y1, cB); }
-        else { solid.box(M(x0), M(z0), M(at), M(z1), y0, y1, cA); solid.box(M(at), M(z0), M(x1), M(z1), y0, y1, cB); }
-      }
+      solid.box(M(x0), M(z0), M(x1), M(z1), y0, y1, col);
       return [M(x0), M(z0), M(x1), M(z1)];
     };
-    for (const pc of pieces) {
-      // the ends of a wall reach half a wall further, so corners close
-      const lo = pc.lo === a0 && pc.kind === 'solid' ? pc.lo - t / 2 : pc.lo, hi = pc.hi === a1 && pc.kind === 'solid' ? pc.hi + t / 2 : pc.hi;
-      if (pc.kind === 'solid') { blockers.push(span(lo, hi, 0, H)); continue; }
+    // the wall itself, from y0 to y1: in bands at the shared heights, each half in the colour of the room on that side
+    // (outside: your wall colour), and only the faces you can see — no faces inside the wall whose edges would flicker on its surface
+    const E = hor ? { lo: 3, hi: 1, a: 0, b: 2 } : { lo: 0, hi: 2, a: 3, b: 1 };
+    const wallPart = (k, lo, hi, y0, y1) => {
+      const [x0, z0, x1, z1] = hor ? [lo, at - t / 2, hi, at + t / 2] : [at - t / 2, lo, at + t / 2, hi];
+      const mid = (lo + hi) / 2, rA = hor ? roomAt(rooms, mid, at - t / 2 - 3) : roomAt(rooms, at - t / 2 - 3, mid), rB = hor ? roomAt(rooms, mid, at + t / 2 + 3) : roomAt(rooms, at + t / 2 + 3, mid);
+      const cA = wallOf(rA), cB = wallOf(rB);
+      const lv = LV.filter((v) => v > y0 + 1e-6 && v < y1 - 1e-6), ys = [y0, ...lv, y1];
+      for (let j = 0; j < ys.length - 1; j++) {
+        const b0 = ys[j], b1 = ys[j + 1];
+        const capLo = k === 0 ? endFace(WL[wi], a0) : !shut(pieces[k - 1], b0, b1), capHi = k === pieces.length - 1 ? endFace(WL[wi], a1) : !shut(pieces[k + 1], b0, b1);
+        const skip = [...(capLo ? [] : [E.lo]), ...(capHi ? [] : [E.hi])], opt = { top: j === ys.length - 2, bottom: j === 0 };
+        if (cA === cB) { solid.prism([[M(x0), M(z0)], [M(x1), M(z0)], [M(x1), M(z1)], [M(x0), M(z1)]], b0, b1, cA, 0, { ...opt, skip }); continue; }
+        const [ax1, az1, bx0, bz0] = hor ? [x1, at, x0, at] : [at, z1, at, z0];
+        solid.prism([[M(x0), M(z0)], [M(ax1), M(z0)], [M(ax1), M(az1)], [M(x0), M(az1)]], b0, b1, cA, 0, { ...opt, skip: [...skip, E.b] });
+        solid.prism([[M(bx0), M(bz0)], [M(x1), M(bz0)], [M(x1), M(z1)], [M(bx0), M(z1)]], b0, b1, cB, 0, { ...opt, skip: [...skip, E.a] });
+      }
+      return hor ? [M(lo), M(at - t / 2), M(hi), M(at + t / 2)] : [M(at - t / 2), M(lo), M(at + t / 2), M(hi)];
+    };
+    for (const [k, pc] of pieces.entries()) {
+      // the ends of a wall reach into the wall across, so corners close
+      const lo = pc.lo === a0 && pc.kind === 'solid' ? pc.lo - r0 : pc.lo, hi = pc.hi === a1 && pc.kind === 'solid' ? pc.hi + r1 : pc.hi;
+      if (pc.kind === 'solid') { blockers.push(wallPart(k, lo, hi, 0, TOP)); continue; }
       if (pc.kind === 'gap') continue;
       const f = 0.05 * S;   // frame width
       if (pc.kind === 'door') {
-        span(lo, hi, DOOR_H, H);
+        wallPart(k, lo, hi, DOOR_H, TOP);
         span(lo, lo + f, 0, DOOR_H, COL.frame, 0.01 * S); span(hi - f, hi, 0, DOOR_H, COL.frame, 0.01 * S); span(lo, hi, DOOR_H - 0.05, DOOR_H, COL.frame, 0.01 * S);
         // a door with a sensor: closed or (swung) open, as it really is
         if (pc.o.entity) {
@@ -163,8 +226,8 @@ function buildWorld(plan, hass, selFurn = null) {
           if (!open) blockers.push(hor ? [M(lo), M(at) - 0.03, M(hi), M(at) + 0.03] : [M(at) - 0.03, M(lo), M(at) + 0.03, M(hi)]);
         }
       } else {   // window: wall under the sill and above the window, a frame, and glass
-        blockers.push(span(lo, hi, 0, SILL));
-        span(lo, hi, WIN_TOP, H);
+        blockers.push(wallPart(k, lo, hi, 0, SILL));
+        wallPart(k, lo, hi, WIN_TOP, TOP);
         seeThrough.push(hor ? [M(lo), M(at - t / 2), M(hi), M(at + t / 2)] : [M(at - t / 2), M(lo), M(at + t / 2), M(hi)]);
         span(lo, hi, SILL - 0.03, SILL + 0.02, COL.frame, 0.03 * S);                     // window sill
         span(lo, lo + f, SILL, WIN_TOP, COL.frame, -t * 0.25); span(hi - f, hi, SILL, WIN_TOP, COL.frame, -t * 0.25);
@@ -179,7 +242,7 @@ function buildWorld(plan, hass, selFurn = null) {
   for (const f of plan.furniture || []) {
     const fh = furnHeight(f);
     if (!(fh > 0)) continue;
-    const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), fx = safeNumber(f.x), fy = safeNumber(f.y);
+    const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), [fx, fy] = wallSnap(plan, f);
     // your own 3D model: its triangles (until it is loaded, or if it can't be read: a box)
     if (f.type === 'model' && f.model) {
       const mm = modelFor(f.model);
@@ -562,7 +625,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   };
   $('#close').addEventListener('click', close);
 
-  const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
+  const gl = canvas.getContext('webgl', { antialias: true, alpha: false, depth: true });
   if (!gl) { root.querySelector('.wk').insertAdjacentHTML('beforeend', `<div class="msg">${T.nogl}</div>`); return { setHass() {}, close }; }
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.warn('fps-walk', gl.getShaderInfoLog(s)); return s; };
   const prog = gl.createProgram();
@@ -722,7 +785,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       const cams = videoWallCams(f, hass);
       if (!cams.length) continue;
       const [b0, b1] = videoWallSpan(f), r0 = (safeNumber(f.rot) * Math.PI) / 180, ux = Math.cos(r0), uz = Math.sin(r0), W = M(safeNumber(f.w, 280)), D = M(safeNumber(f.h, 8)) / 2;
-      const tx = M(safeNumber(f.x)), tz = M(safeNumber(f.y));
+      const [sx, sy] = wallSnap(plan, f), tx = M(sx), tz = M(sy);
       let nx = -uz, nz = ux;   // the front: towards the middle of the room
       const rq = roomOf(tx, tz)?.rects?.map(norm)[0];
       if (rq) { const mx = M((rq[0] + rq[2]) / 2) - tx, mz = M((rq[1] + rq[3]) / 2) - tz; if (mx * nx + mz * nz < 0) { nx = -nx; nz = -nz; } }
@@ -2223,7 +2286,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (b.dataset.mute) data.is_volume_muted = !a.is_volume_muted;
       hass.callService(dom, svc, data);
     }));
-    sh.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const t = +(hass.states[it.entity_id]?.attributes?.temperature ?? 20) + +b.dataset.t; hass.callService('climate', 'set_temperature', { entity_id: it.entity_id, temperature: t }); }));
+    sh.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const d = climateTarget(hass.states[it.entity_id], Math.sign(+b.dataset.t)); if (d) hass.callService('climate', 'set_temperature', { entity_id: it.entity_id, ...d }); }));
     sh.querySelectorAll('[data-file]').forEach((el) => el.addEventListener('change', (ev) => { ev.stopPropagation(); hass.callService('select', 'select_option', { entity_id: el.dataset.file, option: el.value }); el.blur(); }));
     sh.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); hass.callService('switch', 'toggle', { entity_id: b.dataset.play }); }));
     sh.querySelector('[data-close]')?.addEventListener('click', (ev) => { ev.stopPropagation(); infoIt = null; sh.classList.remove('show'); });
@@ -2268,7 +2331,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
     sh.querySelectorAll('[data-rgb]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); call('light', 'turn_on', { rgb_color: hex(b.dataset.rgb) }); }));
     sh.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const [dom, svc] = b.dataset.s.split('.'); call(dom, svc); }));
-    sh.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); call('climate', 'set_temperature', { temperature: +(hass.states[id]?.attributes?.temperature ?? 20) + +b.dataset.t }); }));
+    sh.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const d = climateTarget(hass.states[id], Math.sign(+b.dataset.t)); if (d) call('climate', 'set_temperature', d); }));
     sh.querySelectorAll('[data-m]').forEach((el) => el.addEventListener(el.tagName === 'BUTTON' ? 'click' : 'change', (ev) => {
       ev.stopPropagation();
       const v = el.value, k = el.dataset.m;
@@ -2513,7 +2576,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     gl.enable(gl.DEPTH_TEST);
     const eye = [cam.x, eyeY(), cam.z], f = fwd();
     fitFov();
-    const VP = mul(perspective(fov, w / h, 0.05, 200), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
+    const VP = mul(perspective(fov, w / h, 0.1, 150), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
     gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
     lastVP = VP;
     gl.uniform3fv(U.uEye, eye); gl.uniform3fv(U.uSky, sky);

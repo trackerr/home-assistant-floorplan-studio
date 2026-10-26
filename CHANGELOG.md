@@ -1,6 +1,9 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: **muurnaden en aansluitingen zijn strak**: geen flikkerende of lichte lijntjes meer waar muren elkaar raken, boven deuren en ramen, op hoeken en waar een muur doorloopt naast een andere ruimte. Muren lopen net door in het plafond, vloer- en plafonddelen van één ruimte sluiten naadloos aan, en meubels die in het plan een stukje in de muur staan (kast, camerawand, radiator) staan in 3D net vóór de muur.
+- Airco / thermostaat: − en + blijven binnen wat het apparaat zelf toestaat (zijn eigen minimum, maximum en stapgrootte); ook bij een apparaat met een onder- en bovengrens (verwarmen/koelen) schuiven beide mee.
+- Editor stap 5: eigen kopje **Wandeling (3D) en rondleiding** met *De rondleiding begint in*, de beeldhoek en *Bewerken in de wandeling toestaan* (stond eerder verstopt onder *Telefoon, tablet en 2.5D*).
 - Rondleiding / naar een plek lopen: loopt hij ergens echt vast, dan zoekt hij vanaf daar een nieuwe weg naar hetzelfde doel (om het meubel heen) in plaats van om te keren; langzaam draaien bij een bocht telt niet meer als vastlopen.
 - Camerawand: boven elk scherm staat of de camera beweging ziet (bewegings- of persoonsensor van die camera, als die er is): *rust* klein en groen, *beweging* groot, vet, rood en knipperend.
 - Wandeling: **zoomen met het scrollwiel** (met of zonder Ctrl), overal in de wandeling en nooit de pagina; zonder scrollwiel met **+** en **−** (ook met Ctrl), Ctrl 0 = weer normaal. (Scrollen is geen stapje lopen meer: lopen gaat met de pijltjes/WASD of door op de vloer te tikken.)

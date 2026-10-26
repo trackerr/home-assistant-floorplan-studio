@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b75';
+import './floorplan-studio-card.js?v=1.4.0b76';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b75';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b75';
+} from './fps-core.js?v=1.4.0b76';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b76';
 
 const L = {
   en: {
@@ -28,7 +28,7 @@ const L = {
     remove: 'Remove from map', items_tip: 'Drag the icons to the right spot. On your dashboard: tap = on/off, hold = more info.',
     finish_title: 'Ready!', theme: 'Theme', usage_days: 'Simple mode: show what was used in the last … days', make_dash: 'Create dashboard (Home · Floorplan · Kiosk · Energy · Outside · TV + a page per room)', dash_done: 'Dashboard created:', dash_conflict: 'A dashboard already exists at /{url}, and Floorplan Studio did not create it. It was left unchanged.', dash_error: 'The dashboard could not be created: ', open: 'Open',
     set_title: 'Settings', set_intro: 'This applies to every card that shows this floorplan.',
-    set_light: 'Light', set_screens: 'Phones, tablets and 2.5D', set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
+    set_light: 'Light', set_screens: 'Phones, tablets and 2.5D', set_walk: 'Walk-through (3D) and tour', set_look: 'Look', set_simple: 'Simple mode', set_room: 'Room text', set_behaviour: 'Tapping and holding', set_sun: 'Automatic (sun)', set_auto: 'Place automatically',
     default_mode: 'Default view', none_mode: 'None (no icons, a calm map)', learning_days: 'Show everything until … days of history exist', plan_size: 'Floor plan size in %', icon_size: 'Size of all icons (%)', label_size: 'Room text size', glow: 'Glow strength',
     show_temp: 'Temperature', show_hum: 'Humidity', show_lights: 'Lights on (count)', show_tags: 'State labels under devices (21°, open…)',
     tap_zoom: 'Tap a room to zoom in', hold_ms: 'How long to hold for more info (1000 = 1 second)', hold_action: 'Holding an icon opens', hold_quick: 'a small window with on/off and sliders', hold_more: 'Home Assistant’s own window', sun_before: 'Starts getting light … minutes before sunrise', sun_ramp: 'Transition takes … minutes',
@@ -86,7 +86,7 @@ const L = {
     remove: 'Van de kaart halen', items_tip: 'Sleep de iconen naar de goede plek. Op je dashboard: tikken = aan/uit, vasthouden = meer info.',
     finish_title: 'Klaar!', theme: 'Thema', usage_days: 'Laat zien wat de laatste … dagen gebruikt is', make_dash: 'Maak een dashboard (Thuis, Plattegrond, Kiosk, Energie, Buiten, TV en een pagina per ruimte)', dash_done: 'Dashboard gemaakt:', dash_conflict: 'Er bestaat al een dashboard op /{url} dat Floorplan Studio niet heeft gemaakt. Het is niet gewijzigd.', dash_error: 'Het dashboard kon niet worden gemaakt: ', open: 'Openen',
     set_title: 'Instellingen', set_intro: 'Dit geldt voor elke kaart met deze plattegrond.',
-    set_light: 'Licht', set_screens: 'Telefoon, tablet en 2.5D', set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
+    set_light: 'Licht', set_screens: 'Telefoon, tablet en 2.5D', set_walk: 'Wandeling (3D) en rondleiding', set_look: 'Uiterlijk', set_simple: 'Eenvoudig', set_room: 'Tekst bij de ruimtes', set_behaviour: 'Tikken en vasthouden', set_sun: 'Thema Automatisch (zon)', set_auto: 'Alles vanzelf neerzetten',
     default_mode: 'Begint op', none_mode: 'Geen (geen iconen, rustige kaart)', learning_days: 'Laat alles zien zolang er minder dan … dagen geschiedenis is', plan_size: 'Grootte plattegrond in %', icon_size: 'Grootte van alle iconen (%)', label_size: 'Grootte tekst bij ruimtes', glow: 'Sterkte van de gloed',
     show_temp: 'Temperatuur', show_hum: 'Vochtigheid', show_lights: 'Aantal lampen aan', show_tags: 'Kleine labels onder apparaten (21°, open…)',
     tap_zoom: 'Tik op een ruimte om in te zoomen', hold_ms: 'Hoe lang vasthouden voor meer info (1000 = 1 seconde)', hold_action: 'Vasthouden op een icoon opent', hold_quick: 'een klein venster met aan/uit en schuifjes', hold_more: 'het venster van Home Assistant', sun_before: 'Wordt … minuten voor zonsopkomst licht', sun_ramp: 'Overgang duurt … minuten',
@@ -1662,7 +1662,8 @@ class FloorplanStudioPanel extends HTMLElement {
         ${sel('compact', ['auto', 'on', 'off'].map((k) => [k, l['cmp_' + k]]), s.compact || 'auto')}
         ${(s.compact || 'auto') === 'auto' ? num('compact_width', 320, 1200, 20) : ''}
         <div class="field"><span>${l.height_25d}</span><select id="h25mode"><option value="real" ${s.height_25d === 'real' ? 'selected' : ''}>${l.h25_real}</option><option value="custom" ${s.height_25d !== 'real' ? 'selected' : ''}>${l.h25_custom}</option></select></div>
-        ${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}${chk('perspective')}${chk('show_stalks')}${chk('turn_ghost')}${chk('walk_edit')}${num('walk_fov', 60, 120, 5)}${sel('walk_start', [['', l.walk_start_auto], ...this.plan.rooms.map((r) => [r.id, esc(r.name || r.id)])], s.walk_start || '')}${s.turn_ghost ? num('turn_ghost_pct', 0, 100, 5) : ''}<p class="hint">${l.turn_hint}</p>`)}
+        ${s.height_25d !== 'real' ? num('height_25d', 30, 150, 5) : ''}${chk('perspective')}${chk('show_stalks')}${chk('turn_ghost')}${s.turn_ghost ? num('turn_ghost_pct', 0, 100, 5) : ''}<p class="hint">${l.turn_hint}</p>`)}
+      ${sec('walk', l.set_walk, `${sel('walk_start', [['', l.walk_start_auto], ...this.plan.rooms.map((r) => [r.id, esc(r.name || r.id)])], s.walk_start || '')}${num('walk_fov', 60, 120, 5)}${chk('walk_edit')}`)}
       ${sec('tap', l.set_behaviour, `${chk('tap_zoom')}
         ${s.tap_zoom ? sel('room_tap', [['zoom', l.tap_zoom_opt], ['page', l.tap_page_opt]], s.room_tap === 'page' ? 'page' : 'zoom') : ''}
         ${sel('hold_action', [['quick', l.hold_quick], ['more-info', l.hold_more]], s.hold_action === 'more-info' ? 'more-info' : 'quick')}

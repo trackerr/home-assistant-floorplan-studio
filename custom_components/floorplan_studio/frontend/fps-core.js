@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b75';
+export const VERSION = '1.4.0b76';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -257,6 +257,21 @@ export function placeCandidates(hass, areaId) {
     if (best) out.push(best);
   }
   return [...new Set(out)];
+}
+
+/** One step warmer (dir 1) or cooler (-1) for a thermostat or air conditioner, within what the device itself allows
+ *  (its own min / max and step); the data for climate.set_temperature, or null when it can't go further. */
+export function climateTarget(st, dir) {
+  const a = st?.attributes || {}, step = +a.target_temp_step > 0 ? +a.target_temp_step : 0.5;
+  const lo = Number.isFinite(+a.min_temp) && a.min_temp != null ? +a.min_temp : 7, hi = Number.isFinite(+a.max_temp) && a.max_temp != null ? +a.max_temp : 35;
+  const go = (v) => Math.min(hi, Math.max(lo, +(Math.round((+v + dir * step) / step) * step).toFixed(2)));
+  if (a.temperature != null && Number.isFinite(+a.temperature)) { const v = go(a.temperature); return v === +a.temperature ? null : { temperature: v }; }
+  if (a.target_temp_low != null && a.target_temp_high != null) {
+    const l = go(a.target_temp_low), h = go(a.target_temp_high);
+    if (h - l < step || (l === +a.target_temp_low && h === +a.target_temp_high)) return null;
+    return { target_temp_low: l, target_temp_high: h };
+  }
+  return null;
 }
 
 export function isOn(st) {
