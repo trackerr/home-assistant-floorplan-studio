@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b67';
+} from './fps-core.js?v=1.4.0b68';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -810,8 +810,15 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         const standing = ['lamp:floor', 'lamp:table'].includes(kind) || (!lampKind && h < 1.0 && !['camera', 'thermostat', 'thermo', 'doorbell', 'screen', 'pixeldisplay'].includes(kind));
         const hangs = ['lamp:ceiling', 'lamp:pendant'].includes(kind), onWall = !standing && !hangs;
         const base = hangs ? (kind === 'lamp:ceiling' ? H - mh : Math.max(0, Math.min(H - mh, h - mh * 0.5))) : onWall ? Math.max(0, h - mh / 2) : under ? furnHeight(under) : 0;   // standing: on the furniture under it, else the floor
-        const sz = modelSizeFn(mm.model, it.up), k = mh / (sz.h || 1);
-        const ff = { x: px * S, y: pz * S, rot: +it.rot || 0, w: Math.max(0.02, sz.w * k) * S, h: Math.max(0.02, sz.d * k) * S, z: mh, elev: base, up: it.up };
+        // a spot: the model turns and tips towards where its light points (a model that points down, or forward)
+        let yaw = +it.rot || 0, pitch = 0;
+        if (lampType === 'spot' && it.model_aim !== 'off') {
+          const dv = spotDir(plan, it, h), hl = Math.hypot(dv[0], dv[2]);
+          if (hl > 0.02) yaw += (Math.atan2(-dv[0] / hl, dv[2] / hl) * 180) / Math.PI;
+          pitch = it.model_aim === 'forward' ? Math.asin(Math.max(-1, Math.min(1, -dv[1]))) : -Math.acos(Math.max(-1, Math.min(1, -dv[1])));
+        }
+        const sz = modelSizeFn(mm.model, it.up, pitch), k = mh / (sz.h || 1);
+        const ff = { x: px * S, y: pz * S, rot: yaw, pitch, w: Math.max(0.02, sz.w * k) * S, h: Math.max(0.02, sz.d * k) * S, z: mh, elev: base, up: it.up };
         placeModelFn(mm.model, ff, S, (vx, vy, vz, nx, ny, nz, r, g, b2) => fixtures.v.push(vx, vy, vz, nx, ny, nz, r, g, b2, 0));
         hit = { c: [px, base + mh / 2, pz], r: Math.max(0.15, Math.min(0.8, Math.max(mh, sz.w * k, sz.d * k) / 2)) };
         P = [px, base + mh + 0.15, pz];

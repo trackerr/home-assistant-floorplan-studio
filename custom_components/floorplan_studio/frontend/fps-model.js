@@ -186,7 +186,7 @@ function finish(o) {
  * Calls emit(x, y, z, nx, ny, nz, r, g, b) for every corner, in metres.
  */
 export function placeModel(model, f, S, emit) {
-  const up = f.up === 'z' ? (x, y, z) => [x, z, -y] : f.up === '-z' ? (x, y, z) => [x, -z, y] : (x, y, z) => [x, y, z];
+  const up = orient(f.up, +f.pitch || 0);
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity], P = model.pos;
   for (let i = 0; i < P.length; i += 3) { const q = up(P[i], P[i + 1], P[i + 2]); for (let c = 0; c < 3; c++) { min[c] = Math.min(min[c], q[c]); max[c] = Math.max(max[c], q[c]); } }
   const w = Math.max(0.05, (+f.w || 60) / S), d = Math.max(0.05, (+f.h || 60) / S), sx = max[0] - min[0] || 1, sy = max[1] - min[1] || 1, sz = max[2] - min[2] || 1;
@@ -206,8 +206,15 @@ export function placeModel(model, f, S, emit) {
 }
 
 /** The model's own proportions (upright as f.up says): width, depth and height in its own units. */
-export function modelSize(model, up = '') {
-  const tf = up === 'z' ? (x, y, z) => [x, z, -y] : up === '-z' ? (x, y, z) => [x, -z, y] : (x, y, z) => [x, y, z];
+/** Upright (up: 'y' as glTF, 'z' / '-z' for Z-up exports), then tipped forward by pitch (radians, about the model's left-right axis). */
+function orient(up, pitch) {
+  const base = up === 'z' ? (x, y, z) => [x, z, -y] : up === '-z' ? (x, y, z) => [x, -z, y] : (x, y, z) => [x, y, z];
+  if (!pitch) return base;
+  const c = Math.cos(pitch), sn = Math.sin(pitch);
+  return (x, y, z) => { const q = base(x, y, z); return [q[0], q[1] * c - q[2] * sn, q[1] * sn + q[2] * c]; };
+}
+export function modelSize(model, up = '', pitch = 0) {
+  const tf = orient(up, pitch);
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity], P = model.pos;
   for (let i = 0; i < P.length; i += 3) { const q = tf(P[i], P[i + 1], P[i + 2]); for (let c = 0; c < 3; c++) { min[c] = Math.min(min[c], q[c]); max[c] = Math.max(max[c], q[c]); } }
   return { w: max[0] - min[0], h: max[1] - min[1], d: max[2] - min[2] };
