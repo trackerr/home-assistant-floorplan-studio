@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Editor: kiezen van een entiteit gaat met **Home Assistant's eigen kiezer** (zoeken, iconen, ruimtes): de camera's van een camerawand (alle camera-entiteiten van HA, meerdere tegelijk), de speler van een speakerbox, waar een vaatwasser/wasmachine/droger aan hangt, en de temperatuur- en vochtsensor van een ruimte. Is die kiezer (nog) niet geladen, dan blijft de gewone lijst; die toont nu ook alle camera's met hun ruimte en entiteit-id.
 - Eigen 3D-model voor een spot: het model draait en kantelt mee naar waar de spot op gericht is. Bij stap 4 (*Spotmodel wijst*) kies je of je model omlaag wijst (standaard), naar voren, of niet meedraait.
 - Camerawand: camera's die al gekozen zijn blijven altijd in de lijst staan (een hoofdstream naast zijn substream viel er eerder uit, en verdween dan bij de volgende wijziging uit de wand).
 - **Licht in open ruimtes als één ruimte**: ruimtes waartussen de muur helemaal weg is (een doorgang over (bijna) de hele muur, zoals keuken – eettafel – woonkamer) worden voor het licht één ruimte: elke lamp verlicht ze samen, met een vloeiende overgang, in plaats van dat het licht bij de getekende grens stopt.
