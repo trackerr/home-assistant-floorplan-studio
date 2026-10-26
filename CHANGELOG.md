@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Editor: **overal Home Assistant's eigen kiezers** voor entiteiten en ruimtes — ruimte (gebied), kopregel, deur-/raamsensor, lamp via schakelaar, apparaat toevoegen, achtergrond uit een afbeelding/camera, en bij stap 5 thema-keuzelijst, robotstofzuiger en kaart, personen, zijkolom (weer, hoofdknop, knoppen, energie, prijs, status) en de slimme knop. Eén manier, met zoeken, iconen en ruimtes; werkt met elke Home Assistant-opzet (is de kiezer er niet, dan de gewone lijst).
 - Editor: kiezen van een entiteit gaat met **Home Assistant's eigen kiezer** (zoeken, iconen, ruimtes): de camera's van een camerawand (alle camera-entiteiten van HA, meerdere tegelijk), de speler van een speakerbox, waar een vaatwasser/wasmachine/droger aan hangt, en de temperatuur- en vochtsensor van een ruimte. Is die kiezer (nog) niet geladen, dan blijft de gewone lijst; die toont nu ook alle camera's met hun ruimte en entiteit-id.
 - Eigen 3D-model voor een spot: het model draait en kantelt mee naar waar de spot op gericht is. Bij stap 4 (*Spotmodel wijst*) kies je of je model omlaag wijst (standaard), naar voren, of niet meedraait.
 - Camerawand: camera's die al gekozen zijn blijven altijd in de lijst staan (een hoofdstream naast zijn substream viel er eerder uit, en verdween dan bij de volgende wijziging uit de wand).

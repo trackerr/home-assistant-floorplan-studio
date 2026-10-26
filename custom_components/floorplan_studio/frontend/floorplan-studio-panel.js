@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b69';
+import './floorplan-studio-card.js?v=1.4.0b70';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b69';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b69';
+} from './fps-core.js?v=1.4.0b70';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b70';
 
 const L = {
   en: {
@@ -655,7 +655,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <div class="field"><span>${l.plan_name}</span><input id="pname" value="${esc(p.name || '')}"></div>
       <div class="card"><b>${l.bg_upload}</b><p>${l.bg_upload_hint}</p><input type="file" id="file" accept="image/*"></div>
       <div class="card"><b>${l.bg_entity}</b><p>${l.bg_entity_hint}</p>
-        <div class="row"><select id="bgent">${list.map((id) => `<option value="${id}">${esc(friendly(this._hass, id))}</option>`).join('')}</select><button id="usebgent" style="flex:none">${l.use}</button></div></div>
+        <div class="row">${this.haPick('bgent', { entity: { filter: { domain: ['image', 'camera'] } } }, this._bgEnt || '', (v) => { this._bgEnt = v || ''; }, `<select id="bgent">${list.map((id) => `<option value="${id}">${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}<button id="usebgent" style="flex:none">${l.use}</button></div></div>
       <div class="card click" id="nobg"><b>${l.bg_none}</b><p style="margin:0">${l.bg_none_hint}</p></div>
       ${b ? `<h3>${l.bg_adjust}</h3>
         <div class="field"><span>${l.opacity}</span><input type="range" min="0.1" max="1" step="0.05" value="${safeNumber(b.opacity, 0.5)}" data-bg="opacity"></div>
@@ -690,7 +690,7 @@ class FloorplanStudioPanel extends HTMLElement {
       ${!r ? `<p class="hint">${planScale(p) ? l.measure_done : l.measure_pick}</p>` : ''}
       ${r ? `<div class="card">
           <div class="field"><span>${l.room}</span><input id="rname" value="${esc(r.name || '')}"></div>
-          <div class="field"><span>${l.area}</span><select id="rarea"><option value="">${l.none}</option>${areas.map((a) => `<option value="${a.area_id}" ${a.area_id === r.area_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+          <div class="field"><span>${l.area}</span>${this.haPick(`area:${r.id}`, { area: {} }, r.area_id || '', (v) => this.mut(() => { r.area_id = v || null; const a = this._hass.areas?.[r.area_id]; if (a && (!r.name || r.name.startsWith('Room') || r.name.startsWith('Ruimte'))) r.name = a.name; }), `<select id="rarea"><option value="">${l.none}</option>${areas.map((a) => `<option value="${a.area_id}" ${a.area_id === r.area_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>`)}</div>
           ${(() => {
             const sc = planScale(p), [x0, y0, x1, y1] = roomBBox(r), m2 = roomArea(r, sc);
             const inp = (k, v, ph) => `<input data-measure="${k}" type="number" min="0.5" max="100" step="0.05" inputmode="decimal" value="${sc ? (v / sc).toFixed(2) : ''}" placeholder="${ph}">`;
@@ -704,7 +704,7 @@ class FloorplanStudioPanel extends HTMLElement {
             const ae = areaEntities(this._hass, r.area_id).sort();
             const opt = (cur, first) => `<option value="">${first}</option>` + ae.map((id) => `<option value="${id}" ${cur === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('');
             const info = r.info || [];
-            return `<div class="field"><span>${l.headline}</span><select id="rhead">${opt(r.headline, l.headline_auto)}</select></div>
+            return `<div class="field"><span>${l.headline}</span>${this.haPick(`head:${r.id}`, { entity: {} }, r.headline || '', (v) => this.mut(() => { r.headline = v || undefined; }), `<select id="rhead">${opt(r.headline, l.headline_auto)}</select>`)}${r.headline ? '' : `<small class="hint">${l.headline_auto}</small>`}</div>
               <div class="field"><span>${l.extra_rows}</span>${[0, 1, 2].map((i) => `<select data-rinfo="${i}" style="margin-bottom:4px">${opt(info[i], l.none)}</select>`).join('')}</div>`;
           })() : ''}
           <div class="field"><span>${l.room_wall}</span><div class="row"><input type="color" id="rwallc" value="${/^#[0-9a-f]{6}$/i.test(r.wall_color || '') ? r.wall_color : /^#[0-9a-f]{6}$/i.test(p.settings?.wall_color || '') ? p.settings.wall_color : '#ede8de'}" style="flex:none;width:52px;height:34px">${r.wall_color ? `<button id="rwallx">${l.wall_default}</button>` : `<small class="hint">${l.room_wall_same}</small>`}</div></div>
@@ -733,7 +733,7 @@ class FloorplanStudioPanel extends HTMLElement {
       <p>${l.doors_tip}</p>
       ${o ? `<div class="card">
         <div class="field"><span>${l.door} / ${l.window} / ${l.opening}</span><select id="otype">${['door', 'window', 'open'].map((k) => `<option value="${k}" ${o.type === k ? 'selected' : ''}>${l[k === 'open' ? 'opening' : k]}</option>`).join('')}</select></div>
-        ${o.type !== 'open' ? `<div class="field"><span>${l.o_sensor}</span><select id="osensor"><option value="">${l.o_none}</option>${this.openSensors().map((id) => `<option value="${esc(id)}" ${o.entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>` : ''}
+        ${o.type !== 'open' ? `<div class="field"><span>${l.o_sensor}</span>${this.haPick(`os:${o.id}`, { entity: { filter: { domain: 'binary_sensor' } } }, o.entity || '', (v) => this.mut(() => { if (v) o.entity = v; else delete o.entity; }), `<select id="osensor"><option value="">${l.o_none}</option>${this.openSensors().map((id) => `<option value="${esc(id)}" ${o.entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}</div>` : ''}
         <div class="field"><span>${l.length} (${len})</span><input type="range" id="olen" min="20" max="400" step="5" value="${len}"></div>
         <div class="row"><button id="owhole">${l.whole}</button><button class="danger" id="odel">${l.delete}</button></div></div>` : ''}
       <h3>${l.furn_title}</h3>
@@ -904,7 +904,7 @@ class FloorplanStudioPanel extends HTMLElement {
         ${it.entity_id.startsWith('light.') ? (() => {
           const area = entityArea(h, it.entity_id);
           const sw = Object.keys(h.states).filter((id) => id.startsWith('switch.')).sort((a, b) => ((entityArea(h, b) === area) - (entityArea(h, a) === area)) || friendly(h, a).localeCompare(friendly(h, b)));
-          return `<div class="field"><span>${l.via}</span><select id="ivia"><option value="">${l.none}</option>${sw.map((id) => `<option value="${esc(id)}" ${it.via === id ? 'selected' : ''}>${esc(friendly(h, id))}</option>`).join('')}</select></div><p class="hint">${l.via_hint}</p>`;
+          return `<div class="field"><span>${l.via}</span>${this.haPick(`via:${it.entity_id}`, { entity: { filter: { domain: ['switch', 'input_boolean'] } } }, it.via || '', (v) => this.mut(() => { it.via = v || undefined; }), `<select id="ivia"><option value="">${l.none}</option>${sw.map((id) => `<option value="${esc(id)}" ${it.via === id ? 'selected' : ''}>${esc(friendly(h, id))}</option>`).join('')}</select>`)}</div><p class="hint">${l.via_hint}</p>`;
         })() : ''}
         </div></details>
         ${(() => {
@@ -917,7 +917,7 @@ class FloorplanStudioPanel extends HTMLElement {
             ${it.radar && (it.radar.xy || []).length ? `<div class="field"><span>${l.radar_angle}</span><input type="number" id="iradarangle" step="15" value="${safeNumber(it.radar.angle)}"></div>` : ''}`;
         })()}
         <button class="danger" id="idel" style="margin-top:8px"><ha-icon icon="mdi:map-marker-remove"></ha-icon>${l.remove}</button></div>` : ''}
-      <div class="field"><input id="isearch" list="entlist" placeholder="${l.search}"><datalist id="entlist">${Object.keys(h.states).filter((id) => !placed.has(id)).sort().map((id) => `<option value="${id}">${esc(friendly(h, id))}</option>`).join('')}</datalist></div>
+      <div class="field">${this.haPick('add', { entity: {} }, '', (id) => { if (!id || !h.states[id] || p.items.find((i) => i.entity_id === id)) return; const area = entityArea(h, id), r = p.rooms.find((x) => x.area_id && x.area_id === area); const [x0, y0, x1, y1] = r ? roomBBox(r) : [0, 0, p.width, p.height]; this.mut((pl) => { pl.items.push({ entity_id: id, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2) }); this.sel = { type: 'item', id }; }); }, `<input id="isearch" list="entlist" placeholder="${l.search}"><datalist id="entlist">${Object.keys(h.states).filter((id) => !placed.has(id)).sort().map((id) => `<option value="${id}">${esc(friendly(h, id))}</option>`).join('')}</datalist>`)}</div>
       ${groups.length ? `<h3>${l.unplaced}</h3>` : ''}
       ${groups.map(([r, ids]) => `<b style="font-size:13px">${esc(r.name)}</b><div class="list" style="margin-bottom:8px">${ids.map((id) => `<div class="li" data-additem="${esc(id)}" data-room="${esc(r.id)}"><ha-state-icon data-sid="${esc(id)}"></ha-state-icon>${esc(friendly(h, id))}<small>+ ${l.add}</small></div>`).join('')}</div>`).join('')}
       ${this.navHTML()}`;
@@ -1043,8 +1043,8 @@ class FloorplanStudioPanel extends HTMLElement {
     const p = this.plan;
     $('#pname').addEventListener('change', (ev) => this.mut((pl) => { pl.name = ev.target.value; }));
     $('#file').addEventListener('change', async (ev) => { const f = ev.target.files[0]; if (f) this.setBackground(await this.toDataURL(f)); });
-    $('#usebgent').addEventListener('click', async () => {
-      const id = $('#bgent').value, st = this._hass.states[id];
+    $('#usebgent')?.addEventListener('click', async () => {
+      const id = $('#bgent')?.value || this._bgEnt, st = this._hass.states[id];
       if (!st?.attributes.entity_picture) return;
       try {
         const r = await fetch(st.attributes.entity_picture);
@@ -1295,7 +1295,7 @@ class FloorplanStudioPanel extends HTMLElement {
     const r = this.sel?.type === 'room' ? this.room(this.sel.id) : null;
     if (r) {
       $('#rname').addEventListener('change', (ev) => this.mut(() => { r.name = ev.target.value; }));
-      $('#rarea').addEventListener('change', (ev) => this.mut(() => {
+      $('#rarea')?.addEventListener('change', (ev) => this.mut(() => {
         r.area_id = ev.target.value || null;
         const a = this._hass.areas?.[r.area_id];
         if (a && (!r.name || r.name.startsWith('Room') || r.name.startsWith('Ruimte'))) r.name = a.name;
@@ -1463,7 +1463,7 @@ class FloorplanStudioPanel extends HTMLElement {
       pl.items.push({ entity_id: el.dataset.additem, x: this.snap((x0 + x1) / 2), y: this.snap((y0 + y1) / 2) });
       this.sel = { type: 'item', id: el.dataset.additem };
     })));
-    $('#isearch').addEventListener('change', (ev) => {
+    $('#isearch')?.addEventListener('change', (ev) => {
       const id = ev.target.value.trim();
       if (!h.states[id] || p.items.find((i) => i.entity_id === id)) return;
       const area = entityArea(h, id), r = p.rooms.find((x) => x.area_id && x.area_id === area);
@@ -1625,25 +1625,30 @@ class FloorplanStudioPanel extends HTMLElement {
     const side = s.side || {};
     const power = ids.filter((id) => id.startsWith('sensor.') && this._hass.states[id].attributes.device_class === 'power');
     const optsOf = (list, cur, first) => `<option value="">${first}</option>` + list.map((id) => `<option value="${id}" ${cur === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('');
-    const sideSel = (k, list, first = l.auto) => `<div class="field"><span>${l['s_' + k]}</span><select data-side="${k}">${optsOf(list, side[k], first)}</select></div>`;
+    // Home Assistant's own pickers here too (the plain lists stay as the fallback)
+    const setS = (k, v) => this.mut((pl) => { pl.settings = { ...settingsOf(pl), [k]: v }; });
+    const setSide = (k, v) => setS('side', { ...(settingsOf(this.plan).side || {}), [k]: (Array.isArray(v) ? v.length : v) ? v : undefined });
+    const SIDE_SEL = { weather: { domain: 'weather' }, main: { domain: ['script', 'scene'] }, solar: { domain: 'sensor', device_class: 'power' }, grid: { domain: 'sensor', device_class: 'power' }, grid_return: { domain: 'sensor', device_class: 'power' }, price: { domain: 'sensor' }, solar_today: { domain: 'sensor', device_class: 'energy' }, smart_on: { domain: ['light', 'switch', 'input_boolean', 'binary_sensor', 'group'] } };
+    const sideSel = (k, list, first = l.auto) => `<div class="field"><span>${l['s_' + k]}</span>${this.haPick(`side:${k}`, { entity: { filter: SIDE_SEL[k] || {} } }, side[k] || '', (v) => setSide(k, v), `<select data-side="${k}">${optsOf(list, side[k], first)}</select>`)}${side[k] ? '' : `<small class="hint">${first}</small>`}</div>`;
     const maps = ids.filter((id) => id.startsWith('image.') || id.startsWith('camera.'));
     // short and simple: sections fold open on demand, and settings only show when they matter
     this._secOpen = this._secOpen || { look: true };
     const sec = (id, title, body) => (body.trim() ? `<details class="sec" data-sec="${id}" ${this._secOpen[id] ? 'open' : ''}><summary>${title}</summary><div class="secb">${body}</div></details>` : '');
     const sel = (k, opts, cur) => `<div class="field"><span>${l[k]}</span><select data-set="${k}">${opts.map(([v, t]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
     const sunTheme = ['sun', 'auto'].includes(s.theme) || !!s.theme_entity;
+    const setSlot = (i, k, v) => { const sm = [...(settingsOf(this.plan).side?.smart || [])]; while (sm.length <= i) sm.push({}); sm[i] = { ...(sm[i] || {}) }; if (v) sm[i][k] = v; else delete sm[i][k]; setSide('smart', sm.some((x) => x && Object.keys(x).length) ? sm : undefined); };
     const smartSlots = [0, 1, 2, 3].map((i) => { const x = side.smart?.[i] || {}; const acts = ids.filter((id) => /^(script|scene|automation|button|input_button)\./.test(id));
         return `<div class="card" data-slot="${i}" style="padding:8px 10px;margin-bottom:6px">
           <div class="row"><input data-k="from" placeholder="${l.from} 06:00" value="${esc(x.from || '')}" style="max-width:110px"><input data-k="name" placeholder="${l.slot_name}" value="${esc(x.name || '')}"></div>
-          <div class="row" style="margin-top:4px"><select data-k="action">${optsOf(acts, x.action, l.lights_off)}</select><input data-k="sub" placeholder="${l.slot_sub}" value="${esc(x.sub || '')}"></div>
+          ${this.haPick(`slot:${i}:action`, { entity: { filter: { domain: ['script', 'scene', 'automation', 'button', 'input_button'] } } }, x.action || '', (v) => setSlot(i, 'action', v), `<div class="row" style="margin-top:4px"><select data-k="action">${optsOf(acts, x.action, l.lights_off)}</select></div>`)}${x.action ? '' : `<small class="hint">${l.lights_off}</small>`}<div class="row" style="margin-top:4px"><input data-k="sub" placeholder="${l.slot_sub}" value="${esc(x.sub || '')}"></div>
           <div style="font-size:12px;margin:6px 0 2px;opacity:.8">${l.slot_on}</div>
           <div class="row"><input data-k="name_on" placeholder="${l.slot_name}" value="${esc(x.name_on || '')}"><input data-k="sub_on" placeholder="${l.slot_sub}" value="${esc(x.sub_on || '')}"></div>
-          <div class="row" style="margin-top:4px"><select data-k="action_on">${optsOf(acts, x.action_on, l.slot_action + ': ' + l.same)}</select></div></div>`; }).join('');
+          ${this.haPick(`slot:${i}:action_on`, { entity: { filter: { domain: ['script', 'scene', 'automation', 'button', 'input_button'] } } }, x.action_on || '', (v) => setSlot(i, 'action_on', v), `<div class="row" style="margin-top:4px"><select data-k="action_on">${optsOf(acts, x.action_on, l.slot_action + ': ' + l.same)}</select></div>`)}${x.action_on ? '' : `<small class="hint">${l.slot_action}: ${l.same}</small>`}</div>`; }).join('');
     const smartUsed = (side.smart || []).some((x) => x && (x.name || x.action || x.from));
     return `<h2>${l.set_title}</h2><p>${l.set_intro}</p>
       ${sec('look', l.set_look, `
         <div class="field"><span>${l.theme}</span><select data-set="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${s.theme === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
-        <div class="field"><span>${l.theme_entity}</span><div class="row"><select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>${selects.length ? '' : `<button id="mkhelper" style="flex:none">${l.make_helper}</button>`}</div></div>
+        <div class="field"><span>${l.theme_entity}</span><div class="row">${this.haPick('theme_entity', { entity: { filter: { domain: ['input_select', 'select'] } } }, s.theme_entity || '', (v) => setS('theme_entity', v || ''), `<select data-set="theme_entity"><option value="">${l.own_choice}</option>${selects.map((id) => `<option value="${id}" ${s.theme_entity === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}${selects.length ? '' : `<button id="mkhelper" style="flex:none">${l.make_helper}</button>`}</div></div>
         ${s.theme_entity ? '' : `<p class="hint">${l.theme_entity_hint}</p>`}
         <div class="field"><span>${l.wall_color}</span><div class="row"><input type="color" id="swallc" value="${/^#[0-9a-f]{6}$/i.test(s.wall_color || '') ? s.wall_color : '#d9d4ca'}" style="flex:none;width:52px;height:34px">${s.wall_color ? `<button id="swallx">${l.wall_default}</button>` : `<small class="hint">${l.wall_theme}</small>`}</div></div>
         ${num('plan_size', 50, 100, 5)}${num('icon_size', 60, 180, 5)}${num('lamp_size', 50, 200, 5)}${num('device_size', 50, 200, 5)}${num('label_size', 60, 180, 5)}`)}
@@ -1667,24 +1672,24 @@ class FloorplanStudioPanel extends HTMLElement {
       ${sec('temp', l.set_temp, `${chk('temp_color')}${num('temp_min', 10, 22, 0.5)}${num('temp_max', 18, 30, 0.5)}`)}
       ${sec('presence', l.set_presence, `${chk('presence')}
         ${s.presence ? `${num('motion_fade', 0, 30, 1)}
-        ${persons.length ? `<p class="hint">${l.people_hint}</p>${persons.map((pid) => `<div class="field"><span>${esc(friendly(this._hass, pid))}</span><select data-person="${pid}"><option value="">${l.none}</option>${sensors.map((id) => `<option value="${id}" ${s.people?.[pid] === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>`).join('')}` : ''}` : ''}`)}
+        ${persons.length ? `<p class="hint">${l.people_hint}</p>${persons.map((pid) => `<div class="field"><span>${esc(friendly(this._hass, pid))}</span>${this.haPick(`person:${pid}`, { entity: { filter: { domain: ['sensor', 'device_tracker', 'binary_sensor'] } } }, s.people?.[pid] || '', (v) => { const people = { ...(settingsOf(this.plan).people || {}) }; if (v) people[pid] = v; else delete people[pid]; setS('people', people); }, `<select data-person="${pid}"><option value="">${l.none}</option>${sensors.map((id) => `<option value="${id}" ${s.people?.[pid] === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}</div>`).join('')}` : ''}` : ''}`)}
       ${sec('alerts', l.set_alerts, `${chk('alerts')}${chk('alert_open')}`)}
       ${vacs.length ? sec('vacuum', l.set_vacuum, `
-        <div class="field"><span>${l.vacuum}</span><select data-set="vacuum"><option value="">${l.auto} (${l.first_on_plan})</option>${vacs.map((id) => `<option value="${id}" ${s.vacuum === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
+        <div class="field"><span>${l.vacuum}</span>${this.haPick('vacuum', { entity: { filter: { domain: 'vacuum' } } }, s.vacuum || '', (v) => setS('vacuum', v || ''), `<select data-set="vacuum"><option value="">${l.auto} (${l.first_on_plan})</option>${vacs.map((id) => `<option value="${id}" ${s.vacuum === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}</div>
         ${sel('vacuum_live', ['cleaning', 'always', 'off'].map((k) => [k, l['live_' + k]]), s.vacuum_live)}
         ${s.vacuum_live !== 'off' ? `${sel('vacuum_show', ['robot', 'map', 'both'].map((k) => [k, l['vshow_' + k]]), s.vacuum_show || 'robot')}
-        ${(s.vacuum_show || 'robot') !== 'robot' ? `<div class="field"><span>${l.vacuum_map}</span><select data-set="vacuum_map"><option value="">${l.auto} (${l.from_bg}${this.plan.background?.source ? ': ' + esc(friendly(this._hass, this.plan.background.source)) : ''})</option>${maps.map((id) => `<option value="${id}" ${s.vacuum_map === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select></div>
+        ${(s.vacuum_show || 'robot') !== 'robot' ? `<div class="field"><span>${l.vacuum_map}</span>${this.haPick('vacuum_map', { entity: { filter: { domain: ['image', 'camera'] } } }, s.vacuum_map || '', (v) => setS('vacuum_map', v || ''), `<select data-set="vacuum_map"><option value="">${l.auto} (${l.from_bg}${this.plan.background?.source ? ': ' + esc(friendly(this._hass, this.plan.background.source)) : ''})</option>${maps.map((id) => `<option value="${id}" ${s.vacuum_map === id ? 'selected' : ''}>${esc(friendly(this._hass, id))}</option>`).join('')}</select>`)}</div>
         <p class="hint">${l.vacuum_map_hint}</p>${num('vacuum_opacity', 0.2, 1, 0.05)}` : ''}` : ''}`) : ''}
       ${sec('side', l.set_side, `<p class="hint">${l.side_hint}</p>
         ${sideSel('weather', ids.filter((id) => id.startsWith('weather.')))}
         ${sideSel('main', ids.filter((id) => /^(script|scene)\./.test(id)), l.s_main_auto)}
-        <div class="field"><span>${l.s_buttons}</span>${[0, 1, 2].map((i) => `<select data-sidelist="buttons" style="margin-bottom:4px">${optsOf(ids.filter((id) => /^(script|scene|input_button|button|switch|light)\./.test(id)), side.buttons?.[i], l.none)}</select>`).join('')}</div>
+        <div class="field"><span>${l.s_buttons}</span>${this.haPick('side:buttons', { entity: { multiple: true, filter: { domain: ['script', 'scene', 'input_button', 'button', 'switch', 'light'] } } }, side.buttons || [], (v) => setSide('buttons', (v || []).slice(0, 3)), [0, 1, 2].map((i) => `<select data-sidelist="buttons" style="margin-bottom:4px">${optsOf(ids.filter((id) => /^(script|scene|input_button|button|switch|light)\./.test(id)), side.buttons?.[i], l.none)}</select>`).join(''))}</div>
         ${sideSel('solar', power)}${sideSel('grid', power)}${sideSel('grid_return', power)}
         ${sideSel('price', ids.filter((id) => id.startsWith('sensor.') && /\/kwh/i.test(this._hass.states[id].attributes.unit_of_measurement || '')))}
         ${sideSel('solar_today', ids.filter((id) => id.startsWith('sensor.') && this._hass.states[id].attributes.device_class === 'energy'))}
-        <div class="field"><span>${l.s_status}</span>${[0, 1, 2, 3, 4].map((i) => `<select data-sidelist="status" style="margin-bottom:4px">${optsOf(ids.filter((id) => !id.startsWith('sun.') && !id.startsWith('zone.')), side.status?.[i], l.none)}</select>`).join('')}</div>
+        <div class="field"><span>${l.s_status}</span>${this.haPick('side:status', { entity: { multiple: true } }, side.status || [], (v) => setSide('status', (v || []).slice(0, 5)), [0, 1, 2, 3, 4].map((i) => `<select data-sidelist="status" style="margin-bottom:4px">${optsOf(ids.filter((id) => !id.startsWith('sun.') && !id.startsWith('zone.')), side.status?.[i], l.none)}</select>`).join(''))}</div>
         <details class="sec sub" data-sec="smart" ${this._secOpen.smart || smartUsed ? 'open' : ''}><summary>${l.smart}</summary><div class="secb"><p class="hint">${l.smart_hint}</p>${smartSlots}
-          <div class="field"><span>${l.smart_on}</span><select data-side="smart_on">${optsOf(ids.filter((id) => /^(light|switch|input_boolean|binary_sensor|group)\./.test(id)), side.smart_on, l.any_lamp)}</select></div></div></details>`)}
+          ${sideSel('smart_on', ids.filter((id) => /^(light|switch|input_boolean|binary_sensor|group)\./.test(id)), l.any_lamp)}</div></details>`)}
       ${sec('auto', l.set_auto, `<p class="hint">${l.auto_domains}</p>
         <div class="row" style="flex-wrap:wrap;gap:6px 14px">${doms.map((d) => `<label style="flex:none;font-size:13px"><input type="checkbox" data-dom="${d}" ${s.auto_domains.includes(d) ? 'checked' : ''}> ${d}</label>`).join('')}</div>`)}
       <button id="setreset" style="margin-top:14px"><ha-icon icon="mdi:restore"></ha-icon>${l.reset}</button>
@@ -1706,8 +1711,11 @@ class FloorplanStudioPanel extends HTMLElement {
       set('side', { ...(settingsOf(this.plan).side || {}), [k]: v.length ? [...new Set(v)] : undefined });
     }));
     $$('[data-slot] [data-k]').forEach((el) => el.addEventListener('change', () => {
-      const slots = [...this.shadowRoot.querySelectorAll('[data-slot]')].map((c) => Object.fromEntries([...c.querySelectorAll('[data-k]')].map((x) => [x.dataset.k, x.value.trim()]).filter(([, v]) => v)))
-        .filter((x) => Object.keys(x).length);   // keep half-filled slots while typing; the card skips incomplete ones
+      // the typed fields of each slot, on top of what it already has (its actions may come from Home Assistant's picker)
+      const prev = settingsOf(this.plan).side?.smart || [];
+      const slots = [...this.shadowRoot.querySelectorAll('[data-slot]')].map((c, i) => { const o = { ...(prev[i] || {}) }; for (const x of c.querySelectorAll('[data-k]')) { const v = x.value.trim(); if (v) o[x.dataset.k] = v; else delete o[x.dataset.k]; } return o; })
+      ;   // keep half-filled slots while typing (the card skips incomplete ones), each in its own place
+      while (slots.length && !Object.keys(slots[slots.length - 1]).length) slots.pop();
       set('side', { ...(settingsOf(this.plan).side || {}), smart: slots.length ? slots : undefined });
     }));
     $('#compass')?.addEventListener('change', (ev) => set('compass', ev.target.value === '' ? null : +ev.target.value));
