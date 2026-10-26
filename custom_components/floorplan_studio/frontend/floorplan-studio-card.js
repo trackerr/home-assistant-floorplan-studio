@@ -3,9 +3,9 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b76';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b76';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b77';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b77';
 
 
 const CSS = `
@@ -549,7 +549,7 @@ class FloorplanStudioCard extends HTMLElement {
         ${this._compact ? `<div class="crooms">${[['', t(h, 'overview')], ...this._compactRooms().map((r) => [r.id, r.name])].map(([id, n]) => `<button data-croom="${esc(id)}">${esc(n)}<i></i></button>`).join('')}</div><div class="chead"></div>` : ''}
         <div class="alertbar"></div>
         <div class="viewport" style="${this._sizeStyle()}"><div class="stage" style="aspect-ratio: ${safeNumber(plan.width, 1000)} / ${safeNumber(plan.height, 700)}; --ar: ${safeNumber(plan.width, 1000) / safeNumber(plan.height, 700)}">
-          ${planSVG(plan, { proj: this._proj })}
+          ${planSVG(this._drawPlan(plan), { proj: this._proj })}
           <svg class="ghost" viewBox="0 0 ${safeNumber(plan.width, 1000)} ${safeNumber(plan.height, 700)}" preserveAspectRatio="none"></svg>
           <div class="labels"></div>
           <div class="items"></div>
@@ -572,6 +572,16 @@ class FloorplanStudioCard extends HTMLElement {
     this._tvl = tvLinks(plan, this._hass);   // TVs that are the TV furniture you drew
     clearInterval(this._clockTimer); this._clockTimer = 0;
     for (const it of plan.items || []) this._addItem(it);
+    // a dishwasher / washer / dryer you drew that knows its device: an icon on it with what it is doing; a tap shows its info
+    this._appl = new Map();
+    for (const f of plan.furniture || []) {
+      if (!['dishwasher', 'washer', 'dryer'].includes(f.type)) continue;
+      const id = applianceEntity(plan, f, this._hass);
+      if (!id) continue;
+      this._appl.set(id, f);
+      const ent = this._hass.entities?.[id], dev = ent?.device_id ? this._hass.devices?.[ent.device_id] : null;
+      if (!this._items.has(id)) this._addItem({ entity_id: id, x: safeNumber(f.x), y: safeNumber(f.y), kind: 'device', icon: KIND_ICON[f.type] || 'mdi:washing-machine', name: dev?.name_by_user || dev?.name || undefined, _appl: f.id });
+    }
     this._buildLabels();
     this._glows = new Map();
 
@@ -637,6 +647,12 @@ class FloorplanStudioCard extends HTMLElement {
     this._zoom(room && room !== this._zoomRoom ? room : null);
   }
 
+  /** The plan as drawn on the card: with the bodies of devices that are things (printers). */
+  _drawPlan(plan) {
+    const extra = deviceFurniture(plan, this._hass);
+    return extra.length ? { ...plan, furniture: [...(plan.furniture || []), ...extra] } : plan;
+  }
+
   _addItem(it) {
     const st = this._hass.states[it.entity_id];
     const domain = it.entity_id.split('.')[0];
@@ -653,7 +669,7 @@ class FloorplanStudioCard extends HTMLElement {
     const bub = el.querySelector('.bub');
     const ring = ringClock(it, this._hass), ac = isAircon(it, st);
     if (ac) el.classList.add('aircon');
-    if (this._tvl?.has(it.entity_id) || ambilightTv(this._plan, it, st) || speakerBoxes(this._plan, it, st).length || radiatorLinks(this._plan, this._hass).byEntity.has(it.entity_id) || applianceAbsorbs(this._plan, this._hass).has(it.entity_id) || (this._plan.furniture || []).some((f) => f.type === 'speakerbox' && f.media === it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV (and its ambilight): no separate icon
+    if (this._tvl?.has(it.entity_id) || ambilightTv(this._plan, it, st) || speakerBoxes(this._plan, it, st).length || radiatorLinks(this._plan, this._hass).byEntity.has(it.entity_id) || (applianceAbsorbs(this._plan, this._hass).has(it.entity_id) && !it._appl && !(this._plan.furniture || []).some((f) => ['dishwasher', 'washer', 'dryer'].includes(f.type) && applianceEntity(this._plan, f, this._hass) === it.entity_id)) || (this._plan.furniture || []).some((f) => f.type === 'speakerbox' && f.media === it.entity_id)) el.classList.add('onfurn');   // the TV furniture is the TV (and its ambilight): no separate icon
     if (ring) {
       // a WLED ring clock: its ring of LEDs, showing the time
       el.classList.add('ringclock');
@@ -661,8 +677,8 @@ class FloorplanStudioCard extends HTMLElement {
       if (!this._clockTimer) this._clockTimer = setInterval(() => this._ringClocks(), 1000);
     } else if (kind !== 'sensor') {
       // a ceiling lamp gets the ceiling-lamp icon, unless you or Home Assistant chose another one
-      const mk = mediaKind(it, this._hass);
-      const ic = it.icon || (mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : kind === 'lamp' && isSpot(it, st) && !st?.attributes?.icon ? 'mdi:spotlight-beam' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
+      const mk = mediaKind(it, this._hass), dk = deviceKind(it, st, this._hass) || applianceKind(it, st, this._hass);   // what it is (also a printer known by its chamber light)
+      const ic = it.icon || (dk && KIND_ICON[dk] && (!st?.attributes?.icon || domain === 'light') && !['lock', 'motion'].includes(dk) ? KIND_ICON[dk] : '') || (mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ac && !st?.attributes?.icon ? 'mdi:air-conditioner' : kind === 'lamp' && isSpot(it, st) && !st?.attributes?.icon ? 'mdi:spotlight-beam' : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && domain !== 'light' ? 'mdi:lightbulb' : '');
       const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
       if (ic) icon.icon = ic;
       bub.appendChild(icon);
@@ -680,6 +696,8 @@ class FloorplanStudioCard extends HTMLElement {
    * dining table), otherwise at its own or its usual height; icons further back go behind the ones in front.
    */
   _place(el, it, st) {
+    const apf = this._appl?.get(it.entity_id);
+    if (apf) it = { ...it, x: safeNumber(apf.x), y: safeNumber(apf.y), height: it.height ?? furnHeight(apf) + 0.1 };   // on the appliance you drew
     const tvf = this._tvl?.get(it.entity_id);
     if (tvf) it = { ...it, x: safeNumber(tvf.x), y: safeNumber(tvf.y), height: it.height ?? furnHeight(tvf) * 0.75 };   // on the TV furniture
     const p = this._proj, under = p ? furnAt(this._plan, it.x, it.y) : null, own = ownHeight(it) != null;
@@ -718,7 +736,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b76');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b77');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -731,7 +749,7 @@ class FloorplanStudioCard extends HTMLElement {
     this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false });
     this._view = { rot, tilt };
     // a fresh drawing for the new angle (with perspective the floor can't follow one matrix)
-    svg.insertAdjacentHTML('afterend', planSVG(plan, { proj: this._proj }));
+    svg.insertAdjacentHTML('afterend', planSVG(this._drawPlan(plan), { proj: this._proj }));
     svg.remove();
     this.shadowRoot.querySelector('svg.plan').addEventListener('click', this._svgClick);
     this._glows = new Map(); this._radar = new Map(); this._last = new Map();
@@ -941,7 +959,7 @@ class FloorplanStudioCard extends HTMLElement {
   _visible(entityId, it) {
     // 'none': a calm map without icons; what is drawn as itself (LED strips, curtains, TV, spots, a ring clock) still shows what it does
     if (this._mode === 'none') return !!ringClock(it, this._hass);
-    if (this._mode !== 'simple' || it.pin) return true;
+    if (this._mode !== 'simple' || it.pin || it._appl) return true;
     if (entityId.startsWith('vacuum.') && VACUUM_BUSY.includes(this._hass?.states[entityId]?.state)) return true;   // a vacuum on the move is always shown
     const u = this._usage;
     if (!u || (u.tracking_days < this._s.learning_days && u.entities.length < 3)) return true; // still learning
@@ -978,7 +996,16 @@ class FloorplanStudioCard extends HTMLElement {
       if (!st && !vs) continue;
       if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON' && st) { rec.icon.hass = h; rec.icon.stateObj = st; }
       if (vs) rec.el.style.opacity = '';
-      const on = vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
+      const apf = this._appl?.get(id);
+      const on = apf ? applianceRunning(h, apf, id) : vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
+      if (apf && st) {
+        rec.el.classList.toggle('on', on); rec.el.classList.toggle('off', !on);
+        rec.el.classList.toggle('appl', true);
+        const now = shortState(h, st);
+        rec.el.querySelector('.tag').textContent = on ? now : '';
+        rec.el.querySelector('.name').textContent = now ? `${rec.label} · ${now}` : rec.label;
+        continue;
+      }
       // switched off (not a sensor, not unavailable): the icon half see-through, so what is on stands out
       const off = !on && ((vs && vs.state === 'off') || ['off', 'standby'].includes(st?.state));
       rec.el.classList.toggle('off', off);
@@ -1900,7 +1927,7 @@ class FloorplanStudioCard extends HTMLElement {
     el.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation();
       held = false; start = [ev.clientX, ev.clientY];
-      if (this._moving && el.classList.contains('item')) { this._startDrag(ev, el, it); return; }
+      if (this._moving && el.classList.contains('item')) { if (!this._appl?.has(it.entity_id)) this._startDrag(ev, el, it); return; }   // (an appliance's icon goes with its furniture)
       timer = setTimeout(() => { held = true; this._quick(it.entity_id, el); }, this._s.hold_ms);
     });
     const cancel = () => { clearTimeout(timer); timer = null; };
@@ -2141,6 +2168,7 @@ class FloorplanStudioCard extends HTMLElement {
       return;
     }
     if (!st) return;
+    if (this._appl?.has(entityId)) { fire(this, 'hass-more-info', { entityId }); return; }
     if (['light', 'switch', 'fan', 'input_boolean', 'humidifier', 'siren'].includes(d)) h.callService(d, 'toggle', { entity_id: entityId });
     else if (d === 'cover' || d === 'valve') h.callService(d, 'toggle', { entity_id: entityId });
     else if (d === 'media_player' && st.attributes.supported_features & 128) h.callService(d, 'toggle', { entity_id: entityId });

@@ -1,6 +1,6 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b76';
+export const VERSION = '1.4.0b77';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
@@ -599,6 +599,10 @@ export function furnSVG(f, extra = '') {
     case 'mirror':
       body = R(x, y, w, h, 1) + L(x + w * 0.2, y + h, x + w * 0.35, y);
       break;
+    case 'dev3dprinter': case 'dev3dprinterbig': case 'devprinter':
+      // a (3D) printer you placed as a device: its body seen from above, with the build plate / paper tray
+      body = R(x, y, w, h, 3) + R(x + w * 0.16, y + h * 0.16, w * 0.68, h * 0.68, 1.5, 'soft') + L(x + w * 0.2, y + h - 1.5, x + w * 0.8, y + h - 1.5);
+      break;
     case 'model':
       // your own 3D model: a dashed box with a cube in it (the model itself shows in the walk)
       body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" stroke-dasharray="5 3"/>` + `<path d="M${-w * 0.18},${-h * 0.08} L0,${-h * 0.2} L${w * 0.18},${-h * 0.08} L${w * 0.18},${h * 0.14} L0,${h * 0.26} L${-w * 0.18},${h * 0.14} Z M${-w * 0.18},${-h * 0.08} L0,${h * 0.04} L${w * 0.18},${-h * 0.08} M0,${h * 0.04} L0,${h * 0.26}" fill="none"/>`;
@@ -813,7 +817,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { mirror: 1.9, model: 1, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { mirror: 1.9, model: 1, dev3dprinter: 0.46, dev3dprinterbig: 0.6, devprinter: 0.3, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (['videowall', 'mirror'].includes(f?.type) ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -836,6 +840,7 @@ export function tvScreen(f, S = 70, plan = null) {
 }
 /** A TV on its stand that stands on a cabinet or table: the top of that furniture (else 0, the floor). */
 export function tvBase(plan, f) {
+  if (Number.isFinite(f?.base)) return f.base;   // a device body standing on furniture (deviceFurniture)
   if (!plan || f?.type !== 'tv' || tvOnWall(f)) return 0;
   const g = (plan.furniture || []).find((x) => x !== f && x.type !== 'tv' && furnAt({ furniture: [x] }, safeNumber(f.x), safeNumber(f.y)) && furnHeight(x) > 0.2 && furnHeight(x) < 1.6);
   return g ? furnHeight(g) : 0;
@@ -1331,6 +1336,23 @@ const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermost
   fingerbot: 1.1, irhub: 0.03, alarmhub: 0.05, siren: 2.3, bedsensor: 0.5, smoke: 2.55, leak: 0.02 };
 /** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
 const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer', 'irhub', 'alarmhub'];
+/**
+ * Devices that are a thing you can see (a 3D printer, a printer): their body for the 2D and 2.5D drawing, standing where you
+ * placed the device (on the furniture under it), turned like it (it.rot). The walk-through draws them itself.
+ */
+export function deviceFurniture(plan, hass) {
+  const S = planScale(plan) || 70, out = [];
+  for (const it of plan.items || []) {
+    const st = hass?.states?.[it.entity_id], k = deviceKind(it, st, hass) || applianceKind(it, st, hass);   // (a printer placed by its chamber light too)
+    if (k !== '3dprinter' && k !== 'printer') continue;
+    const big = k === '3dprinter' && /h2d|h2s|x1e|core ?one/i.test(`${it.entity_id} ${st?.attributes?.friendly_name || ''}`);
+    const [w, d] = k === 'printer' ? [0.44, 0.4] : big ? [0.5, 0.5] : [0.4, 0.42];
+    const x = safeNumber(it.x), y = safeNumber(it.y), under = furnAt(plan, x, y);
+    out.push({ id: `dev:${it.entity_id}`, type: k === 'printer' ? 'devprinter' : big ? 'dev3dprinterbig' : 'dev3dprinter', x, y, w: w * S, h: d * S, rot: safeNumber(it.rot), base: under ? furnHeight(under) : 0, device: it.entity_id });
+  }
+  return out;
+}
+
 export const KIND_ICON = { smoke: 'mdi:smoke-detector', leak: 'mdi:water-alert', fingerbot: 'mdi:gesture-tap-button', irhub: 'mdi:remote', alarmhub: 'mdi:shield-home', siren: 'mdi:alarm-light', bedsensor: 'mdi:bed', '3dprinter': 'mdi:printer-3d', holofan: 'mdi:fan', tree: 'mdi:pine-tree', syncbox: 'mdi:television-ambient-light', hood: 'mdi:stove', kettle: 'mdi:kettle',
   coffee: 'mdi:coffee-maker', dishwasher: 'mdi:dishwasher', washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', powerstrip: 'mdi:power-socket-eu', inverter: 'mdi:solar-power',
   nas: 'mdi:nas', router: 'mdi:router-wireless', printer: 'mdi:printer', screen: 'mdi:projector-screen', thermo: 'mdi:thermometer', doorbell: 'mdi:doorbell-video', pixeldisplay: 'mdi:dots-grid',
@@ -1681,6 +1703,12 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       return out;
     }
     case 'videowall': { const [b0, b1] = videoWallSpan(f); return [R(0, 0, w, h, b0 - 0.04, b1 + 0.04, 'dark')]; }
+    case 'dev3dprinter': case 'dev3dprinterbig': {
+      // a 3D printer: dark frame with a glass door at the front
+      const Hh = FURN_HEIGHT[f.type];
+      return [R(0, 0, w, h - 1.2, 0, Hh, 'dark'), R(w * 0.1, h - 1.2, w * 0.9, h, 0.08, Hh - 0.04, 'glass')];
+    }
+    case 'devprinter': return [R(0, 0, w, h, 0, 0.3, 'dark'), R(w * 0.1, h * 0.55, w * 0.9, h, 0.08, 0.1, 'soft')];
     case 'mirror': {
       // a mirror on the wall: a thin frame with the glass in front of it
       const [b0, b1] = videoWallSpan(f), fr = Math.min(2.5, w * 0.06);

@@ -4,7 +4,7 @@ import {
   VERSION,
   computeWalls, climateTarget, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b76';
+} from './fps-core.js?v=1.4.0b77';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -810,7 +810,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
         // above the picture: what the camera sees (its motion / person sensor, when it has one): idle in green, motion big and red
         const motion = deviceSibling(hass, id, 'binary_sensor', /(^|_)motion($|_)|beweging/i) || deviceSibling(hass, id, 'binary_sensor', /motion/i) || deviceSibling(hass, id, 'binary_sensor', /person/i) || deviceSibling(hass, id, 'binary_sensor', /all_occupancy|occupancy/i);
         el.innerHTML = `<img alt=""><span>${esc(friendly(hass, id))}</span>${motion ? '<b class="mo"></b>' : ''}`;
-        el.addEventListener('click', (ev) => { ev.stopPropagation(); if (editing) return; const sh = $('.sheet'); if (infoIt?.entity_id === id && sh?.classList.contains('show')) hideSheet(); else showInfo({ entity_id: id }); });
+        el.addEventListener('click', (ev) => { ev.stopPropagation(); if (editing || stopIfWalking()) return; const sh = $('.sheet'); if (infoIt?.entity_id === id && sh?.classList.contains('show')) hideSheet(); else showInfo({ entity_id: id }); });
         iconsEl.appendChild(el);
         return { id, corners, el, img: el.firstChild, t: 0, motion, mo: el.querySelector('.mo') };
       });
@@ -969,7 +969,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             const el = document.createElement('div');
             el.className = 'cs holo';
             el.innerHTML = '<img alt="">';
-            el.addEventListener('click', (ev) => { ev.stopPropagation(); if (!editing) showInfo(it); });
+            el.addEventListener('click', (ev) => { ev.stopPropagation(); if (!editing && !stopIfWalking()) showInfo(it); });
             iconsEl.appendChild(el);
             camWalls.push({ f: null, c: C3, screens: [{ id: imgId, holo: it.entity_id, corners: [P3(-R0, h + R0), P3(R0, h + R0), P3(R0, h - R0), P3(-R0, h - R0)], el, img: el.firstChild, t: 0 }] });
           }
@@ -1420,7 +1420,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       el.innerHTML = `<div class="b${isSensor ? ' txt' : ''}"></div><div class="n">${esc(it.name || friendly(hass, it.entity_id))}</div>`;
       const b = el.querySelector('.b');
       if (!isSensor) {
-        const ic = it.icon || (dk && KIND_ICON[dk] && !st?.attributes?.icon && !['lock', 'motion'].includes(dk) ? KIND_ICON[dk] : mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && d !== 'light' ? 'mdi:lightbulb' : '');
+        const tk = dk || (lampKind ? applianceKind(it, st, hass) : null), ic = it.icon || (tk && KIND_ICON[tk] && (!st?.attributes?.icon || lampKind) && !['lock', 'motion'].includes(tk) ? KIND_ICON[tk] : mk && MEDIA_ICON[mk] && !st?.attributes?.icon ? MEDIA_ICON[mk] : ceil && !st?.attributes?.icon ? 'mdi:ceiling-light' : it.kind === 'lamp' && d !== 'light' ? 'mdi:lightbulb' : '');
         const icon = document.createElement(ic ? 'ha-icon' : 'ha-state-icon');
         if (ic) icon.icon = ic; else { icon.hass = hass; icon.stateObj = st; }
         b.appendChild(icon);
@@ -1609,6 +1609,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   /* ------------------------------------------------------------ the walker */
   const cam = { x: 0, z: 0, yaw: 0, pitch: -0.06 };
   let route = [], touring = true, tourDone = false, lastRoom = null, bob = 0, hold = 0;
+  /** While walking by itself (the tour, or on the way somewhere) a click only stops it — no device is switched or opened. */
+  const stopIfWalking = () => {
+    if (!route.length && !touring) return false;
+    if (touring) pausedTour = route;
+    route = [];
+    setTouring(false);
+    return true;
+  };
   function startTour() {
     const rooms = plan.rooms || [];
     if (!rooms.length) return;
@@ -1730,7 +1738,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   root.addEventListener('contextmenu', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, true);
   /** Long press on a device (or a TV / appliance you drew): its full menu. */
   const longPress = (x, y) => {
-    if (editing) return false;
+    if (editing || route.length || touring) return false;   // (walking by itself: the click that follows stops it)
     const dev = pickDevice(x, y);
     if (dev) { showInfo(dev.it, false, true); return true; }
     const hf = pickFurniture(x, y);
@@ -1827,6 +1835,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       return;
     }
     if (!tap) return;
+    // walking (the tour, or on the way somewhere): a click only stops, right here — it never switches or opens a device
+    if (stopIfWalking()) return;
     if (infoIt) { hideSheet(); return; }
     // a tap on a wall clock: the clock's own buttons
     for (const ck of lastVP ? clocks : []) {
@@ -1846,13 +1856,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
     }
     const hitF = pickFurniture(ev.clientX, ev.clientY);
     if (hitF && tvFurn.has(hitF.f.id)) { showInfo(tvFurn.get(hitF.f.id)); return; }   // the TV: what it plays, and its buttons
-    // walking (the tour, or on the way somewhere): a click stops right here; standing still: a click walks there
-    if (route.length) {
-      if (touring) pausedTour = route;
-      route = [];
-      setTouring(false);
-      return;
-    }
+    // standing still: a click on the floor walks there
     const r = canvas.getBoundingClientRect(), nx = ((ev.clientX - r.left) / r.width) * 2 - 1, ny = 1 - ((ev.clientY - r.top) / r.height) * 2;
     const f = fwd(), right = nrm(cross(f, [0, 1, 0])), up = cross(right, f), ty = Math.tan(fov / 2), tx = ty * (r.width / r.height);
     const dir = [f[0] + right[0] * nx * tx + up[0] * ny * ty, f[1] + right[1] * nx * tx + up[1] * ny * ty, f[2] + right[2] * nx * tx + up[2] * ny * ty];

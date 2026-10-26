@@ -1,6 +1,9 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Wandeling: loopt hij zelf (rondleiding of op weg naar een plek), dan **stopt een klik alleen** — ook op een lamp, apparaat of camerascherm wordt dan niets geschakeld of geopend. Sta je stil, dan werkt een tik zoals altijd.
+- Kaart (2D en 2.5D): **3D-printers en printers staan er als printer**: hun behuizing getekend waar je ze neerzette (op het meubel eronder, mee gedraaid), met het printer-icoon — ook als je de printer via zijn kamerlampje plaatste.
+- Kaart: een **vaatwasser, wasmachine of droger die je tekende** krijgt een icoon op het meubel met wat hij doet (groen als hij draait, half doorzichtig als hij stilstaat); een tik opent de info van het apparaat (nooit per ongeluk de stekker uit).
 - Wandeling: **muurnaden en aansluitingen zijn strak**: geen flikkerende of lichte lijntjes meer waar muren elkaar raken, boven deuren en ramen, op hoeken en waar een muur doorloopt naast een andere ruimte. Muren lopen net door in het plafond, vloer- en plafonddelen van één ruimte sluiten naadloos aan, en meubels die in het plan een stukje in de muur staan (kast, camerawand, radiator) staan in 3D net vóór de muur.
 - Airco / thermostaat: − en + blijven binnen wat het apparaat zelf toestaat (zijn eigen minimum, maximum en stapgrootte); ook bij een apparaat met een onder- en bovengrens (verwarmen/koelen) schuiven beide mee.
 - Editor stap 5: eigen kopje **Wandeling (3D) en rondleiding** met *De rondleiding begint in*, de beeldhoek en *Bewerken in de wandeling toestaan* (stond eerder verstopt onder *Telefoon, tablet en 2.5D*).
