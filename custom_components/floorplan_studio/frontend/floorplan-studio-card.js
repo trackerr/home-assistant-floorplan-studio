@@ -3,15 +3,22 @@ import {
   VERSION, t, THEMES, themeStyle, resolveTheme, daylightVars, planSVG, PLAN_CSS, roomBBox, roomAt, areaEntities, roomSummary,
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
-  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b87';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b87';
+  labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, parcelsToday, parcelSpot, norm, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
+} from './fps-core.js?v=1.4.0b88';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b88';
 
 
 const CSS = `
   :host { display: block; }
   ha-card { overflow: hidden; background: var(--fps-bg); color: var(--fps-fg); font-family: var(--fps-font); border-radius: var(--ha-card-border-radius, 12px); }
   .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; flex-wrap: wrap; }
+  /* phones: as much room for the map as possible - one slim row that scrolls sideways, icons only, no title */
+  .compact .toolbar { flex-wrap: nowrap; overflow-x: auto; gap: 5px; padding: 6px 8px 4px; scrollbar-width: none; }
+  .compact .toolbar::-webkit-scrollbar { display: none; }
+  .compact .toolbar > * { flex: none; }
+  .compact .title { display: none; }
+  .compact .seg button { font-size: 0; gap: 0; padding: 5px 9px; }
+  .compact .seg button ha-icon { --mdc-icon-size: 17px; }
   .title { font-size: 18px; font-weight: 700; margin-right: auto; letter-spacing: -.01em; }
   .seg { display: inline-flex; background: var(--fps-chip); border: 1px solid var(--fps-line); border-radius: 999px; padding: 2px; }
   .seg button, .btn { all: unset; cursor: pointer; padding: 5px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--fps-muted); display: inline-flex; align-items: center; gap: 6px; }
@@ -153,9 +160,9 @@ const CSS = `
   .palert.alarm { background: #d81b1b; color: #fff; } .palert.warn { background: rgba(255, 159, 28, .16); color: #ffb347; }
   .ppres { font-size: 13px; color: var(--fps-accent); margin-top: 6px; display: flex; gap: 6px; align-items: center; --mdc-icon-size: 16px; }
   /* small screens: room by room */
-  .crooms { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .crooms { display: flex; gap: 5px; overflow-x: auto; padding: 2px 8px 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .crooms::-webkit-scrollbar { display: none; }
-  .crooms button { all: unset; flex: none; cursor: pointer; padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+  .crooms button { all: unset; flex: none; cursor: pointer; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
                    border: 1px solid var(--fps-line); background: var(--fps-chip); color: var(--fps-muted); display: inline-flex; align-items: center; gap: 6px; }
   .crooms button i { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--fps-accent); }
   .crooms button.lit i { display: inline-block; }
@@ -565,7 +572,7 @@ class FloorplanStudioCard extends HTMLElement {
     const plan = this._plan, h = this._hass, theme = this._theme;
     // 2.5D (tilted, walls up) per screen; moving icons happens in 2D (exact), the 2.5D view follows
     this._walls = null; this._view = null;
-    this._proj = this._view25 && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false }) : null;
+    this._proj = this._view25 && !this._moving ? makeProj(plan, { rot: this._rot, tilt: this._tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false, snug: this._compact }) : null;
     const mode = this._mode;
     const tb = this._config.show_toolbar ? `
       <div class="toolbar">
@@ -624,6 +631,13 @@ class FloorplanStudioCard extends HTMLElement {
       this._appl.set(id, f);
       const ent = this._hass.entities?.[id], dev = ent?.device_id ? this._hass.devices?.[ent.device_id] : null;
       if (!this._items.has(id)) this._addItem({ entity_id: id, x: safeNumber(f.x), y: safeNumber(f.y), kind: 'device', icon: KIND_ICON[f.type] || 'mdi:washing-machine', name: dev?.name_by_user || dev?.name || undefined, _appl: f.id });
+    }
+    // a parcel delivered today: its box by the front door (in the drawing) with an icon on it; a tap shows where it came from
+    const pk = parcelsToday(plan, this._hass), ps = pk && parcelSpot(plan);
+    this._parcelKey = pk ? `${pk.count}@${pk.at}` : '';
+    if (ps && pk.entities[0] && !this._items.has(pk.entities[0])) {
+      this._addItem({ entity_id: pk.entities[0], x: ps[0], y: ps[1], kind: 'device', icon: 'mdi:package-variant-closed', name: `${t(this._hass, 'parcel')}${pk.names.length ? ` · ${pk.names.join(', ')}` : ''}`, _parcel: true, height: 0.45 });
+      this._items.get(pk.entities[0])?.el.classList.add('on', 'parcel');
     }
     this._buildLabels();
     this._glows = new Map();
@@ -779,7 +793,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b87');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0b88');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -789,7 +803,7 @@ class FloorplanStudioCard extends HTMLElement {
   _reproject(rot, tilt) {
     const plan = this._plan, svg = this.shadowRoot.querySelector('svg.plan');
     if (!svg || !this._proj) return;
-    this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false });
+    this._proj = makeProj(plan, { rot, tilt, height: this._s.height_25d === 'real' ? 'real' : safeNumber(this._s.height_25d, 80), persp: this._s.perspective !== false, scale: this._compact ? this._proj?.s : null });   // (a phone keeps the size it had while you turn)
     this._view = { rot, tilt };
     // a fresh drawing for the new angle (with perspective the floor can't follow one matrix)
     svg.insertAdjacentHTML('afterend', planSVG(this._drawPlan(plan), { proj: this._proj }));
@@ -1004,6 +1018,7 @@ class FloorplanStudioCard extends HTMLElement {
   /* ---------------------------------------------------------- update */
   _visible(entityId, it) {
     // 'none': a calm map without icons; what is drawn as itself (LED strips, curtains, TV, spots, a ring clock) still shows what it does
+    if (it._parcel) return true;   // a parcel at the door always shows
     if (this._mode === 'none') return !!ringClock(it, this._hass);
     if (this._mode !== 'simple' || it.pin || it._appl) return true;
     if (entityId.startsWith('vacuum.') && VACUUM_BUSY.includes(this._hass?.states[entityId]?.state)) return true;   // a vacuum on the move is always shown
@@ -1023,6 +1038,8 @@ class FloorplanStudioCard extends HTMLElement {
     const h = this._hass;
     this._themeTick();
     if (this._config.home) { this._updateHome(force); return; }
+    // a parcel came (or was taken in): draw the plan again with (or without) its box
+    { const pk = parcelsToday(this._plan, h), key = pk ? `${pk.count}@${pk.at}` : ''; if (this._parcelKey !== undefined && key !== this._parcelKey) { this._build(); return; } }
     this._fading = false;
     this._wledLiveSync();
     this._curtainsUpdate();
@@ -1049,6 +1066,7 @@ class FloorplanStudioCard extends HTMLElement {
       if (!st && !vs) continue;
       if (rec.icon && rec.icon.tagName === 'HA-STATE-ICON' && st) { rec.icon.hass = h; rec.icon.stateObj = st; }
       if (vs) rec.el.style.opacity = '';
+      if (rec.it._parcel) { rec.el.classList.add('on'); rec.el.classList.remove('off'); continue; }
       const apf = this._appl?.get(id);
       const on = apf ? applianceRunning(h, apf, id) : vs ? vs.state === 'on' && (!st || isOn(st) || ['unavailable', 'unknown'].includes(st.state)) : isOn(st);
       if (apf && st) {
@@ -1232,9 +1250,9 @@ class FloorplanStudioCard extends HTMLElement {
       const d = document.createElement('div');
       d.className = `rinfo ${room.label_hidden ? 'off' : ''}`; d.dataset.room = room.id; d._fs = fs0;
       if (this._proj) {
-        // 2.5D: hang the (short) block by its middle, so turning and tilting keeps it inside the room
-        const name = String(room.name || ''), bw = Math.max(name.length * fs0 * 0.84, fs0 * 9.5), bh = fs0 * 3.9;
-        d._fx = x + bw / 2; d._fy = y + bh / 2;
+        // 2.5D: the (short) block hangs at the middle of its room (its biggest part), so it stays there however you turn or tilt
+        const q = room.rects.map(norm).sort((u, v) => (v[2] - v[0]) * (v[3] - v[1]) - (u[2] - u[0]) * (u[3] - u[1]))[0];
+        d._fx = (q[0] + q[2]) / 2; d._fy = (q[1] + q[3]) / 2;
       } else { d._fx = x; d._fy = y; }
       d._ox = d._fx - x; d._oy = d._fy - y;   // where the block hangs from, relative to the spot that is saved
       [d.style.left, d.style.top] = this._at(d._fx, d._fy);
@@ -1260,7 +1278,7 @@ class FloorplanStudioCard extends HTMLElement {
       ev.stopPropagation();
       if (this._zoomRoom) return;
       if (editable() && ev.target.classList.contains('rsz')) { this._labelResize(ev, d, room); return; }
-      if (editable() && this._moving) { this._labelDrag(ev, d, room); return; }
+      if (editable() && this._moving && !this._proj) { this._labelDrag(ev, d, room); return; }   // (2.5D: always in the middle of its room)
       held = false; down = ev;
       if (editable()) timer = setTimeout(() => { timer = null; held = true; this._labelMenu(d, room); }, this._s.hold_ms);
     });
@@ -1269,7 +1287,7 @@ class FloorplanStudioCard extends HTMLElement {
       if (!down || held || Math.hypot(ev.clientX - down.clientX, ev.clientY - down.clientY) <= 8) return;
       cancel();
       const from = down; down = null;
-      if (editable()) this._labelDrag(from, d, room);   // press and move = drag the block straight away
+      if (editable() && !this._proj) this._labelDrag(from, d, room);   // press and move = drag the block straight away
     });
     d.addEventListener('pointercancel', () => { cancel(); down = null; });
     d.addEventListener('pointerup', (ev) => {
@@ -1982,7 +2000,7 @@ class FloorplanStudioCard extends HTMLElement {
     el.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation();
       held = false; start = [ev.clientX, ev.clientY];
-      if (this._moving && el.classList.contains('item')) { if (!this._appl?.has(it.entity_id)) this._startDrag(ev, el, it); return; }   // (an appliance's icon goes with its furniture)
+      if (this._moving && el.classList.contains('item')) { if (!this._appl?.has(it.entity_id) && !it._parcel) this._startDrag(ev, el, it); return; }   // (an appliance's icon goes with its furniture)
       timer = setTimeout(() => { held = true; this._quick(it.entity_id, el); }, this._s.hold_ms);
     });
     const cancel = () => { clearTimeout(timer); timer = null; };
@@ -2223,7 +2241,7 @@ class FloorplanStudioCard extends HTMLElement {
       return;
     }
     if (!st) return;
-    if (this._appl?.has(entityId)) { fire(this, 'hass-more-info', { entityId }); return; }
+    if (this._appl?.has(entityId) || this._items?.get(entityId)?.it._parcel) { fire(this, 'hass-more-info', { entityId }); return; }
     if (['light', 'switch', 'fan', 'input_boolean', 'humidifier', 'siren'].includes(d)) h.callService(d, 'toggle', { entity_id: entityId });
     else if (d === 'cover' || d === 'valve') h.callService(d, 'toggle', { entity_id: entityId });
     else if (d === 'media_player' && st.attributes.supported_features & 128) h.callService(d, 'toggle', { entity_id: entityId });

@@ -1,11 +1,11 @@
 // Floorplan Studio – shared helpers for the card and the editor panel.
 
-export const VERSION = '1.4.0b87';
+export const VERSION = '1.4.0b88';
 
 /* ------------------------------------------------------------------ i18n */
 const STR = {
   en: {
-    simple: 'Simple', all: 'All', none_mode: 'None', walk_tour: 'Tour through your home', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
+    simple: 'Simple', all: 'All', none_mode: 'None', parcel: 'Parcel at the door', walk_tour: 'Tour through your home', move: 'Move icons', done: 'Done', back: 'Back', overview: 'Overview', zoom_reset: 'Whole plan', by_room: 'Room by room', whole_plan: 'Whole plan', rooms: 'Rooms', energy_now: 'Energy now', right_now: 'Right now', outside: 'outside', n_on: '{n} on', h_solar: 'Solar now', h_grid: 'From the grid', h_return: 'To the grid', h_price: 'Electricity price',
     lights_on: '{n} / {t} lights on', no_plan: 'No floorplan yet. Open “Floorplan” in the sidebar to draw your home.',
     loading: 'Loading floorplan…', unplaced: 'Also in this room', saved: 'Saved', learning: 'Simple mode is still learning ({d} days of data) – showing everything.',
     on: 'on', off: 'off', open: 'open', closed: 'closed', hum: 'humidity {v}%', theme: 'Theme', kiosk_tap: 'Tap to go full screen', in_room: 'In this room',
@@ -17,7 +17,7 @@ const STR = {
     a_door: 'Door open', a_window: 'Window open', a_garage_door: 'Garage door open', a_opening: 'Open',
   },
   nl: {
-    simple: 'Eenvoudig', all: 'Alles', none_mode: 'Geen', walk_tour: 'Rondleiding door je huis', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
+    simple: 'Eenvoudig', all: 'Alles', none_mode: 'Geen', parcel: 'Pakket bij de deur', walk_tour: 'Rondleiding door je huis', move: 'Iconen verplaatsen', done: 'Klaar', back: 'Terug', overview: 'Overzicht', zoom_reset: 'Hele plattegrond', by_room: 'Per ruimte', whole_plan: 'Hele plattegrond', rooms: 'Kamers', energy_now: 'Energie nu', right_now: 'Nu logisch', outside: 'buiten', n_on: '{n} aan', h_solar: 'Zon nu', h_grid: 'Van het net', h_return: 'Naar het net', h_price: 'Stroomprijs',
     lights_on: '{n} / {t} lampen aan', no_plan: 'Nog geen plattegrond. Open “Floorplan” in de zijbalk om je huis te tekenen.',
     loading: 'Plattegrond laden…', unplaced: 'Ook in deze ruimte', saved: 'Opgeslagen', learning: 'Eenvoudig leert nog ({d} dagen data) – alles wordt getoond.',
     on: 'aan', off: 'uit', open: 'open', closed: 'dicht', hum: 'vocht {v}%', theme: 'Thema', kiosk_tap: 'Tik voor volledig scherm', in_room: 'In deze ruimte',
@@ -599,6 +599,10 @@ export function furnSVG(f, extra = '') {
     case 'mirror':
       body = R(x, y, w, h, 1) + L(x + w * 0.2, y + h, x + w * 0.35, y);
       break;
+    case 'parcel':
+      // a parcel by the front door: a cardboard box with its tape
+      body = R(x, y, w, h, 1.5, 'pkg') + L(x + w / 2, y, x + w / 2, y + h);
+      break;
     case 'dev3dprinter': case 'dev3dprinterbig': case 'devprinter':
       // a (3D) printer you placed as a device: its body seen from above, with the build plate / paper tray
       body = R(x, y, w, h, 3) + R(x + w * 0.16, y + h * 0.16, w * 0.68, h * 0.68, 1.5, 'soft') + L(x + w * 0.2, y + h - 1.5, x + w * 0.8, y + h - 1.5);
@@ -683,6 +687,9 @@ export const floorColor = (room) => (room?.floor === 'color' && /^#[0-9a-f]{6}$/
 
 /** Every user-adjustable setting with its default (stored per floorplan in plan.settings). */
 export const DEFAULT_SETTINGS = {
+  parcels: true,            // a parcel delivered today (PostNL, DHL, Mail and Packages…) shows as a box by the front door
+  parcel_entities: [],      // your own parcel sensors (empty = found automatically)
+  parcel_door: '',          // the front door (opening id; empty = found automatically)
   theme: 'warm',            // default theme of the card
   default_mode: 'all',      // simple | all | none (no icons)
   usage_days: 14,           // Simple: show what was used in the last N days
@@ -712,6 +719,7 @@ export const DEFAULT_SETTINGS = {
   wall_color: '',           // walls in your own colour (#rrggbb), '' = the theme's; a room can have its own (room.wall_color, walk)
   walk_fov: 100,            // walk: how wide you see, in degrees across (Ctrl + scroll wheel changes it for the moment)
   walk_start: '',           // room the tour starts in (at its door); '' = at the front door
+  walk_drag_invert: false,  // walk: dragging left/right turns the other way (you drag the room instead of your view)
   walk_edit: true,          // admins may edit (devices, furniture, windows, doors) inside the walk-through
   turn_ghost: true,         // 2.5D: icons fade (ghosted) while you turn the house, so the shape is easier to follow
   turn_ghost_pct: 10,       // ... to this % visible
@@ -822,7 +830,7 @@ function groundSVG(plan, proj, editor) {
 }
 
 /** How tall furniture is, in metres (0 = stays flat on the floor). */
-export const FURN_HEIGHT = { mirror: 1.9, model: 1, dev3dprinter: 0.46, dev3dprinterbig: 0.6, devprinter: 0.3, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
+export const FURN_HEIGHT = { mirror: 1.9, model: 1, parcel: 0.3, dev3dprinter: 0.46, dev3dprinterbig: 0.6, devprinter: 0.3, dishwasher: 0.85, washer: 0.85, dryer: 0.85, videowall: 2.3, speakerbox: 1.0, radiator: 0.65, coffee: 0.42, hob: 0.9, sink: 0.9, stove: 0.9, fridge: 1.85, island: 0.92, wallcab: 2.1, sofa: 0.85, bed: 0.95, table: 0.9, round: 0.76, desk: 0.76, counter: 0.9, cabinet: 2, bath: 0.58, shower: 2, toilet: 0.8, stairs: 2.4, tv: 1.15, plant: 0.9 };
 const LIFT = 1;   // real proportions; setting height_25d: 'real' or a percentage of that
 /** A piece of furniture's height in metres: its own (set in the editor) or the usual one for its kind. */
 export const furnHeight = (f) => (['videowall', 'mirror'].includes(f?.type) ? videoWallSpan(f)[1] : tvOnWall(f) ? tvScreen(f)[1] : f.z != null && f.z !== '' && Number.isFinite(+f.z) ? Math.max(0, +f.z) : (FURN_HEIGHT[f.type] || 0));
@@ -1341,12 +1349,98 @@ const KIND_H = { vacuum: 0.05, camera: 2.3, lock: 1.05, radiator: 0.45, thermost
   fingerbot: 1.1, irhub: 0.03, alarmhub: 0.05, siren: 2.3, bedsensor: 0.5, smoke: 2.55, leak: 0.02 };
 /** These stand on the furniture under them (the height above its top), the others are measured from the floor. */
 const ON_TOP = ['3dprinter', 'syncbox', 'kettle', 'coffee', 'nas', 'router', 'printer', 'irhub', 'alarmhub'];
+/* ------------------------------------------------------------- parcels */
+const PARCEL_DATE_KEYS = ['delivery_date', 'delivered_at', 'delivery_time', 'delivered_date', 'date_delivered', 'status_date', 'last_update', 'date', 'timestamp'];
+const PARCEL_DONE_RE = /bezorgd|afgeleverd|geleverd|delivered|zugestellt|livr[ée]/i;
+const PARCEL_AWAY_RE = /service ?point|pick.?up|afhaal|parcel ?shop|locker|pakketautomaat|neighbou?r|buren/i;
+const isToday = (t) => { const d = new Date(t), n = new Date(); return !isNaN(d) && d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
+/** Sensors that tell about parcels: yours (step 5), else what Home Assistant has (PostNL, DHL, Mail and Packages, …). */
+let PARCEL_CACHE = { t: 0, n: -1, ids: [] };
+export function parcelEntities(plan, hass) {
+  const own = settingsOf(plan).parcel_entities;
+  if (Array.isArray(own) && own.length) return own.filter((id) => hass?.states?.[id]);
+  // looking through every entity is not free: once a minute is plenty
+  const n = Object.keys(hass?.states || {}).length;
+  if (Date.now() - PARCEL_CACHE.t < 60000 && n === PARCEL_CACHE.n) return PARCEL_CACHE.ids;
+  PARCEL_CACHE = { t: Date.now(), n, ids: [] };
+  return (PARCEL_CACHE.ids = Object.values(hass?.states || {}).filter((st) => {
+    const id = st.entity_id, a = st.attributes || {};
+    if (id.startsWith('sensor.') && Object.values(a).some((v) => Array.isArray(v) && v.some((x) => x && typeof x === 'object' && PARCEL_DATE_KEYS.some((k) => k in x)))) return true;   // a list of parcels with their dates
+    if (/^sensor\.mail_packages_delivered$/.test(id)) return true;   // Mail and Packages: delivered today
+    return id.startsWith('binary_sensor.') && /parcel|package|pakket|pakje/i.test(`${id} ${a.friendly_name || ''}`);
+  }).map((st) => st.entity_id));
+}
+/**
+ * Parcels delivered at home today: { count, at (ms, the last one), names, entities } or null. A parcel taken to a
+ * service point or a neighbour does not count; one the front door opened for after it came is taken in.
+ */
+export function parcelsToday(plan, hass) {
+  const s = settingsOf(plan);
+  if (s.parcels === false || !hass?.states) return null;
+  let count = 0, at = 0;
+  const names = [], ents = [];
+  for (const id of parcelEntities(plan, hass)) {
+    const st = hass.states[id], a = st?.attributes || {};
+    if (!st || ['unavailable', 'unknown'].includes(st.state)) continue;
+    let n = 0, t = 0;
+    for (const v of Object.values(a)) {
+      if (!Array.isArray(v)) continue;
+      for (const x of v) {
+        if (!x || typeof x !== 'object') continue;
+        const k = PARCEL_DATE_KEYS.find((q) => x[q]), when = k ? x[k] : null;
+        const done = x.delivered === true || PARCEL_DONE_RE.test(`${x.status || ''} ${x.status_message || ''} ${x.state || ''}`);
+        if (!done || !when || !isToday(when) || PARCEL_AWAY_RE.test(`${x.delivery_address_type || ''} ${x.location || ''} ${x.status_message || ''}`)) continue;
+        n++; t = Math.max(t, new Date(when).getTime());
+        if (x.name || x.sender) names.push(String(x.sender || x.name));
+      }
+    }
+    if (!n && id.startsWith('binary_sensor.') && st.state === 'on') { n = 1; t = new Date(st.last_changed).getTime(); }
+    if (!n && /today|vandaag|mail_packages_delivered/i.test(id) && +st.state > 0) { n = +st.state; t = new Date(st.last_changed).getTime(); }
+    if (n) { count += n; at = Math.max(at, t); ents.push(id); }
+  }
+  if (!count) return null;
+  // the front door opened after the parcel came: someone took it in
+  const door = frontDoor(plan), ds = door?.o?.entity ? hass.states[door.o.entity] : null;
+  if (ds && !['unavailable', 'unknown'].includes(ds.state) && new Date(ds.last_changed).getTime() > at + 60000) return null;
+  return { count, at, names: [...new Set(names)], entities: ents };
+}
+/** The front door: the one you chose (step 5), else an outside door called front door / in the hall, else the first outside door. */
+export function frontDoor(plan) {
+  const rooms = plan.rooms || [], walls = computeWalls(rooms);
+  const outerDoor = (o) => {
+    if (o.type !== 'door') return null;
+    const hor = Math.abs(o.y1 - o.y2) < 1, mx = (o.x1 + o.x2) / 2, my = (o.y1 + o.y2) / 2;
+    const w = walls.find((q) => q.kind === 'outer' && (hor ? q.y1 === q.y2 && Math.abs(q.y1 - my) < 3 && mx >= Math.min(q.x1, q.x2) && mx <= Math.max(q.x1, q.x2) : q.x1 === q.x2 && Math.abs(q.x1 - mx) < 3 && my >= Math.min(q.y1, q.y2) && my <= Math.max(q.y1, q.y2)));
+    if (!w) return null;
+    const a = hor ? roomAt(rooms, mx, my - 6) : roomAt(rooms, mx - 6, my), sgn = a ? 1 : -1;   // outside is where there is no room
+    const room = a || (hor ? roomAt(rooms, mx, my + 6) : roomAt(rooms, mx + 6, my));
+    return { o, x: mx, y: my, ox: hor ? 0 : sgn, oy: hor ? sgn : 0, ux: hor ? 1 : 0, uy: hor ? 0 : 1, len: Math.hypot(o.x2 - o.x1, o.y2 - o.y1), room };
+  };
+  const doors = (plan.openings || []).map(outerDoor).filter(Boolean);
+  if (!doors.length) return null;
+  const want = settingsOf(plan).parcel_door;
+  return doors.find((d) => d.o.id === want)
+    || doors.find((d) => /voordeur|front|hoofd|main/i.test(`${d.o.name || ''} ${d.o.entity || ''}`))
+    || doors.find((d) => /\bhal\b|hall|entree|entr[ae]nce|gang|portaal|foyer/i.test(d.room?.name || ''))
+    || doors[0];
+}
+/** Where a parcel stands: just outside the front door, beside the doorway. [x, y, rot] or null. */
+export function parcelSpot(plan) {
+  const d = frontDoor(plan), S = planScale(plan) || 70;
+  if (!d) return null;
+  const out = 0.12 * S + 0.32 * S, side = d.len / 2 + 0.3 * S;
+  return [d.x + d.ox * out + d.ux * side, d.y + d.oy * out + d.uy * side, d.ux ? 0 : 90];
+}
+
 /**
  * Devices that are a thing you can see (a 3D printer, a printer): their body for the 2D and 2.5D drawing, standing where you
  * placed the device (on the furniture under it), turned like it (it.rot). The walk-through draws them itself.
  */
 export function deviceFurniture(plan, hass) {
   const S = planScale(plan) || 70, out = [];
+  // a parcel delivered today: a box by the front door
+  const pk = parcelsToday(plan, hass), ps = pk && parcelSpot(plan);
+  if (ps) out.push({ id: 'dev:parcel', type: 'parcel', x: ps[0], y: ps[1], w: 0.42 * S, h: 0.32 * S, rot: ps[2], parcel: pk });
   for (const it of plan.items || []) {
     const st = hass?.states?.[it.entity_id], k = deviceKind(it, st, hass) || applianceKind(it, st, hass);   // (a printer placed by its chamber light too)
     if (k !== '3dprinter' && k !== 'printer') continue;
@@ -1538,11 +1632,22 @@ const WALLLAMP_RE = /wandlamp|wall ?lamp|sconce|spiegel|mirror|buitenlamp|lantaa
  * 'mirror' (light above a mirror), 'lantern', 'fireplace', 'matrix' (LED matrix/pixel display), 'panel'
  * (a lit panel, e.g. stained glass), 'bar' (a short LED bar) or 'bulb'. it.model overrides it.
  */
+/** Lamp models you can pick per lamp (step 4), with how they hang or stand. */
+export const LAMP_MODELS = {
+  pendant: 'pendant', globe: 'pendant', dome: 'pendant', drum: 'pendant', cluster: 'pendant', bulb: 'pendant', chandelier: 'pendant',
+  ceiling: 'ceiling', downlight: 'ceiling',
+  floor: 'floor', torchiere: 'floor', arc: 'floor', tripod: 'floor',
+  table: 'table', desk: 'table', cube: 'table', lava: 'table',
+  sconce: 'wall', flat: 'wall', tube: 'wall', lantern: 'wall', mirror: 'wall',
+};
+/** Models that can be round or square. */
+export const LAMP_ROUNDABLE = ['pendant', 'globe', 'dome', 'drum', 'cluster', 'ceiling', 'downlight', 'floor', 'torchiere', 'arc', 'tripod', 'table', 'desk', 'cube', 'sconce'];
 export function lampShape(plan, it, st, hass = null) {
   if (it.model) return it.model;
   const style = lampStyle(plan, it, st), ic = lampIcon(it, st), label = `${it.entity_id} ${it.name || ''} ${st?.attributes?.friendly_name || ''}`;
   const ent = hass?.entities?.[it.entity_id], dev = ent?.device_id ? hass?.devices?.[ent.device_id] : null, make = `${dev?.manufacturer || ''} ${dev?.model || ''}`;
   if (style === 'strip' || style === 'spot') return style;
+  if (LAMP_MODELS[it.lamp_model]) return it.lamp_model;   // the model you picked
   if (speakerBoxes(plan, it, st).length) return 'boxglow';
   if (ambilightTv(plan, it, st)) return 'ambilight';
   const ak = applianceKind(it, st, hass);
@@ -1572,6 +1677,7 @@ export function lampStyle(plan, it, st) {
   if (it.kind === 'device' || !(d === 'light' || it.kind === 'lamp')) return null;
   if (stripPath(it)) return 'strip';
   if (isSpot(it, st)) return 'spot';
+  if (LAMP_MODELS[it.lamp_model]) return LAMP_MODELS[it.lamp_model];   // the model you picked decides how it hangs or stands
   const own = ownHeight(it) != null;
   const mount = ceilingMount(it, st);
   if (mount === 'hanging') return 'pendant';
@@ -1622,7 +1728,7 @@ export function deviceHeight(plan, it, st, hass = null) {
  * The 2.5D view: the plan turned (rot, degrees) and tilted (tilt, degrees from top-down), then fitted
  * back into the plan's own box. P(x, y) gives where a floor point lands, dz(h) how far up a height goes.
  */
-export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true } = {}) {
+export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true, snug = false, scale = null } = {}) {
   const W = safeNumber(plan.width, 1000), H = safeNumber(plan.height, 700), cx = W / 2, cy = H / 2;
   const th = (rot * Math.PI) / 180, t = (tilt * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), ct = Math.cos(t), st = Math.sin(t);
   const lift = height === 'real' ? LIFT : LIFT * Math.max(0.3, Math.min(2, safeNumber(height, 80) / 100));
@@ -1642,11 +1748,14 @@ export function makeProj(plan, { rot = 0, tilt = 50, height = 100, persp = true 
     for (const [x, y] of corners) for (const z of [0, wallH]) { const [a, b] = f(x, y, z); x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
     return Number.isFinite(x0) ? [x0, y0, x1, y1] : [-cx, -cy, cx, cy];
   };
-  const pad = W * 0.03, fit = ([a0, b0, a1, b1]) => Math.min((W - 2 * pad) / Math.max(1, a1 - a0), (H - 2 * pad) / Math.max(1, b1 - b0));
+  const pad = W * (snug ? 0.012 : 0.03), fit = ([a0, b0, a1, b1]) => Math.min((W - 2 * pad) / Math.max(1, a1 - a0), (H - 2 * pad) / Math.max(1, b1 - b0));
   const [x0, y0, x1, y1] = box(raw);
-  // the same size at every angle (the smallest fit over a full turn), so turning the house doesn't zoom in and out
+  // the same size at every angle (the smallest fit over a full turn), so turning the house doesn't zoom in and out;
+  // snug (phones): as big as it fits at this angle (while turning by hand, the size it had when you started)
   let s = Infinity;
-  for (let d = 0; d < 180; d += 15) { const r = (d * Math.PI) / 180; s = Math.min(s, fit(box(rawAt(Math.cos(r), Math.sin(r))))); }
+  if (Number.isFinite(scale) && scale > 0) s = scale;
+  else if (snug) s = fit([x0, y0, x1, y1]);
+  else for (let d = 0; d < 180; d += 15) { const r = (d * Math.PI) / 180; s = Math.min(s, fit(box(rawAt(Math.cos(r), Math.sin(r))))); }
   const tx = W / 2 - (s * (x0 + x1)) / 2, ty = H / 2 - (s * (y0 + y1)) / 2;
   const P = (x, y, z = 0) => { const [a, b] = raw(x, y, z); return [s * a + tx, s * b + ty]; };
   // J: the plan around one point as a flat (affine) matrix — exact without perspective, a close fit with it
@@ -1708,6 +1817,7 @@ export function furnModel(f, spin = 0, onTop = false, S = 70) {
       return out;
     }
     case 'videowall': { const [b0, b1] = videoWallSpan(f); return [R(0, 0, w, h, b0 - 0.04, b1 + 0.04, 'dark')]; }
+    case 'parcel': return [R(0, 0, w, h, 0, 0.3, 'pkg'), R(w / 2 - w * 0.07, -0.3, w / 2 + w * 0.07, h + 0.3, 0.3, 0.304, 'tape')];
     case 'dev3dprinter': case 'dev3dprinterbig': {
       // a 3D printer: dark frame with a glass door at the front
       const Hh = FURN_HEIGHT[f.type];
@@ -2043,6 +2153,8 @@ export const PLAN_CSS = `
   .f3 .furn { fill: none; stroke-opacity: .5; }
   .f3.soft .f3top { fill: color-mix(in srgb, var(--fps-muted) 26%, var(--fps-floor)); } .f3.soft .f3side { fill: color-mix(in srgb, var(--fps-muted) 36%, var(--fps-bg)); }
   .f3.dark .f3top, .f3.dark .f3side { fill: color-mix(in srgb, var(--fps-bg) 80%, #000); }
+  .f3.pkg .f3top { fill: #c49a62; stroke: #8a6a3e; } .f3.pkg .f3side { fill: #a87f4c; stroke: #8a6a3e; } .f3.tape .f3top { fill: #e8d9b8; stroke: none; }
+  .furn.f-parcel { fill: #c49a62; fill-opacity: .85; stroke: #8a6a3e; stroke-opacity: 1; } .furn.f-parcel line { stroke: #f0e2c0; stroke-width: 2.5; }
   .f3.glass .f3top, .f3.glass .f3side { fill: rgba(160, 210, 255, .12); stroke: rgba(170, 215, 255, .6); }
   .f3.plant .f3top { fill: rgba(70, 160, 90, .75); stroke: rgba(120, 200, 130, .7); } .f3.plant .f3side { fill: rgba(50, 120, 70, .75); stroke: rgba(120, 200, 130, .5); }
   .f3.pot .f3top, .f3.pot .f3side { fill: rgba(160, 100, 70, .7); }

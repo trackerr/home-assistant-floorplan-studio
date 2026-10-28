@@ -1,6 +1,12 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- **Pakket bij de voordeur**: is er vandaag een pakket bij je thuis bezorgd (PostNL, DHL, Mail and Packages, een pakketsensor…), dan staat er een doos bij de voordeur – op de kaart, in 2.5D en in de wandeling. Bezorgd bij een servicepunt of de buren telt niet; is de voordeur (met sensor) daarna open geweest, dan is hij binnengehaald. Stap 5 → *Pakketten*: aan/uit, je eigen sensoren en welke deur de voordeur is.
+- Wandeling: **meer lampmodellen** – bol, koepel, trommel, tros van drie, losse peer, booglamp, driepoot, kubus en wandbuis – en per lamp **rond of vierkant** (stap 4 → *Meer opties* → *Lampmodel*). Zonder keuze blijft het automatisch (uit icoon en naam).
+- Wandeling: meubels met een front (speakerboxen, vaatwasser, wasmachine, koelkast…) flikkeren niet meer; het front staat een paar millimeter voor de kast in plaats van er precies in.
+- Wandeling: **slepen naar links/rechts kan andersom** (stap 5 → *Wandeling*: je sleept de kamer mee).
+- 2.5D: de tekst van een ruimte staat altijd in het midden van die ruimte, ook als je de kaart draait.
+- Telefoon: meer ruimte voor de kaart – één smalle knoppenbalk die opzij schuift (alleen iconen, geen titel), smallere ruimtetabs, en in 2.5D vult het huis de breedte.
 - Kaart, weergave **Geen**: geen iconen, maar wel alle lichtgloed van lampen die aan zijn, de lichtkegels (2.5D) en de richting van spots; bij de ruimtes alleen de temperatuur (en het vocht als je dat toont).
 - Wandeling, lang indrukken op een lamp: naast helderheid, kleur en effect nu ook de **preset** (en playlist) van het apparaat, zoals Home Assistant die heeft (WLED: zijn *Preset*- en *Playlist*-keuze).
 - **Rondleiding = jouw eigen route**: de automatische rondleiding is weg. Bij stap 3 (*Deuren & meubels*) teken je onder *Route van de rondleiding* punt voor punt de route (dubbeltik of *Klaar* om af te ronden); tik daarna op een punt om de rondleiding daar te laten stoppen en rondkijken (oranje). De wandeling volgt die route precies, en begint (ook zonder rondleiding) aan het begin ervan. Zonder route doet de knop *Rondleiding* niets.

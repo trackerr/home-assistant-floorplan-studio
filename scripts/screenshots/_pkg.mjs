@@ -1,0 +1,30 @@
+import { chromium } from 'playwright';
+import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
+const root = '/home/claude/fps';
+const T = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0])); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'content-type': T[path.extname(f)] || 'application/octet-stream' }); r.end(fs.readFileSync(f)); });
+await new Promise((r) => srv.listen(0, r));
+const real = JSON.parse(fs.readFileSync('/tmp/claude-0/-home-claude/ec6633c9-eec3-5d32-9e66-f0738521f7d1/scratchpad/inv/hass_small.json', 'utf8'));
+const b = await chromium.launch({ args: ['--use-gl=swiftshader'] });
+const p = await b.newPage({ viewport: { width: 1000, height: 640 } }); p.on('pageerror', (e) => console.log('ERR', e.message, e.stack?.split('\n')[1]));
+p.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text().slice(0, 200)); });
+await p.goto(`http://127.0.0.1:${srv.address().port}/scripts/screenshots/demo.html?file=_thuis&theme=warm&sun=day`); await p.waitForFunction(() => window.demoReady); await p.waitForTimeout(400);
+await p.evaluate((real) => {
+  const h = demo.el._hass;
+  for (const s of real.states) h.states[s.entity_id] = s;
+  h.entities = Object.fromEntries(real.entities.filter((e) => !e.disabled_by).map((e) => [e.entity_id, { ...e, hidden: !!e.hidden_by }]));
+  h.devices = Object.fromEntries(real.devices.map((d) => [d.id, d]));
+  h.connection = { subscribeMessage: async (cb, msg) => { window.__sub = msg; setTimeout(() => cb({ leds: Object.fromEntries(msg.entity_ids.map((id) => [id, Array.from({ length: id.includes('matrix') ? 256 : 60 }, (_, i) => ['ff0000', '00ff00', '0000ff', 'ffff00'][Math.floor(i / 8) % 4])])), matrix: Object.fromEntries(msg.entity_ids.filter((id) => id.includes('matrix')).map((id) => [id, [16, 16]])) }), 300); return () => {}; } };
+  demo.el.hass = h; demo.el._build();
+}, real);
+await p.evaluate(() => { const h = demo.el._hass; const d = new Date(); d.setHours(9, 0, 0, 0); h.states['sensor.postnl_delivery'] = { entity_id: 'sensor.postnl_delivery', state: '0', attributes: { friendly_name: 'PostNL delivery', delivered: [{ name: 'Quality Needz', delivered: true, delivery_date: new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19), delivery_address_type: 'Recipient' }] }, last_changed: new Date().toISOString() }; demo.el.hass = { ...h }; });
+await p.waitForTimeout(1500);
+console.log(JSON.stringify(await p.evaluate(() => { const r = [...demo.el._items.values()].find((x) => x.it._parcel); return r ? { cls: r.el.className, name: r.label, hidden: r.el.classList.contains('hidden') } : 'none'; })), await p.evaluate(() => demo.el.shadowRoot.querySelectorAll('.f-parcel').length));
+await p.screenshot({ path: '/tmp/claude-0/pkg2d.png' });
+await p.evaluate(() => { demo.el._setPref('view', '2.5d'); demo.el._build(); }); await p.waitForTimeout(1200);
+await p.screenshot({ path: '/tmp/claude-0/pkg25.png' });
+await p.evaluate(() => demo.el.shadowRoot.querySelector('#walk').click()); await p.waitForTimeout(2500);
+// stand outside? look from kantoor towards the door at x 750-840, y 250 (10.7..12, 3.57): the parcel is at (12.3, 4.0)
+await p.evaluate(() => demo.el._walk._setCam(11.2, 3.0, 0.35, -0.45)); await p.waitForTimeout(3000);
+await p.screenshot({ path: '/tmp/claude-0/pkgwalk.png' });
+await b.close(); srv.close();

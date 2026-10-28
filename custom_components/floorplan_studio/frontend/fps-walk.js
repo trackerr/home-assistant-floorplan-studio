@@ -2,11 +2,11 @@
 // Walls, doors and windows come from the plan; lamps that are on light up their room.
 import {
   VERSION,
-  computeWalls, climateTarget, floorColor, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
+  computeWalls, climateTarget, floorColor, parcelsToday, deviceFurniture, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b87';
-import { qualityForDevice } from './fps-quality.js?v=1.4.0b87';
-import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b87';
+} from './fps-core.js?v=1.4.0b88';
+import { qualityForDevice } from './fps-quality.js?v=1.4.0b88';
+import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b88';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -59,7 +59,7 @@ function segHitsBox(ax, az, bx, bz, q) {
 const COL = {
   wall: [0.93, 0.91, 0.87], ceil: [0.97, 0.97, 0.96], frame: [0.97, 0.97, 0.97], glass: [0.72, 0.86, 1.0], door: [0.88, 0.86, 0.82],
   floor: [0.66, 0.62, 0.56], wood: [0.62, 0.46, 0.32], tiles: [0.78, 0.78, 0.76], grass: [0.27, 0.38, 0.22],
-  soft: [0.46, 0.52, 0.6], dark: [0.16, 0.16, 0.18], pot: [0.62, 0.36, 0.26], plant: [0.26, 0.5, 0.27], woodF: [0.55, 0.4, 0.28], white: [0.94, 0.94, 0.93], metal: [0.84, 0.85, 0.87], mirror: [0.8, 0.87, 0.92],
+  pkg: [0.77, 0.6, 0.38], tape: [0.91, 0.85, 0.72], soft: [0.46, 0.52, 0.6], dark: [0.16, 0.16, 0.18], pot: [0.62, 0.36, 0.26], plant: [0.26, 0.5, 0.27], woodF: [0.55, 0.4, 0.28], white: [0.94, 0.94, 0.93], metal: [0.84, 0.85, 0.87], mirror: [0.8, 0.87, 0.92],
 };
 const FURN_COL = { dishwasher: 'white', washer: 'white', dryer: 'white', radiator: 'white', speakerbox: 'dark', coffee: 'woodF', table: 'woodF', round: 'woodF', desk: 'woodF', bed: 'woodF', cabinet: 'woodF', wallcab: 'white', counter: 'white', island: 'white', sink: 'white', hob: 'white', stove: 'metal', fridge: 'metal', bath: 'white', shower: 'white', toilet: 'white', stairs: 'woodF', tv: 'dark', sofa: 'soft', plant: 'plant' };
 
@@ -242,7 +242,8 @@ function buildWorld(plan, hass, selFurn = null) {
     }
   }
 
-  for (const f of plan.furniture || []) {
+  // (and a parcel delivered today, by the front door)
+  for (const f of [...(plan.furniture || []), ...deviceFurniture(plan, hass).filter((x) => x.type === 'parcel')]) {
     const fh = furnHeight(f);
     if (!(fh > 0)) continue;
     const r = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r), [fx, fy] = wallSnap(plan, f);
@@ -257,11 +258,19 @@ function buildWorld(plan, hass, selFurn = null) {
     }
     const zs = furnStretch(f), zb = tvBase(plan, f);   // a TV on a cabinet stands on top of it
     const support = ['hob', 'sink'].includes(f.type) ? (plan.furniture || []).find((g) => g !== f && ['counter', 'island', 'sink', 'stove'].includes(g.type) && furnAt({ furniture: [g] }, fx, fy)) : null;
-    for (const pr of furnModel(f, 0, !!support || (f.type === 'tv' && zb > 0), S)) {
-      const poly = pr.poly.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
+    for (const [pk, pr] of furnModel(f, 0, !!support || (f.type === 'tv' && zb > 0), S).entries()) {
+      // every part after the body stands a few millimetres proud of it: a front panel, door or arm whose face lies in the
+      // body's own face would flicker into it
+      let lp = pr.poly;
+      if (pk > 0) {
+        const xs = lp.map((q) => q[0]), ys = lp.map((q) => q[1]), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+        const hx = Math.max(1e-3, (Math.max(...xs) - Math.min(...xs)) / 2), hy = Math.max(1e-3, (Math.max(...ys) - Math.min(...ys)) / 2), e = Math.min(0.012, 0.003 + 0.0015 * pk) * S;
+        lp = lp.map(([x, y]) => [cx + (x - cx) * (hx + e) / hx, cy + (y - cy) * (hy + e) / hy]);
+      }
+      const poly = lp.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
       const y0 = pr.z0 * zs + zb, y1 = Math.max(pr.z1 * zs + zb, y0 + 0.004);
       if (pr.cls === 'glass') { glass.prism(poly, y0, y1, COL.glass); continue; }
-      let col = COL[pr.cls === 'soft' ? 'soft' : pr.cls === 'dark' ? 'dark' : pr.cls === 'pot' ? 'pot' : pr.cls === 'plant' ? 'plant' : pr.cls === 'mirror' ? 'mirror' : FURN_COL[f.type] || 'woodF'];
+      let col = COL[['soft', 'dark', 'pot', 'plant', 'mirror', 'pkg', 'tape'].includes(pr.cls) ? pr.cls : FURN_COL[f.type] || 'woodF'];
       if (f.id === selFurn) col = col.map((v, i) => v * 0.45 + [1, 0.72, 0.35][i] * 0.55);   // picked while editing
       solid.prism(poly, y0, y1, col);
     }
@@ -697,7 +706,7 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
   let hasWledMatrix = false;
   modelsChanged = () => { worldDirty = true; itemsDirty = true; };   // a 3D model of yours finished loading: draw it (furniture and devices)
   const S = planScale(plan) || 70, M = (v) => v / S;
-  const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|');
+  const sigOf = (h) => (plan.openings || []).filter((o) => o.entity).map((o) => `${o.entity}=${h?.states[o.entity]?.state}`).join('|') + `|parcel=${parcelsToday(plan, h)?.at || 0}`;
 
   /** The room a device is in: where you put it on the plan; on a wall: its Home Assistant area, or the room most of its icon is in. */
   function itemRoom(it) {
@@ -1163,6 +1172,14 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
           // a lamp that stands somewhere with nothing drawn under it gets a small side table
           const standOn = (base) => { if (base > 0.12 && !under) { fixtures.prism(circle(px, pz, 0.2, 18), base - 0.025, base, WOOD); fixtures.box(px - 0.02, pz - 0.02, px + 0.02, pz + 0.02, 0, base - 0.025, WOOD); fixtures.prism(circle(px, pz, 0.14, 14), 0, 0.02, WOOD); obstacles.push([px, pz, 0.22]); } };
           let lx0 = px, lz0 = pz;
+          // round (the usual) or square, as you chose for this lamp (step 4: Lamp model)
+          const sq = it.lamp_round === 'square', ra = (safeNumber(it.rot) * Math.PI) / 180, rc = Math.cos(ra), rsn = Math.sin(ra);
+          const shp = (cx, cz, r, k = 14) => (sq ? [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a2, b2]) => [cx + (a2 * rc - b2 * rsn) * r * 0.88, cz + (a2 * rsn + b2 * rc) * r * 0.88]) : circle(cx, cz, r, k));
+          const cord = (y0) => fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, y0, H, DARK);
+          // a ball (or a cube) of light: rings that follow its curve
+          const ball = (cx, cz, cy, r, mesh = markers, col = GL) => { if (sq) { mesh.prism(shp(cx, cz, r * 1.1), cy - r * 0.85, cy + r * 0.85, col); return; } const n = 7; for (let i = 0; i < n; i++) { const y0 = -r + (2 * r * i) / n, y1 = -r + (2 * r * (i + 1)) / n, ym = (y0 + y1) / 2; mesh.prism(circle(cx, cz, Math.sqrt(Math.max(0, r * r - ym * ym)) + 0.004, 16), cy + y0, cy + y1, col); } };
+          // a shade that narrows towards the top (rings, wide at the bottom)
+          const cone = (cx, cz, yb, yt, rb, rt, col, n = 5) => { for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n; fixtures.prism(shp(cx, cz, rb + (rt - rb) * (t0 + t1) / 2, 18), yb + (yt - yb) * t0, yb + (yt - yb) * t1, col); } };
           const thing = THINGS.has(shape) ? drawThing(shape, true) : null;
           if (thing) { lightY = thing[1]; lx0 = thing[0]; lz0 = thing[2]; }
           else if (shape === 'boxglow') {
@@ -1217,8 +1234,43 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             hit = { line: [[tx - ux * fw + nx * 0.04, tz - uz * fw + nz * 0.04], [tx + ux * fw + nx * 0.04, tz + uz * fw + nz * 0.04]], y: s1 + 0.04, r: 0.07 };
             P = [tx, s1 + 0.2, tz];
           }
-          else if (shape === 'ceiling') { markers.prism(circle(px, pz, 0.17), H - 0.07, H - 0.005, GL); lightY = H - 0.25; P = [px, H - 0.12, pz]; }
-          else if (shape === 'downlight') { fixtures.prism(circle(px, pz, 0.06, 14), H - 0.012, H - 0.002, W1); markers.prism(circle(px, pz, 0.045, 12), H - 0.016, H - 0.011, GL); lightY = H - 0.3; P = [px, H - 0.12, pz]; hit = { c: [px, H - 0.05, pz], r: 0.18 }; }
+          else if (shape === 'globe') { cord(h + 0.2); ball(px, pz, h + 0.05, 0.15); lightY = h; P = [px, h + 0.3, pz]; hit = { c: [px, h + 0.05, pz], r: 0.22 }; }
+          else if (shape === 'dome') {
+            // a wide metal shade, light coming out underneath
+            cord(h + 0.16); cone(px, pz, h - 0.02, h + 0.16, 0.24, 0.05, W1); markers.prism(shp(px, pz, 0.2), h - 0.025, h - 0.015, GL);
+            lightY = h - 0.1; P = [px, h + 0.3, pz]; hit = { c: [px, h + 0.05, pz], r: 0.28 };
+          } else if (shape === 'drum') { cord(h + 0.1); markers.prism(shp(px, pz, 0.26, 24), h - 0.08, h + 0.1, GL); lightY = h - 0.1; P = [px, h + 0.25, pz]; hit = { c: [px, h, pz], r: 0.3 }; }
+          else if (shape === 'cluster') {
+            // three small lights at different heights
+            for (const [ox, oz, oy] of [[-0.14, -0.06, 0.1], [0.12, -0.08, -0.06], [0.0, 0.13, 0.02]]) { fixtures.box(px + ox - 0.004, pz + oz - 0.004, px + ox + 0.004, pz + oz + 0.004, h + oy + 0.07, H, DARK); ball(px + ox, pz + oz, h + oy, 0.07); }
+            lightY = h - 0.05; P = [px, h + 0.3, pz]; hit = { c: [px, h, pz], r: 0.28 };
+          } else if (shape === 'bulb') {
+            cord(h + 0.09); fixtures.prism(circle(px, pz, 0.018, 10), h + 0.05, h + 0.09, DARK); ball(px, pz, h, 0.055);
+            lightY = h; P = [px, h + 0.25, pz]; hit = { c: [px, h, pz], r: 0.14 };
+          } else if (shape === 'arc') {
+            // an arc lamp: a heavy foot to the side, a curved arm over, the shade hanging above where you put it
+            const bx2 = px - (fr.free ? 0.85 : fr.ux * 0.85), bz2 = pz - (fr.free ? 0 : fr.uz * 0.85), top = Math.max(h + 0.35, 1.9);
+            fixtures.prism(shp(bx2, bz2, 0.16, 16), 0, 0.06, [0.3, 0.3, 0.32]); obstacles.push([bx2, bz2, 0.2]);
+            for (let k = 0; k < 14; k++) { const t0 = k / 14, t1 = (k + 1) / 14, a0 = (t0 * Math.PI) / 2, xx = bx2 + (px - bx2) * (1 - Math.cos(a0)), zz = bz2 + (pz - bz2) * (1 - Math.cos(a0)), y0 = 0.06 + (top - 0.06) * Math.sin(a0), y1 = 0.06 + (top - 0.06) * Math.sin((t1 * Math.PI) / 2); fixtures.box(xx - 0.01, zz - 0.01, xx + 0.01, zz + 0.01, Math.min(y0, y1), Math.max(y0, y1) + 0.02, [0.75, 0.75, 0.77]); }
+            fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.12, top + 0.02, [0.75, 0.75, 0.77]);
+            cone(px, pz, h - 0.04, h + 0.14, 0.2, 0.06, [0.75, 0.75, 0.77]); markers.prism(shp(px, pz, 0.17), h - 0.045, h - 0.035, GL);
+            lightY = h - 0.1; P = [px, h + 0.35, pz]; hit = { c: [px, h + 0.05, pz], r: 0.26 };
+          } else if (shape === 'tripod') {
+            // three legs leaning in, a drum shade on top
+            for (let k = 0; k < 3; k++) { const an = (k * 2 * Math.PI) / 3 + ra; for (let i = 0; i < 8; i++) { const t0 = i / 8, rr = 0.3 * (1 - t0) + 0.03, xx = px + Math.cos(an) * rr, zz = pz + Math.sin(an) * rr, yy = (h - 0.12) * t0; fixtures.box(xx - 0.012, zz - 0.012, xx + 0.012, zz + 0.012, yy, yy + (h - 0.12) / 8 + 0.01, WOOD); } }
+            obstacles.push([px, pz, 0.32]);
+            markers.prism(shp(px, pz, 0.22, 20), h - 0.12, h + 0.12, GL); lightY = h; P = [px, h + 0.3, pz]; hit = { c: [px, h, pz], r: 0.3 };
+          } else if (shape === 'cube') {
+            const base = h - 0.22; standOn(base);
+            fixtures.prism(shp(px, pz, 0.08, 14), base, base + 0.03, DARK); markers.prism(shp(px, pz, 0.1, 18), base + 0.03, h, GL);
+            lightY = base + 0.12; P = [px, h + 0.15, pz]; hit = { c: [px, base + 0.12, pz], r: 0.18 };
+          } else if (shape === 'tube') {
+            // a tall glowing bar on the wall
+            fixtures.prism(wq(-0.035, 0.035, 0, 0.012), h - 0.3, h + 0.3, DARK); markers.prism(wq(-0.025, 0.025, 0.012, 0.05), h - 0.28, h + 0.28, GL);
+            wallAt(0.04, h, 0.3);
+          }
+          else if (shape === 'ceiling') { markers.prism(shp(px, pz, 0.17), H - 0.07, H - 0.005, GL); lightY = H - 0.25; P = [px, H - 0.12, pz]; }
+          else if (shape === 'downlight') { fixtures.prism(shp(px, pz, 0.06, 14), H - 0.012, H - 0.002, W1); markers.prism(shp(px, pz, 0.045, 12), H - 0.016, H - 0.011, GL); lightY = H - 0.3; P = [px, H - 0.12, pz]; hit = { c: [px, H - 0.05, pz], r: 0.18 }; }
           else if (shape === 'chandelier') {
             fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.1, H, DARK);
             fixtures.prism(circle(px, pz, 0.04, 10), h - 0.05, h + 0.1, [0.75, 0.62, 0.3]);
@@ -1231,16 +1283,16 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             lightY = h; P = [px, h + 0.25, pz]; hit = { c: [px, h + 0.03, pz], r: 0.36 };
           } else if (shape === 'pendant') {
             fixtures.box(px - 0.006, pz - 0.006, px + 0.006, pz + 0.006, h + 0.12, H, DARK);                 // cord
-            markers.prism(circle(px, pz, 0.16), h - 0.04, h + 0.12, GL); lightY = h - 0.1; P = [px, h, pz];
+            markers.prism(shp(px, pz, 0.16), h - 0.04, h + 0.12, GL); lightY = h - 0.1; P = [px, h, pz];
           } else if (shape === 'floor' || shape === 'torchiere') {
-            fixtures.prism(circle(px, pz, 0.14, 12), 0, 0.025, DARK);                                                 // foot
+            fixtures.prism(shp(px, pz, 0.14, 12), 0, 0.025, DARK);                                                 // foot
             obstacles.push([px, pz, 0.2]);
             fixtures.box(px - 0.012, pz - 0.012, px + 0.012, pz + 0.012, 0.025, h - 0.05, DARK);                       // pole
             if (shape === 'torchiere') {
               // an uplighter: an open bowl on top that lights the ceiling
-              fixtures.prism(circle(px, pz, 0.08, 14), h - 0.06, h - 0.03, DARK); fixtures.prism(circle(px, pz, 0.2, 18), h - 0.03, h + 0.05, [0.85, 0.84, 0.8]);
-              markers.prism(circle(px, pz, 0.18, 18), h + 0.05, h + 0.055, GL); lightY = h + 0.4; P = [px, h + 0.2, pz];
-            } else { markers.prism(circle(px, pz, 0.19), h - 0.05, h + 0.2, GL); lightY = h + 0.05; P = [px, h, pz]; }
+              fixtures.prism(circle(px, pz, 0.08, 14), h - 0.06, h - 0.03, DARK); fixtures.prism(shp(px, pz, 0.2, 18), h - 0.03, h + 0.05, [0.85, 0.84, 0.8]);
+              markers.prism(shp(px, pz, 0.18, 18), h + 0.05, h + 0.055, GL); lightY = h + 0.4; P = [px, h + 0.2, pz];
+            } else { markers.prism(shp(px, pz, 0.19), h - 0.05, h + 0.2, GL); lightY = h + 0.05; P = [px, h, pz]; }
           } else if (shape === 'desk') {
             // a desk lamp: foot, an arm up and over, and a little shade shining down
             const base = h - 0.42; standOn(base);
@@ -1248,8 +1300,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             fixtures.prism(circle(px + ax, pz + az, 0.075, 14), base, base + 0.02, DARK);
             for (let k = 0; k < 6; k++) { const t0 = k / 6, yy = base + 0.02 + t0 * 0.3, xx = px + ax * (1 - t0 * 0.3), zz = pz + az * (1 - t0 * 0.3); fixtures.box(xx - 0.008, zz - 0.008, xx + 0.008, zz + 0.008, yy, yy + 0.055, DARK); }
             for (let k = 0; k < 5; k++) { const t0 = k / 5, xx = px + ax * 0.7 * (1 - t0), zz = pz + az * 0.7 * (1 - t0), yy = base + 0.32 + t0 * 0.06; fixtures.box(xx - 0.008, zz - 0.008, xx + 0.008, zz + 0.008, yy, yy + 0.02, DARK); }
-            fixtures.prism(circle(px, pz, 0.06, 14), h - 0.04, h + 0.02, DARK); fixtures.prism(circle(px, pz, 0.03, 10), h + 0.02, h + 0.04, DARK);
-            markers.prism(circle(px, pz, 0.05, 14), h - 0.045, h - 0.038, GL);
+            fixtures.prism(shp(px, pz, 0.06, 14), h - 0.04, h + 0.02, DARK); fixtures.prism(shp(px, pz, 0.03, 10), h + 0.02, h + 0.04, DARK);
+            markers.prism(shp(px, pz, 0.05, 14), h - 0.045, h - 0.038, GL);
             lightY = h - 0.12; P = [px, h + 0.2, pz]; hit = { c: [px, h - 0.15, pz], r: 0.22 };
           } else if (shape === 'lava') {
             const base = h - 0.36; standOn(base);
@@ -1259,13 +1311,13 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             lightY = base + 0.2; P = [px, h + 0.15, pz]; hit = { c: [px, base + 0.18, pz], r: 0.18 };
           } else if (shape === 'table') {
             const base = h - 0.3; standOn(base);
-            fixtures.prism(circle(px, pz, 0.06, 10), base, base + 0.02, DARK);
+            fixtures.prism(shp(px, pz, 0.06, 10), base, base + 0.02, DARK);
             fixtures.box(px - 0.008, pz - 0.008, px + 0.008, pz + 0.008, base + 0.02, h - 0.06, DARK);
-            markers.prism(circle(px, pz, 0.11), h - 0.06, h + 0.08, GL); lightY = h; P = [px, h + 0.15, pz]; hit = { c: [px, h - 0.05, pz], r: 0.2 };
+            markers.prism(shp(px, pz, 0.11), h - 0.06, h + 0.08, GL); lightY = h; P = [px, h + 0.15, pz]; hit = { c: [px, h - 0.05, pz], r: 0.2 };
           } else if (shape === 'sconce') {
             fixtures.prism(wq(-0.04, 0.04, 0, 0.02), h - 0.07, h + 0.07, DARK);
             fixtures.prism(wq(-0.008, 0.008, 0.02, 0.09), h - 0.012, h + 0.004, DARK);
-            markers.prism(circle(wx + fr.nx * 0.12, wz + fr.nz * 0.12, 0.06, 12), h - 0.06, h + 0.1, GL);
+            markers.prism(shp(wx + fr.nx * 0.12, wz + fr.nz * 0.12, 0.06, 12), h - 0.06, h + 0.1, GL);
             wallAt(0.1, h, 0.18);
           } else if (shape === 'flat') {
             fixtures.prism(wq(-0.13, 0.13, 0, 0.015), h - 0.07, h + 0.07, W1);
@@ -1803,7 +1855,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       if (q && st0 && drag.moved) { drag.furn.f.x = Math.round(drag.furn.ox + (q[0] - st0[0]) * S); drag.furn.f.y = Math.round(drag.furn.oz + (q[1] - st0[1]) * S); dirtyEdit = true; worldDirty = true; }
       return;
     }
-    if (drag.moved) { cam.yaw -= dx * 0.0045; cam.pitch = Math.max(-1.1, Math.min(1.0, cam.pitch - dy * 0.0035)); }
+    // (step 5 can turn dragging left/right the other way round)
+    if (drag.moved) { cam.yaw -= dx * 0.0045 * (plan.settings?.walk_drag_invert ? -1 : 1); cam.pitch = Math.max(-1.1, Math.min(1.0, cam.pitch - dy * 0.0035)); }
   });
   canvas.addEventListener('pointerup', (ev) => {
     if (!drag || ev.pointerId !== drag.id) return;
