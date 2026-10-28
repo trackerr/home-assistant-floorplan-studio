@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b89';
+import './floorplan-studio-card.js?v=1.4.0b90';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, LAMP_MODELS, LAMP_ROUNDABLE, parcelEntities, frontDoor, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b89';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b89';
+} from './fps-core.js?v=1.4.0b90';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b90';
 
 const L = {
   en: {
@@ -339,7 +339,17 @@ class FloorplanStudioPanel extends HTMLElement {
   /** A chat with the AI assistant of Home Assistant, which can move devices on the plan for you. */
   chatHTML() {
     const l = this.L, c = (this._chat = this._chat || { open: false, msgs: [], draft: '', busy: false });
-    if (!c.open) return `<button class="aibtn" id="aiopen"><ha-icon icon="mdi:robot-outline"></ha-icon>${l.ai}</button>`;
+    if (!c.open) {
+      // the button only when Home Assistant has an AI assistant set up that is available (not just the built-in one)
+      const btn = `<button class="aibtn" id="aiopen"><ha-icon icon="mdi:robot-outline"></ha-icon>${l.ai}</button>`;
+      const hasAI = () => c.agents.some((a) => a.id !== 'fps-local' && this._hass?.states?.[a.id]?.state !== 'unavailable');
+      if (!c.agents) {
+        // (added on its own once known - no redraw of the editor, which could swallow a click)
+        if (!c.loading) { c.loading = true; this.loadAgents().catch(() => {}).finally(() => { c.loading = false; if (c.agents && hasAI() && !c.open && !this.shadowRoot.querySelector('#aiopen')) { this.shadowRoot.querySelector('.aibtn')?.remove(); this.shadowRoot.append(Object.assign(document.createElement('template'), { innerHTML: btn }).content); this.wireChat(); } }); }
+        return '';
+      }
+      return hasAI() ? btn : '';
+    }
     const agents = c.agents || [];
     const msgs = c.msgs.length ? c.msgs : [{ who: 'ai', text: l.ai_hello }];
     return `<div class="aichat">
