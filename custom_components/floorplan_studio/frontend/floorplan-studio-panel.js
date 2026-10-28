@@ -1,11 +1,11 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b88';
+import './floorplan-studio-card.js?v=1.4.0b89';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, LAMP_MODELS, LAMP_ROUNDABLE, parcelEntities, frontDoor, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b88';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b88';
+} from './fps-core.js?v=1.4.0b89';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b89';
 
 const L = {
   en: {
@@ -135,6 +135,8 @@ const MODEL_MAX_CHUNK_BYTES = 256 * 1024;
 
 const CSS = `
   .aibtn { position: fixed; right: 18px; bottom: 18px; z-index: 5000; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 22px; border: 0; background: var(--primary-color, #03a9f4); color: #fff; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  :host(.narrow) .aibtn { padding: 0; width: 44px; justify-content: center; font-size: 0; gap: 0; right: 12px; bottom: 12px; }   /* small screens: just the icon */
+  .aibtn { opacity: .92; } .aibtn:hover { opacity: 1; }
   .aichat { position: fixed; right: 18px; bottom: 18px; z-index: 5000; width: min(380px, calc(100vw - 36px)); height: min(520px, calc(100vh - 120px)); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--card-background-color, #1c1f26); color: var(--primary-text-color, #eee); box-shadow: 0 8px 32px rgba(0,0,0,.45); border: 1px solid var(--divider-color, rgba(255,255,255,.12)); }
   .aihead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--divider-color, rgba(255,255,255,.12)); }
   .aihead b { flex: 1; } .aihead select { max-width: 150px; } .aihead button { border: 0; background: none; color: inherit; cursor: pointer; padding: 4px; }
@@ -175,7 +177,7 @@ const CSS = `
   .canvaswrap { padding: 14px; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
   .canvas { position: relative; flex: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.25); background: #0d1116; touch-action: none; user-select: none; }
   .canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .side { border-left: 1px solid var(--divider-color); padding: 16px; overflow-y: auto; background: var(--card-background-color); }
+  .side { border-left: 1px solid var(--divider-color); padding: 16px 16px 84px; overflow-y: auto; background: var(--card-background-color); }   /* (room at the bottom: the AI help button never covers the last button) */
   .narrow .side { border-left: none; border-top: 1px solid var(--divider-color); }
   .side h2 { font-size: 17px; margin: 0 0 10px; font-weight: 600; }
   .side h3 { font-size: 13px; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .08em; color: var(--secondary-text-color); }
