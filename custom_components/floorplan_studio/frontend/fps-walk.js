@@ -4,9 +4,9 @@ import {
   VERSION,
   computeWalls, climateTarget, floorColor, parcelsToday, deviceFurniture, roomAt, norm, planScale, safeNumber, furnModel, furnHeight, FURN_HEIGHT, furnAt, itemHeight, isCeilingLamp, ceilingMount, lampStyle, deviceHeight, ownHeight,
   lightColor, isOn, friendly, roomSummary, sunFactor, esc, entityArea, stripPath, pathLength, pathMid, savePlan, curtainFor, curtainPanels, isSpot, FURN_TYPES, placeCandidates, isAircon, airconMode, tvLinks, ringClock, ringClockLeds, spotDir, mediaKind, MEDIA_ICON, deviceKind, KIND_ICON, tvScreen, furnStretch, tvOnWall, tvBase, lampShape, ambilightTv, speakerBoxes, applianceKind, wledLive, ambilightSides, stripTop, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, camPic, camStream, deviceImage, deviceSibling, screenDown, videoWallCams, videoWallSpan, tableChairs, roundChairs, sofaParts,
-} from './fps-core.js?v=1.4.0b91';
-import { qualityForDevice } from './fps-quality.js?v=1.4.0b91';
-import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0b91';
+} from './fps-core.js?v=1.4.0';
+import { qualityForDevice } from './fps-quality.js?v=1.4.0';
+import { roomTransform, transformPoint4, transformDirection4, xrViewProjection, xrStickInput } from './fps-webxr.js?v=1.4.0';
 
 /** Things recognised by name and make (see applianceKind in fps-core), drawn by drawThing. */
 const THINGS = new Set(['smoke', 'leak', 'irhub', 'alarmhub', 'fingerbot', 'siren', '3dprinter', 'holofan', 'tree', 'syncbox', 'hood', 'kettle', 'coffee', 'dishwasher', 'washer', 'dryer', 'powerstrip', 'inverter', 'nas', 'router', 'printer', 'screen', 'thermo', 'doorbell', 'pixeldisplay']);
@@ -264,7 +264,7 @@ function buildWorld(plan, hass, selFurn = null) {
       let lp = pr.poly;
       if (pk > 0) {
         const xs = lp.map((q) => q[0]), ys = lp.map((q) => q[1]), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-        const hx = Math.max(1e-3, (Math.max(...xs) - Math.min(...xs)) / 2), hy = Math.max(1e-3, (Math.max(...ys) - Math.min(...ys)) / 2), e = Math.min(0.012, 0.003 + 0.0015 * pk) * S;
+        const hx = Math.max(1e-3, (Math.max(...xs) - Math.min(...xs)) / 2), hy = Math.max(1e-3, (Math.max(...ys) - Math.min(...ys)) / 2), e = Math.min(0.02, 0.012 + 0.003 * (pk - 1)) * S;   // (over a centimetre: also on screens whose depth buffer is coarse)
         lp = lp.map(([x, y]) => [cx + (x - cx) * (hx + e) / hx, cy + (y - cy) * (hy + e) / hy]);
       }
       const poly = lp.map(([x, y]) => [M(fx + x * cr - y * sr), M(fy + x * sr + y * cr)]);
@@ -873,7 +873,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
       const r0 = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r0), sr = Math.sin(r0), fw = safeNumber(f.w, 42) / 2, fd = safeNumber(f.h, 42) / 2;
       const P2 = (u, v) => [M(safeNumber(f.x) + u * cr - v * sr), M(safeNumber(f.y) + u * sr + v * cr)];
       const start = markers.v.length / 10;
-      markers.prism([P2(fw * 0.45, fd), P2(fw * 0.7, fd), P2(fw * 0.7, fd + 0.8), P2(fw * 0.45, fd + 0.8)], 0.77, 0.79, [1, 1, 1]);
+      const o1 = fd + 0.013 * S, o2 = fd + 0.022 * S;   // just in front of the control panel (which stands proud of the body)
+      markers.prism([P2(fw * 0.45, o1), P2(fw * 0.7, o1), P2(fw * 0.7, o2), P2(fw * 0.45, o2)], 0.77, 0.79, [1, 1, 1]);
       const pf = P2(0, fd + 6);
       lamps.push({ it: { entity_id: id }, app: f, P: [pf[0], 0.6, pf[1]], bb: lampBox(roomOf(M(safeNumber(f.x)), M(safeNumber(f.y)))), start, count: markers.v.length / 10 - start, share: 0.12 });
       tvFurn.set(f.id, { entity_id: id, app: f });
@@ -1189,7 +1190,8 @@ export function openWalk(host, { plan: original, hass, onClose, canEdit = false,
             for (const f of boxes) {
               const r0 = (safeNumber(f.rot) * Math.PI) / 180, cr = Math.cos(r0), sr = Math.sin(r0), fw = safeNumber(f.w, 22) / 2, fd = safeNumber(f.h, 26) / 2, top = furnHeight(f);
               const q = (v0, v1) => [[-fw + 1, v0], [fw - 1, v0], [fw - 1, v1], [-fw + 1, v1]].map(([u, v]) => [M(safeNumber(f.x) + u * cr - v * sr), M(safeNumber(f.y) + u * sr + v * cr)]);
-              markers.prism(q(fd, fd + 0.6), 0.03, 0.06, GL); markers.prism(q(fd, fd + 0.6), top - 0.05, top - 0.02, GL);
+              const g0 = fd + 0.013 * S, g1 = fd + 0.02 * S;   // just in front of the front panel
+              markers.prism(q(g0, g1), 0.03, 0.06, GL); markers.prism(q(g0, g1), top - 0.05, top - 0.02, GL);
               cx += M(safeNumber(f.x)); cz += M(safeNumber(f.y)); ty = top;
             }
             cx /= boxes.length; cz /= boxes.length;

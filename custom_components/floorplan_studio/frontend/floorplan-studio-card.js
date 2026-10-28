@@ -4,8 +4,8 @@ import {
   PLACE_DOMAINS, LAMP_DOMAINS, entityArea, settingsOf, levelMode, isOn, friendly, lightColor, shortState, loadPlans, savePlan, loadUsage, fire, esc,
   themeFromEntity, themeKey, roomPath, navigate, tempColor, roomPresence, roomAlerts, planVacuum, vacuumMapEntity, VACUUM_BUSY, transformImage, safeNumber, safeSvgId,
   labelSpot, roomTextWidth, motionFade, isMotion, planScale, radarState, makeProj, itemHeight, isCeilingLamp, ceilingMount, deviceHeight, ownHeight, curtainFor, curtainPanels, isAircon, climateTarget, deviceFurniture, parcelsToday, parcelSpot, norm, deviceKind, KIND_ICON, tvScreen, ambilightTv, wledLive, stripPath, radiatorLinks, isHeating, applianceEntity, applianceRunning, applianceAbsorbs, applianceKind, deviceImage, speakerBoxes, airconMode, tvLinks, ringClock, ringClockLeds, isSpot, spotDir, lampStyle, mediaKind, MEDIA_ICON, furnAt, furnHeight, raisedSVG, computeWalls,
-} from './fps-core.js?v=1.4.0b91';
-import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0b91';
+} from './fps-core.js?v=1.4.0';
+import { roomInfo, greeting, sideConfig, weatherInfo, mainAction, energyInfo, statusRow } from './fps-info.js?v=1.4.0';
 
 
 const CSS = `
@@ -793,7 +793,7 @@ class FloorplanStudioCard extends HTMLElement {
     if (this._walk) return;
     this._walk = { setHass() {}, close() {} };
     try {
-      const { openWalk } = await import('./fps-walk.js?v=1.4.0b91');
+      const { openWalk } = await import('./fps-walk.js?v=1.4.0');
       const tv = ['tour', 'loop', true].includes(this._config.walk);
       this._walk = openWalk(this, { plan: this._plan, hass: this._hass, canEdit: !tv && this._canMove && this._s.walk_edit !== false, loop: tv, tour, onClose: () => { this._walk = null; } });
     } catch (e) { console.warn('Floorplan Studio: walk', e); this._walk = null; }
@@ -1771,9 +1771,9 @@ class FloorplanStudioCard extends HTMLElement {
     // swipe left / right over the plan: next / previous room
     const vp = root.querySelector('.viewport');
     let t0 = null;
-    vp.addEventListener('touchstart', (ev) => { const p = ev.touches[0]; t0 = [p.clientX, p.clientY]; }, { passive: true });
+    vp.addEventListener('touchstart', (ev) => { const p = ev.touches[0]; t0 = ev.touches.length > 1 ? null : [p.clientX, p.clientY]; }, { passive: true });   // (two fingers: zoom or turn, never a swipe)
     vp.addEventListener('touchend', (ev) => {
-      if (!t0 || this._moving) return;
+      if (!t0 || this._moving || this._free?.s > 1.01) return;
       const p = ev.changedTouches[0], dx = p.clientX - t0[0], dy = p.clientY - t0[1];
       t0 = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
@@ -1783,6 +1783,7 @@ class FloorplanStudioCard extends HTMLElement {
     }, { passive: true });
   }
   _compactZoom(room) {
+    if (room && this._free?.s > 1.01) this._freeSet(1, 0, 0);   // a room tab: back from a pinch zoom first
     this._zoomRoom = room || null;
     try { sessionStorage.setItem(`fps-croom-${this._plan.id}`, room?.id || ''); } catch (e) { /* ignore */ }
     this._card.classList.toggle('zoomed', !!room);
@@ -2055,7 +2056,7 @@ class FloorplanStudioCard extends HTMLElement {
     vp.appendChild(btn);
     const pts = new Map();
     let pinch = null, pan = null, turn = null;
-    const allowed = () => !this._zoomRoom && !this._moving && !this._compact;
+    const allowed = () => !this._zoomRoom && !this._moving;   // (phones too: pinch to zoom, like any map)
     // 2.5D, mouse: right button (or Shift) + drag turns the house left/right and tilts it up/down
     vp.addEventListener('contextmenu', (ev) => { if (this._proj) ev.preventDefault(); });
     vp.addEventListener('pointerdown', (ev) => {
@@ -2081,7 +2082,7 @@ class FloorplanStudioCard extends HTMLElement {
         const v = this._view || { rot: this._rot, tilt: this._tilt };
         pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), ...this._free, cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), rot: v.rot, tilt: v.tilt };
         pan = null;
-      } else if (pts.size === 1 && this._free.s > 1 && !this._compact) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
+      } else if (pts.size === 1 && this._free.s > 1) pan = { x0: ev.clientX, y0: ev.clientY, ...this._free, moved: false };
     }, { capture: true });
     vp.addEventListener('pointermove', (ev) => {
       if (!pts.has(ev.pointerId)) return;
@@ -2091,13 +2092,16 @@ class FloorplanStudioCard extends HTMLElement {
         const [a, b] = [...pts.values()];
         const s = Math.max(1, Math.min(4, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d));
         const px = pinch.cx - r.left, py = pinch.cy - r.top;       // keep the point between the fingers in place
-        if (!this._compact) this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
-        // 2.5D, touch: twist two fingers to turn, move them up or down together to tilt
+        if (allowed()) this._freeSet(s, px - (px - pinch.x) * (s / pinch.s), py - (py - pinch.y) * (s / pinch.s));
+        // 2.5D, touch: twist two fingers to turn, move them up or down together to tilt (only once it is clearly
+        // a twist or a slide, so a plain pinch to zoom doesn't turn the house a little as well)
         if (this._proj) {
           let da = (Math.atan2(b[1] - a[1], b[0] - a[0]) - pinch.ang) * 180 / Math.PI;
           da = ((da + 540) % 360) - 180;
           const dy = (a[1] + b[1]) / 2 - pinch.cy;
-          this._turnTo(pinch.rot + da, pinch.tilt - dy * 0.3);
+          if (Math.abs(da) > 8) pinch.twist = true;
+          if (Math.abs(dy) > 18 && Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1]) - pinch.d) < 30) pinch.slide = true;
+          if (pinch.twist || pinch.slide) this._turnTo(pinch.rot + (pinch.twist ? da : 0), pinch.tilt - (pinch.slide ? dy * 0.3 : 0));
         }
         this._freeDragged = Date.now();
       } else if (pan) {
@@ -2109,6 +2113,11 @@ class FloorplanStudioCard extends HTMLElement {
       }
     }, { capture: true });
     const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) { if (pinch) this._turnDone(); pinch = null; } if (!pts.size) pan = null; };
+    // two fingers on the map belong to the map (zoom, turn, tilt) - the browser must not zoom the page or cancel them;
+    // one finger keeps scrolling the page (unless you zoomed in: then it moves the map)
+    const twoFingers = (ev) => { if (ev.touches.length >= 2 || (this._free.s > 1.01 && !this._zoomRoom)) ev.preventDefault(); };
+    vp.addEventListener('touchstart', twoFingers, { passive: false });
+    vp.addEventListener('touchmove', twoFingers, { passive: false });
     vp.addEventListener('pointerup', up, { capture: true });
     vp.addEventListener('pointercancel', up, { capture: true });
     vp.addEventListener('wheel', (ev) => {
@@ -2136,7 +2145,7 @@ class FloorplanStudioCard extends HTMLElement {
     x = Math.min(0, Math.max(w - w * s, x)); y = Math.min(0, Math.max(h - h * s, y));
     this._free = { s, x, y };
     vp.classList.toggle('freezoom', s > 1.01);
-    if (this._zoomRoom || this._compact) return;
+    if (this._zoomRoom) return;
     this._stage.style.transition = 'none';
     this._stage.style.transform = s > 1.01 ? `translate(${x}px, ${y}px) scale(${s})` : '';
     this._stage.style.setProperty('--k', s > 1.01 ? Math.min(1, 1.6 / s).toFixed(3) : 1);
