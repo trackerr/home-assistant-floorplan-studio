@@ -1,18 +1,18 @@
 // Floorplan Studio – editor panel (sidebar → Floorplan).
-import './floorplan-studio-card.js?v=1.4.0b90';
+import './floorplan-studio-card.js?v=1.4.0b91';
 import {
   VERSION, isScreenLabel, ambilightTv, speakerBoxes, deviceKind, applianceKind, THEMES, themeStyle, computeWalls, nearestWall, norm, roomBBox, roomAt, isCeilingLamp, ceilingMount, curtainFor, isSpot, stripPath, pathLength, pathMid, areaEntities, entityArea,
   PLACE_DOMAINS, placeCandidates, friendly, newPlan, DEFAULT_SETTINGS, settingsOf, levelMode, loadPlans, savePlan, esc, safeNumber, safeImageData,
   FURN_TYPES, furnSVG, LAMP_MODELS, LAMP_ROUNDABLE, parcelEntities, frontDoor, planScale, fmtMeters, roomArea, radarEntities, FURN_HEIGHT, itemHeight, deviceHeight, ownHeight, setLinkedTvHeight, tvLinks, tvOnWall, deviceIndex, stripTop, videoWallSpan, videoWallCams, applianceEntity,
-} from './fps-core.js?v=1.4.0b90';
-import { buildDashboard } from './fps-dashboard.js?v=1.4.0b90';
+} from './fps-core.js?v=1.4.0b91';
+import { buildDashboard } from './fps-dashboard.js?v=1.4.0b91';
 
 const L = {
   en: {
     steps: ['Background', 'Rooms', 'Doors & furniture', 'Devices', 'Settings', 'Finish'],
     save: 'Save', saved: 'Saved ✓', unsaved: 'Unsaved changes', new_plan: 'New floorplan', delete_plan: 'Delete floorplan', undo: 'Undo',
     confirm_delete: 'Delete this floorplan and its generated dashboard? You can’t undo this.', confirm_discard: 'You have unsaved changes. Discard them?', bg_load_failed: 'The picture could not be loaded. Check the connection and try again.', plan_name: 'Name', size: 'Canvas size (width × height)',
-    bg_title: 'What do you want to trace over?', bg_adjust: 'Line up the picture', bg_upload: 'Upload a picture', bg_upload_hint: 'A building plan, a photo of it, or a screenshot from your vacuum’s app.',
+    bg_title: 'What do you want to trace over?', bg_adjust: 'Line up the picture', bg_upload: 'Upload a picture', bg_upload_hint: 'A building plan, a photo of it, or a screenshot from your vacuum’s app. No window opens? Drag the picture onto this box, or copy it and paste it here (Ctrl/Cmd+V).',
     bg_entity: 'Your robot vacuum’s map (or a camera)', bg_entity_hint: 'Uses the map your vacuum makes itself, e.g. from Roborock or Valetudo.', use: 'Use',
     bg_none: 'Draw without an example', bg_none_hint: 'Just draw your rooms on the grid.', opacity: 'Opacity', scale: 'Size', offx: 'Shift left/right', offy: 'Shift up/down',
     fit: 'Fit to canvas', rotate: 'Rotate', rot_l: '90° left', rot_r: '90° right', flip: 'Mirror', remove_bg: 'Remove picture', next: 'Next', back: 'Back',
@@ -72,7 +72,7 @@ const L = {
     steps: ['Achtergrond', 'Ruimtes', 'Deuren & meubels', 'Apparaten', 'Instellingen', 'Klaar'],
     save: 'Opslaan', saved: 'Opgeslagen ✓', unsaved: 'Niet opgeslagen', new_plan: 'Nieuwe plattegrond', delete_plan: 'Plattegrond verwijderen', undo: 'Ongedaan maken',
     confirm_delete: 'Deze plattegrond en het dashboard dat ervoor is gemaakt verwijderen? Dit kun je niet terugdraaien.', confirm_discard: 'Je hebt wijzigingen die niet zijn opgeslagen. Wil je ze weggooien?', bg_load_failed: 'Het plaatje kon niet worden geladen. Controleer de verbinding en probeer het opnieuw.', plan_name: 'Naam', size: 'Grootte van het tekenvlak (breedte × hoogte)',
-    bg_title: 'Waar wil je overheen tekenen?', bg_adjust: 'Plaatje goed leggen', bg_upload: 'Plaatje uploaden', bg_upload_hint: 'Een bouwtekening, een foto ervan, of een screenshot uit de app van je stofzuiger.',
+    bg_title: 'Waar wil je overheen tekenen?', bg_adjust: 'Plaatje goed leggen', bg_upload: 'Plaatje uploaden', bg_upload_hint: 'Een bouwtekening, een foto ervan, of een screenshot uit de app van je stofzuiger. Gaat er geen venster open? Sleep het plaatje op dit vak, of kopieer het en plak het hier (Ctrl/Cmd+V).',
     bg_entity: 'Kaart van je robotstofzuiger (of een camera)', bg_entity_hint: 'Gebruikt de kaart die je stofzuiger zelf maakt, bijvoorbeeld van Roborock of Valetudo.', use: 'Gebruiken',
     bg_none: 'Zonder voorbeeld tekenen', bg_none_hint: 'Je tekent de ruimtes gewoon op het raster.', opacity: 'Doorzichtigheid', scale: 'Grootte', offx: 'Naar links of rechts', offy: 'Omhoog of omlaag',
     fit: 'Passend maken', rotate: 'Draaien', rot_l: '90° links', rot_r: '90° rechts', flip: 'Spiegelen', remove_bg: 'Plaatje weghalen', next: 'Volgende', back: 'Vorige',
@@ -177,6 +177,7 @@ const CSS = `
   .canvaswrap { padding: 14px; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
   .canvas { position: relative; flex: none; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.25); background: #0d1116; touch-action: none; user-select: none; }
   .canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .card.dropping { outline: 2px dashed var(--primary-color, #03a9f4); outline-offset: 2px; }
   .side { border-left: 1px solid var(--divider-color); padding: 16px 16px 84px; overflow-y: auto; background: var(--card-background-color); }   /* (room at the bottom: the AI help button never covers the last button) */
   .narrow .side { border-left: none; border-top: 1px solid var(--divider-color); }
   .side h2 { font-size: 17px; margin: 0 0 10px; font-weight: 600; }
@@ -1095,6 +1096,15 @@ class FloorplanStudioPanel extends HTMLElement {
     const p = this.plan;
     $('#pname').addEventListener('change', (ev) => this.mut((pl) => { pl.name = ev.target.value; }));
     $('#file').addEventListener('change', async (ev) => { const f = ev.target.files[0]; if (f) this.setBackground(await this.toDataURL(f)); });
+    // where the file window doesn't open (some apps and browsers): drop the picture on this card, or paste it (Ctrl/Cmd+V)
+    const card = $('#file').closest('.card'), useFile = async (f) => { if (f && /^image\//.test(f.type)) this.setBackground(await this.toDataURL(f)); };
+    card.addEventListener('dragover', (ev) => { ev.preventDefault(); card.classList.add('dropping'); });
+    card.addEventListener('dragleave', () => card.classList.remove('dropping'));
+    card.addEventListener('drop', (ev) => { ev.preventDefault(); card.classList.remove('dropping'); useFile([...(ev.dataTransfer?.files || [])].find((f) => /^image\//.test(f.type))); });
+    if (!this._pasteBg) {
+      this._pasteBg = (ev) => { if (this.step !== 0 || !this.isConnected) return; const f = [...(ev.clipboardData?.items || [])].find((i) => i.kind === 'file' && /^image\//.test(i.type))?.getAsFile(); if (f) { ev.preventDefault(); this.toDataURL(f).then((u) => this.setBackground(u)); } };
+      window.addEventListener('paste', this._pasteBg);
+    }
     $('#usebgent')?.addEventListener('click', async () => {
       const id = $('#bgent')?.value || this._bgEnt, st = this._hass.states[id];
       if (!st?.attributes.entity_picture) return;

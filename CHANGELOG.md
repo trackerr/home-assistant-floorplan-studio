@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- Editor stap 1: een plaatje kan ook op het vak *Plaatje uploaden* gesleept of geplakt worden (Ctrl/Cmd+V) – voor apps en browsers waar het bestandsvenster niet opengaat (zoals de Home Assistant-app op de Mac).
 - Editor: de knop *AI-hulp* staat er alleen als Home Assistant een AI-assistent heeft ingesteld die beschikbaar is (niet alleen de ingebouwde).
 - Editor: de knop *AI-hulp* bedekt de onderste knop van het zijpaneel niet meer (er is ruimte onder de laatste knop); op een klein scherm is hij alleen een rond icoon.
 - **Pakket bij de voordeur**: is er vandaag een pakket bij je thuis bezorgd (PostNL, DHL, Mail and Packages, een pakketsensor…), dan staat er een doos bij de voordeur – op de kaart, in 2.5D en in de wandeling. Bezorgd bij een servicepunt of de buren telt niet; is de voordeur (met sensor) daarna open geweest, dan is hij binnengehaald. Stap 5 → *Pakketten*: aan/uit, je eigen sensoren en welke deur de voordeur is.
