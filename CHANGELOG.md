@@ -1,6 +1,12 @@
 # Changelog
 
 ## 1.4.0 (in ontwikkeling)
+- 3D-wandeling: optionele WebXR-proefstand voor Quest-headsets. Hoofdbeweging stuurt de blik, linker stick loopt, rechter stick draait in stappen en de controllertrigger loopt naar de aangewezen plek of schakelt een richtbaar apparaat. Pc- en touchbediening blijven beschikbaar; VR vereist HTTPS.
+- De 3D-wandeling kiest nu ook een aparte, begrensde kwaliteit voor krachtige Android-telefoons en -tablets; tv-browsers blijven op de lichte instelling.
+- De 3D-wandeling herstelt de renderresolutie nu ook op een stabiele 60Hz-pc; krachtige desktops krijgen meer pixelbudget als de browser het geheugen niet meldt.
+- De 3D-wandeling past de kwaliteit aan het scherm aan: lichte apparaten starten met minder pixels, lichten en WLED-matrixcellen; de gemeten verversing en frametijd sturen de verdere kwaliteit. Snellere apparaten kunnen meer detail tonen. De bestaande WebGL-weergave blijft behouden, met kleinere shader-varianten voor oudere grafische chips.
+- Eigen 3D-modellen: maximaal 12 MiB, 50.000 driehoeken, 250.000 OBJ-punten/normals en begrensde textures (4096 × 4096 pixels per afbeelding, 8 MiB embedded textuurdata). `.glb` heeft de voorkeur; externe bestanden bij `.gltf`/`.obj` worden niet meegeüpload.
+- De gewone kaart voegt snelle Home Assistant-updates per scherm samen; `place_device` accepteert alleen nog service-aanroepen met een aantoonbare beheerderscontext, ook zonder gebruiker.
 - Wandeling: loopt hij zelf (rondleiding of op weg naar een plek), dan **stopt een klik alleen** — ook op een lamp, apparaat of camerascherm wordt dan niets geschakeld of geopend. Sta je stil, dan werkt een tik zoals altijd.
 - Kaart (2D en 2.5D): **3D-printers en printers staan er als printer**: hun behuizing getekend waar je ze neerzette (op het meubel eronder, mee gedraaid), met het printer-icoon — ook als je de printer via zijn kamerlampje plaatste.
 - Kaart: een **vaatwasser, wasmachine of droger die je tekende** krijgt een icoon op het meubel met wat hij doet (groen als hij draait, half doorzichtig als hij stilstaat); een tik opent de info van het apparaat (nooit per ongeluk de stekker uit).

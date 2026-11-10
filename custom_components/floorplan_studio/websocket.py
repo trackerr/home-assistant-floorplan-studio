@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from typing import Any
 
@@ -11,7 +13,24 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
-from .const import DEFAULT_USAGE_DAYS, DOMAIN, MODEL_EXTS, MODEL_MAX_BYTES, MODELS_DIR, MODELS_URL, SIGNAL_PLAN_SAVED
+from .const import (
+    DEFAULT_USAGE_DAYS,
+    DOMAIN,
+    MODEL_EXTS,
+    MODEL_MAX_BYTES,
+    MODEL_MAX_CHUNK_BASE64_CHARS,
+    MODEL_MAX_CHUNK_BYTES,
+    MODEL_UPLOAD_CLEANUP_INTERVAL,
+    MODEL_UPLOAD_TMP_DIR,
+    MODEL_UPLOAD_TTL,
+    MODELS_DIR,
+    MODELS_URL,
+    SIGNAL_PLAN_SAVED,
+)
+
+_LOGGER = logging.getLogger(__name__)
+_MODEL_UPLOAD_LOCK_KEY = f"{DOMAIN}_model_upload_lock"
+_MODEL_UPLOAD_CLEANUP_TASK_KEY = f"{DOMAIN}_model_upload_cleanup_task"
 
 
 def _data(hass: HomeAssistant) -> dict[str, Any]:
@@ -30,6 +49,49 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_model_upload)
     websocket_api.async_register_command(hass, ws_model_list)
     websocket_api.async_register_command(hass, ws_model_delete)
+    if _MODEL_UPLOAD_LOCK_KEY not in hass.data:
+        hass.data[_MODEL_UPLOAD_LOCK_KEY] = asyncio.Lock()
+    cleanup_task = hass.data.get(_MODEL_UPLOAD_CLEANUP_TASK_KEY)
+    if cleanup_task is None or cleanup_task.done():
+        hass.data[_MODEL_UPLOAD_CLEANUP_TASK_KEY] = hass.async_create_background_task(
+            _async_cleanup_expired_model_uploads(hass),
+            "floorplan_studio_model_upload_cleanup",
+        )
+
+
+def _remove_expired_model_uploads(*folders) -> None:
+    """Remove incomplete uploads that have had no activity for an hour."""
+    cutoff = time.time() - MODEL_UPLOAD_TTL
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+        for path in folder.glob(".upload-*"):
+            try:
+                info = path.lstat()
+                if cutoff - info.st_mtime >= 0 and (path.is_symlink() or path.is_file()):
+                    path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError as err:
+                _LOGGER.debug("Could not remove expired Floorplan Studio upload %s: %s", path.name, err)
+
+
+async def _async_cleanup_expired_model_uploads(hass: HomeAssistant) -> None:
+    """Periodically remove abandoned upload parts, including after a HA restart."""
+    folder = _model_upload_tmp_dir(hass)
+    legacy_folder = _models_dir(hass)
+    lock = hass.data[_MODEL_UPLOAD_LOCK_KEY]
+    while True:
+        try:
+            async with lock:
+                await hass.async_add_executor_job(
+                    _remove_expired_model_uploads, folder, legacy_folder
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - cleanup must not interrupt Home Assistant
+            _LOGGER.debug("Could not clean expired Floorplan Studio model uploads", exc_info=True)
+        await asyncio.sleep(MODEL_UPLOAD_CLEANUP_INTERVAL)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/plans"})
@@ -311,6 +373,12 @@ def _models_dir(hass: HomeAssistant):
     return Path(hass.config.path(MODELS_DIR))
 
 
+def _model_upload_tmp_dir(hass: HomeAssistant):
+    from pathlib import Path  # noqa: PLC0415
+
+    return Path(hass.config.path(MODEL_UPLOAD_TMP_DIR))
+
+
 def _safe_stem(name: str) -> str:
     import re  # noqa: PLC0415
 
@@ -324,7 +392,9 @@ def _safe_stem(name: str) -> str:
         vol.Required("name"): str,
         vol.Required("upload_id"): vol.Match(r"^[a-z0-9]{6,24}$"),
         vol.Required("part"): vol.All(int, vol.Range(min=0, max=4000)),
-        vol.Required("data"): str,
+        vol.Required("data"): vol.All(
+            str, vol.Length(min=1, max=MODEL_MAX_CHUNK_BASE64_CHARS)
+        ),
         vol.Optional("last", default=False): bool,
     }
 )
@@ -341,21 +411,39 @@ async def ws_model_upload(hass: HomeAssistant, connection: websocket_api.ActiveC
         connection.send_error(msg["id"], "bad_type", "Only .glb, .gltf or .obj files")
         return
     folder = _models_dir(hass)
-    tmp = folder / f".upload-{msg['upload_id']}"
+    tmp_folder = _model_upload_tmp_dir(hass)
+    tmp = tmp_folder / f".upload-{msg['upload_id']}"
+    encoded = msg["data"]
+    # The schema caps this too; keep the guard next to decoding so future callers
+    # cannot accidentally allocate an unbounded decoded chunk.
+    if len(encoded) > MODEL_MAX_CHUNK_BASE64_CHARS:
+        connection.send_error(msg["id"], "chunk_too_big", "An upload part is too large")
+        return
     try:
-        chunk = base64.b64decode(msg["data"], validate=True)
+        chunk = base64.b64decode(encoded, validate=True)
     except ValueError:
         connection.send_error(msg["id"], "bad_data", "Not base64")
+        return
+    if not chunk or len(chunk) > MODEL_MAX_CHUNK_BYTES:
+        connection.send_error(msg["id"], "chunk_too_big", "An upload part must contain 1 to 256 KiB")
         return
 
     def write() -> dict[str, Any] | str:
         folder.mkdir(parents=True, exist_ok=True)
+        tmp_folder.mkdir(parents=True, exist_ok=True)
+        if msg["part"] == 0:
+            current_size = 0
+        else:
+            try:
+                current_size = tmp.stat().st_size
+            except FileNotFoundError:
+                return "expired"
+        if current_size + len(chunk) > MODEL_MAX_BYTES:
+            tmp.unlink(missing_ok=True)
+            return "too_big"
         with open(tmp, "wb" if msg["part"] == 0 else "ab") as fh:
             fh.write(chunk)
         size = tmp.stat().st_size
-        if size > MODEL_MAX_BYTES:
-            tmp.unlink(missing_ok=True)
-            return "too_big"
         if not msg["last"]:
             return {"received": size}
         data = tmp.read_bytes()
@@ -363,9 +451,36 @@ async def ws_model_upload(hass: HomeAssistant, connection: websocket_api.ActiveC
         tmp.replace(final)
         return {"file": final.name, "url": f"{MODELS_URL}/{final.name}", "size": size}
 
-    result = await hass.async_add_executor_job(write)
+    lock = hass.data.get(_MODEL_UPLOAD_LOCK_KEY)
+    if lock is None:
+        lock = hass.data[_MODEL_UPLOAD_LOCK_KEY] = asyncio.Lock()
+    async with lock:
+        if msg["part"] == 0:
+            await hass.async_add_executor_job(
+                _remove_expired_model_uploads, tmp_folder, folder
+            )
+        job = hass.async_add_executor_job(write)
+        try:
+            result = await asyncio.shield(job)
+        except asyncio.CancelledError:
+            # Let the executor finish before the lock is released or a cleanup
+            # pass can race its file operation.
+            try:
+                await job
+            except Exception:  # noqa: BLE001 - preserve cancellation after cleanup
+                pass
+            finally:
+                await hass.async_add_executor_job(lambda: tmp.unlink(missing_ok=True))
+            raise
+        except OSError:
+            await hass.async_add_executor_job(lambda: tmp.unlink(missing_ok=True))
+            connection.send_error(msg["id"], "upload_failed", "Could not store the model")
+            return
     if result == "too_big":
-        connection.send_error(msg["id"], "too_big", f"The model is larger than {MODEL_MAX_BYTES // 1048576} MB")
+        connection.send_error(msg["id"], "too_big", f"The model is larger than {MODEL_MAX_BYTES // 1048576} MiB")
+        return
+    if result == "expired":
+        connection.send_error(msg["id"], "upload_expired", "The upload expired; please start it again")
         return
     connection.send_result(msg["id"], result)
 

@@ -54,10 +54,11 @@ async def async_place(hass: HomeAssistant, data: dict[str, Any]) -> tuple[bool, 
     plans = list(hass.data[DOMAIN]["plans"].plans.values())
     # work on a copy, so a request that fails halfway changes nothing
     copies = json.loads(json.dumps(plans))
-    if not data.get("device") and data.get("text"):
+    if not data.get("device"):
         # a plain sentence, no AI needed: find the device and room in it
-        parsed = parse_request(hass, copies, data["text"])
         nl = (hass.config.language or "en").startswith("nl")
+        text = (data.get("text") or "").strip()
+        parsed = parse_request(hass, copies, text) if text else None
         if not parsed:
             return False, ("Ik weet niet welk apparaat je bedoelt. Noem de naam zoals hij in Home Assistant heet, bijv. 'zet Keukenlamp boven de eettafel'."
                            if nl else "I don't know which device you mean. Use its name as in Home Assistant, e.g. 'put Kitchen lamp above the dining table'.")
@@ -118,8 +119,9 @@ async def async_setup(hass: HomeAssistant) -> None:
     """Register the actions (floorplan_studio.place_device / describe) and the assistant tools."""
 
     async def _place(call: ServiceCall) -> ServiceResponse:
-        # called by a person: only an administrator (an automation or script, without a user, may)
-        if call.context.user_id and not await _is_admin(hass, call.context.user_id):
+        # A missing user is not proof of administrator intent: automation and script
+        # service calls often create a fresh, userless context after any trigger.
+        if not await _is_admin(hass, call.context.user_id):
             from homeassistant.exceptions import Unauthorized  # noqa: PLC0415
 
             raise Unauthorized(context=call.context)

@@ -38,3 +38,9 @@ jobs:
         run: node tests/walls.test.mjs
       - name: Feature tests
         run: node tests/features.test.mjs
+      - name: Model limit tests
+        run: node tests/models.test.mjs
+      - name: Device quality tests
+        run: node tests/quality.test.mjs
+      - name: WebXR transform and control tests
+        run: node tests/webxr.test.mjs
